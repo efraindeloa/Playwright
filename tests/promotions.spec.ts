@@ -238,12 +238,25 @@ test('Crear promoción', async ({ page }) => {
   await page.waitForTimeout(1000);
   await screenshotAndCompare(page, 'crear02-new-promo.png', 'refs/crear02-new-promo.png');
 
-  const promoTitle = 'Promo de prueba Playwright';
+  // Generar nombre dinámico con fecha y hora actual
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const promoTitle = `Promo Playwright ${timestamp}`;
+  
   await showStepMessage(page, '📝 LLENANDO FORMULARIO: Título, fechas e imagen');
   await page.waitForTimeout(1000);
   await page.locator('input[id="Title"]').fill(promoTitle);
-  await pickDateSmart(page, 'input#StartDate', '05-01-2026');
-  await pickDateSmart(page, 'input#EndDate', '31-10-2026');
+  
+  // Fecha de inicio: día actual
+  const startDate = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+  
+  // Fecha de fin: 30 días después del día actual
+  const endDateObj = new Date(now);
+  endDateObj.setDate(endDateObj.getDate() + 30);
+  const endDate = `${String(endDateObj.getDate()).padStart(2,'0')}-${String(endDateObj.getMonth()+1).padStart(2,'0')}-${endDateObj.getFullYear()}`;
+  
+  await pickDateSmart(page, 'input#StartDate', startDate);
+  await pickDateSmart(page, 'input#EndDate', endDate);
   await page.locator('input[type="file"]').setInputFiles('C:/Temp/transparent.png');
   
   await showStepMessage(page, '💾 GUARDANDO PROMOCIÓN');
@@ -539,7 +552,7 @@ test('Buscar promociones', async ({ page }) => {
   await page.waitForTimeout(1000);
   
   const searchInput = page.locator('input#Search');
-  await searchInput.fill('Promo de prueba');
+  await searchInput.fill('Promo Playwright');
   await page.waitForTimeout(2000); // Esperar a que se procese la búsqueda
 
   // --- SCREENSHOT DESPUÉS DE BÚSQUEDA ---
@@ -712,12 +725,18 @@ test('Editar promoción', async ({ page }) => {
   await screenshotAndCompare(page, 'editar01-promotions-before-edit.png', 'refs/editar01-promotions-before-edit.png');
 
   // --- LOCALIZAR Y EDITAR PROMOCIÓN ---
-    const promoName = 'Promo de prueba Playwright';
-    await expect(page.getByText(promoName)).toBeVisible();
+  // Buscar cualquier promoción que contenga "Promo Playwright" (puede ser la creada anteriormente)
+  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo Playwright")').first();
+  await expect(promoName).toBeVisible();
+  const promoNameText = await promoName.textContent();
+  
+  if (!promoNameText) {
+    throw new Error('❌ No se pudo obtener el texto de la promoción');
+  }
 
   await showStepMessage(page, '🔍 LOCALIZANDO PROMOCIÓN PARA EDITAR');
   await page.waitForTimeout(1000);
-    const promoCard = page.locator('div.w-full.flex.shadow-4', { hasText: promoName });
+  const promoCard = page.locator('div.w-full.flex.shadow-4', { hasText: promoNameText });
     const menuButton = promoCard.locator('button:has(i.icon-more-vertical)');
     await menuButton.click();
 
@@ -733,12 +752,18 @@ test('Editar promoción', async ({ page }) => {
   await showStepMessage(page, '📝 MODIFICANDO DATOS DE LA PROMOCIÓN');
   await page.waitForTimeout(1000);
     const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const editedPromoTitle = `Promo Editada ${timestamp}`;
+  
+  // Fecha de inicio: día actual
     const startDate = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+  
+  // Fecha de fin: 15 días después del día actual
     const end = new Date(now);
-    end.setDate(end.getDate() + 5);
+  end.setDate(end.getDate() + 15);
     const endDate = `${String(end.getDate()).padStart(2,'0')}-${String(end.getMonth()+1).padStart(2,'0')}-${end.getFullYear()}`;
 
-    await page.locator('input[id="Title"]').fill('Promo Editada Automáticamente');
+  await page.locator('input[id="Title"]').fill(editedPromoTitle);
     await pickDateSmart(page, 'input#StartDate', startDate);
     await pickDateSmart(page, 'input#EndDate', endDate);
 
@@ -766,7 +791,7 @@ test('Editar promoción', async ({ page }) => {
   // --- VALIDAR Y SCREENSHOT FINAL ---
   await showStepMessage(page, '🔄 RECARGANDO PARA VER CAMBIOS GUARDADOS');
   await page.waitForTimeout(1000);
-    const updatedPromo = page.locator('div.w-full.flex.shadow-4', { hasText: 'Promo Editada Automáticamente' });
+  const updatedPromo = page.locator('div.w-full.flex.shadow-4', { hasText: editedPromoTitle });
   await expect(updatedPromo).toBeVisible({ timeout: 20000 });
     await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
@@ -786,12 +811,18 @@ test('Eliminar promoción', async ({ page }) => {
   await screenshotAndCompare(page, 'eliminar01-promotions-before-delete.png', 'refs/eliminar01-promotions-before-delete.png');
 
   // --- LOCALIZAR Y ELIMINAR PROMOCIÓN ---
-    const promoName = 'Promo Editada Automáticamente';
-    await expect(page.getByText(promoName)).toBeVisible();
+  // Buscar cualquier promoción que contenga "Promo Editada" (la que se editó anteriormente)
+  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo Editada")').first();
+  await expect(promoName).toBeVisible();
+  const promoNameText = await promoName.textContent();
+  
+  if (!promoNameText) {
+    throw new Error('❌ No se pudo obtener el texto de la promoción');
+  }
 
   await showStepMessage(page, '🔍 LOCALIZANDO PROMOCIÓN PARA ELIMINAR');
   await page.waitForTimeout(1000);
-    const promoCard = page.locator('div.w-full.flex.shadow-4', { hasText: promoName });
+  const promoCard = page.locator('div.w-full.flex.shadow-4', { hasText: promoNameText });
     const menuButton = promoCard.locator('button:has(i.icon-more-vertical)');
     await menuButton.click();
 
@@ -967,7 +998,7 @@ test('Navegar a home desde promociones', async ({ page }) => {
   await showStepMessage(page, '🏠 NAVEGANDO AL HOME DESDE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  const homeLink = page.locator('a:has(svg#Capa_1)');
+  const homeLink = page.locator('a:has(svg#Capa_1[width="282"])');
   await homeLink.click();
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
@@ -999,7 +1030,7 @@ test('Navegar a home desde promociones', async ({ page }) => {
   }
   
   // Verificar que el logo de Fiestamas esté presente (elemento característico del home)
-  const logo = page.locator('svg#Capa_1');
+  const logo = page.locator('svg#Capa_1[width="282"]');
   await expect(logo).toBeVisible({ timeout: 10000 });
   console.log('✅ Logo de Fiestamas encontrado en la página home');
   
