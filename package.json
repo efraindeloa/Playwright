@@ -9,6 +9,11 @@
   "description": "",
   "devDependencies": {
     "@playwright/test": "^1.55.0",
-    "@types/node": "^24.5.2"
+    "@types/node": "^24.5.2",
+    "pixelmatch": "^7.1.0",
+    "png-js": "^1.0.0"
+  },
+  "dependencies": {
+    "pngjs": "^7.0.0"
   }
 }
