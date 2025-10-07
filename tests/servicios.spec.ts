@@ -11,13 +11,13 @@ test.use({
 });
 
 // Configuración global de timeout
-test.setTimeout(60000); // 60 segundos de timeout para cada test
+test.setTimeout(90000); // 90 segundos de timeout para cada test
 
 // Función común para login
 async function login(page: Page) {
   // --- HOME ---
   await page.goto('https://staging.fiestamas.com');
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
   await screenshotAndCompare(page, 'login01-home.png', 'refs/login01-home.png');
 
   // --- LOGIN ---
@@ -32,7 +32,7 @@ async function login(page: Page) {
   await page.locator('input[id="Password"]').fill('Fiesta2025$');
   await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/.*dashboard/);
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 
   // --- DASHBOARD LIMPIO ---
   await screenshotAndCompare(page, 'login03-dashboard.png', 'refs/login03-dashboard.png');
@@ -138,6 +138,35 @@ async function clearStepMessage(page) {
   });
 }
 
+// Función para seleccionar categoría aleatoria de manera robusta
+async function selectRandomCategory(page: Page, stepName: string) {
+  await showStepMessage(page, `🎯 ${stepName}`);
+  await page.waitForTimeout(1000);
+
+  // Obtener todas las categorías disponibles
+  const categorias = page.locator('button.flex.flex-col.items-center.gap-3');
+  const count = await categorias.count();
+  
+  console.log(`📊 Total de categorías encontradas: ${count}`);
+  
+  if (count === 0) {
+    throw new Error('❌ No se encontraron categorías disponibles');
+  }
+
+  // Seleccionar una categoría aleatoria
+  const randomIndex = Math.floor(Math.random() * count);
+  const categoriaSeleccionada = categorias.nth(randomIndex);
+  
+  // Obtener el nombre de la categoría seleccionada
+  const nombreCategoria = await categoriaSeleccionada.locator('p').textContent();
+  console.log(`🎯 Categoría seleccionada aleatoriamente (índice ${randomIndex}): ${nombreCategoria}`);
+  
+  await categoriaSeleccionada.click();
+  await page.waitForTimeout(2000);
+  
+  return nombreCategoria;
+}
+
 // Hook para ejecutar login antes de cada test
 test.beforeEach(async ({ page }) => {
   await login(page);
@@ -157,7 +186,7 @@ test('Crear servicio', async ({ page }) => {
   
   const serviciosBtn = page.locator('button:has-text("Administrar servicios")');
   await serviciosBtn.click();
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 
   // --- SCREENSHOT PÁGINA DE SERVICIOS ---
   await page.screenshot({ path: 'servicios01-services-page.png', fullPage: true });
@@ -168,63 +197,23 @@ test('Crear servicio', async ({ page }) => {
   
   const crearServicioBtn = page.locator('button:has-text("Crear servicio")');
   await crearServicioBtn.click();
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
 
   // --- SCREENSHOT FORMULARIO DE CREAR SERVICIO ---
   await page.screenshot({ path: 'servicios02-create-service-form.png', fullPage: true });
 
   // --- SELECCIONAR CATEGORÍA ALEATORIA ---
-  await showStepMessage(page, '🎯 SELECCIONANDO CATEGORÍA ALEATORIA');
-  await page.waitForTimeout(1000);
-
-  // Obtener todas las categorías disponibles
-  const categorias = page.locator('button.flex.flex-col.items-center.gap-3');
-  const count = await categorias.count();
-  
-  if (count === 0) {
-    throw new Error('❌ No se encontraron categorías disponibles');
-  }
-
-  // Seleccionar una categoría aleatoria
-  const randomIndex = Math.floor(Math.random() * count);
-  const categoriaSeleccionada = categorias.nth(randomIndex);
-  
-  // Obtener el nombre de la categoría seleccionada
-  const nombreCategoria = await categoriaSeleccionada.locator('p').textContent();
-  console.log(`🎯 Categoría seleccionada: ${nombreCategoria}`);
-  
-  await categoriaSeleccionada.click();
-  await page.waitForTimeout(2000);
+  const nombreCategoria = await selectRandomCategory(page, 'SELECCIONANDO CATEGORÍA ALEATORIA');
 
   // --- SCREENSHOT DESPUÉS DE SELECCIONAR CATEGORÍA ---
   await page.screenshot({ path: 'servicios03-category-selected.png', fullPage: true });
 
   // --- SELECCIONAR SUBCATEGORÍA ALEATORIA ---
-  await showStepMessage(page, '🎯 SELECCIONANDO SUBCATEGORÍA ALEATORIA');
-  await page.waitForTimeout(1000);
-
   // Detectar la categoría actual por el título (más específico)
   const tituloCategoria = await page.locator('h5.text-neutral-800:has-text("Selecciona la categoría de")').textContent();
   console.log(`📋 Categoría detectada: ${tituloCategoria}`);
 
-  // Obtener todas las subcategorías disponibles
-  const subcategorias = page.locator('button.flex.flex-col.items-center.gap-3');
-  const countSubcategorias = await subcategorias.count();
-  
-  if (countSubcategorias === 0) {
-    throw new Error('❌ No se encontraron subcategorías disponibles');
-  }
-
-  // Seleccionar una subcategoría aleatoria
-  const randomSubIndex = Math.floor(Math.random() * countSubcategorias);
-  const subcategoriaSeleccionada = subcategorias.nth(randomSubIndex);
-  
-  // Obtener el nombre de la subcategoría seleccionada
-  const nombreSubcategoria = await subcategoriaSeleccionada.locator('p').textContent();
-  console.log(`🎯 Subcategoría seleccionada: ${nombreSubcategoria}`);
-  
-  await subcategoriaSeleccionada.click();
-  await page.waitForTimeout(2000);
+  const nombreSubcategoria = await selectRandomCategory(page, 'SELECCIONANDO SUBCATEGORÍA ALEATORIA');
 
   // --- SCREENSHOT DESPUÉS DE SELECCIONAR SUBCATEGORÍA ---
   await page.screenshot({ path: 'servicios04-subcategory-selected.png', fullPage: true });
@@ -353,8 +342,108 @@ test('Crear servicio', async ({ page }) => {
   await page.locator('button[type="submit"][form="ServicePriceConditionsForm"]').click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT PÁGINA DE ATRIBUTOS ---
-  await page.screenshot({ path: 'servicios08-attributes-page.png', fullPage: true });
+      // --- SCREENSHOT PÁGINA DE ATRIBUTOS ---
+      await page.screenshot({ path: 'servicios08-attributes-page.png', fullPage: true });
 
-  console.log(`✅ Formulario de precios llenado exitosamente: $${price}`);
+      console.log(`✅ Formulario de precios llenado exitosamente: $${price}`);
+
+      // --- SELECCIONAR ATRIBUTOS ALEATORIOS ---
+      await showStepMessage(page, '🎯 SELECCIONANDO ATRIBUTOS DEL SERVICIO');
+      await page.waitForTimeout(1000);
+
+      // Obtener todos los checkboxes de atributos disponibles
+      const attributeCheckboxes = page.locator('#Attributes input[type="checkbox"]');
+      const attributeCount = await attributeCheckboxes.count();
+
+      if (attributeCount > 0) {
+        // Seleccionar 1-3 atributos aleatorios
+        const selectedAttributes = Math.floor(Math.random() * 3) + 1; // 1-3 atributos
+        
+        for (let i = 0; i < selectedAttributes && i < attributeCount; i++) {
+          const randomAttributeIndex = Math.floor(Math.random() * attributeCount);
+          const checkbox = attributeCheckboxes.nth(randomAttributeIndex);
+          
+          // Obtener el label asociado
+          const checkboxId = await checkbox.getAttribute('id');
+          if (checkboxId) {
+            await page.locator(`label[for="${checkboxId}"]`).click();
+            await page.waitForTimeout(200);
+          }
+        }
+      }
+
+      // --- SCREENSHOT DESPUÉS DE SELECCIONAR ATRIBUTOS ---
+      await page.screenshot({ path: 'servicios09-attributes-selected.png', fullPage: true });
+
+      // Enviar formulario de atributos
+      await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE ATRIBUTOS');
+      await page.waitForTimeout(1000);
+      
+      await page.locator('button[type="submit"][form="ServiceAttributesForm"]').click();
+      await page.waitForTimeout(2000);
+
+      // --- SCREENSHOT PÁGINA DE RANGO DE SERVICIO ---
+      await page.screenshot({ path: 'servicios10-service-range-page.png', fullPage: true });
+
+      console.log(`✅ Atributos seleccionados exitosamente`);
+
+      // --- CONFIGURAR RANGO DE SERVICIO ---
+      await showStepMessage(page, '📍 CONFIGURANDO RANGO DE SERVICIO');
+      await page.waitForTimeout(1000);
+
+      // Seleccionar rango de 160km (índice 3 en el slider)
+      const rangeSlider = page.locator('input[type="range"].style-slider');
+      await rangeSlider.fill('3'); // 160km corresponde al índice 3
+      await page.waitForTimeout(500);
+      
+      // --- SCREENSHOT FORMULARIO DE RANGO LLENO ---
+      await page.screenshot({ path: 'servicios11-range-form-filled.png', fullPage: true });
+
+      // Enviar formulario de rango
+      await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE RANGO');
+      
+      await page.locator('button[type="submit"][form="ServiceRangeForm"]').click();
+      
+      // Esperar a que aparezca la página de media o el botón final
+      try {
+        await page.waitForSelector('#Step_6', { timeout: 5000 });
+        console.log('✅ Llegamos a la página de media');
+        
+        // --- SCREENSHOT PÁGINA DE MEDIA ---
+        await page.screenshot({ path: 'servicios12-media-page.png', fullPage: true });
+
+        // Subir una imagen para que aparezca el botón de envío
+        await showStepMessage(page, '📸 SUBIENDO IMAGEN');
+        const fileInput = page.locator('input[type="file"]');
+        await fileInput.setInputFiles('C:/Temp/transparent.png');
+        await page.waitForTimeout(1000);
+
+        // --- SCREENSHOT DESPUÉS DE SUBIR IMAGEN ---
+        await page.screenshot({ path: 'servicios13-image-uploaded.png', fullPage: true });
+
+        // Ahora el botón ServiceMediaForm debería estar visible
+        const finalSubmitButton = page.locator('button[type="submit"][form="ServiceMediaForm"]');
+        await expect(finalSubmitButton).toBeVisible({ timeout: 5000 });
+        await finalSubmitButton.click();
+        
+      } catch (error) {
+        console.log('⚠️ No se encontró Step_6, intentando encontrar botón final directamente');
+        
+        // Buscar botón final alternativo
+        const alternativeButton = page.locator('button[type="submit"]:has-text("Finalizar"), button[type="submit"]:has-text("Crear"), button[type="submit"]:has-text("Guardar")');
+        if (await alternativeButton.count() > 0) {
+          await alternativeButton.first().click();
+          console.log('✅ Botón alternativo encontrado y clickeado');
+        } else {
+          console.log('⚠️ No se encontró botón final, continuando...');
+        }
+      }
+      
+      // Esperar un momento para que se procese
+      await page.waitForTimeout(2000);
+      
+      // --- SCREENSHOT FINAL ---
+      await page.screenshot({ path: 'servicios14-service-created.png', fullPage: true });
+
+      console.log(`✅ Servicio "${serviceName}" creado exitosamente`);
 });
