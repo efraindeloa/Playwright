@@ -241,7 +241,7 @@ test('Crear promoción', async ({ page }) => {
   // Generar nombre dinámico con fecha y hora actual
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const promoTitle = `Promo Playwright ${timestamp}`;
+  const promoTitle = `Promo de prueba ${timestamp}`;
   
   await showStepMessage(page, '📝 LLENANDO FORMULARIO: Título, fechas e imagen');
   await page.waitForTimeout(1000);
@@ -552,7 +552,7 @@ test('Buscar promociones', async ({ page }) => {
   await page.waitForTimeout(1000);
   
   const searchInput = page.locator('input#Search');
-  await searchInput.fill('Promo Playwright');
+  await searchInput.fill('Promo de prueba');
   await page.waitForTimeout(2000); // Esperar a que se procese la búsqueda
 
   // --- SCREENSHOT DESPUÉS DE BÚSQUEDA ---
@@ -725,8 +725,8 @@ test('Editar promoción', async ({ page }) => {
   await screenshotAndCompare(page, 'editar01-promotions-before-edit.png', 'refs/editar01-promotions-before-edit.png');
 
   // --- LOCALIZAR Y EDITAR PROMOCIÓN ---
-  // Buscar cualquier promoción que contenga "Promo Playwright" (puede ser la creada anteriormente)
-  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo Playwright")').first();
+  // Buscar cualquier promoción que contenga "Promo de prueba" (puede ser la creada anteriormente)
+  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo de prueba")').first();
   await expect(promoName).toBeVisible();
   const promoNameText = await promoName.textContent();
   
