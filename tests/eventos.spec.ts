@@ -1347,48 +1347,71 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
         console.log(`⚠ Esta categoría "${currentServiceCategory}" tiene solo una subcategoría sin servicios.`);
         console.log(`✓ Cambiando completamente de categoría (subiendo 2 niveles)...`);
         
-        // Volver hasta la selección de categorías de servicios (2 niveles hacia arriba)
-        const allBreadcrumbs = page.locator('button').filter({
+        // Nivel 1: Volver de la subcategoría a la categoría de servicio
+        const backButton1 = page.locator('button').filter({
           has: page.locator('i.icon-chevron-left')
-        }).filter({
-          has: page.locator('p')
-        });
+        }).first();
         
-        const breadcrumbCount = await allBreadcrumbs.count();
+        const backButton1Visible = await backButton1.isVisible().catch(() => false);
         
-        if (breadcrumbCount > 0) {
-          // Hacer clic en el primer breadcrumb para volver a la categoría de evento
-          const firstBreadcrumb = allBreadcrumbs.first();
-          const breadcrumbText = await firstBreadcrumb.locator('p').textContent();
-          console.log(`✓ Volviendo a la categoría de evento: "${breadcrumbText?.trim()}"`);
-          await firstBreadcrumb.click();
+        if (backButton1Visible) {
+          const backText1 = await backButton1.locator('p').textContent().catch(() => '');
+          console.log(`📍 Nivel 1: Retrocediendo desde subcategoría: "${backText1?.trim()}"`);
+          await backButton1.click();
           await page.waitForTimeout(2000);
           
-          // Ahora volver a seleccionar una categoría de servicio diferente
-          const newServiceButtons = page.locator('button').filter({ 
-            has: page.locator('p.text-neutral-800.font-medium') 
-          });
+          // Nivel 2: Volver de la categoría de servicio a la selección de categorías
+          const backButton2 = page.locator('button').filter({
+            has: page.locator('i.icon-chevron-left')
+          }).first();
           
-          const newServiceCount = await newServiceButtons.count();
+          const backButton2Visible = await backButton2.isVisible().catch(() => false);
           
-          if (newServiceCount > 0) {
-            // Seleccionar aleatoriamente una nueva categoría de servicio
-            const newRandomServiceIndex = Math.floor(Math.random() * newServiceCount);
-            const newSelectedService = newServiceButtons.nth(newRandomServiceIndex);
-            
-            const newServiceName = await newSelectedService.locator('p.text-neutral-800.font-medium').textContent();
-            console.log(`✓ Seleccionando nueva categoría de servicio: "${newServiceName?.trim()}" (índice ${newRandomServiceIndex})`);
-            
-            await newSelectedService.click();
-            console.log(`✓ Se hizo clic en la nueva categoría de servicio "${newServiceName?.trim()}"`);
-            
-            // Resetear variables para la nueva categoría
-            currentServiceCategory = newServiceName?.trim() || 'Desconocida';
-            navigationPath = [];
-            attemptsInCurrentCategory = 0;
-            
+          if (backButton2Visible) {
+            const backText2 = await backButton2.locator('p').textContent().catch(() => '');
+            console.log(`📍 Nivel 2: Retrocediendo desde categoría de servicio: "${backText2?.trim()}"`);
+            await backButton2.click();
             await page.waitForTimeout(2000);
-            console.log(`✓ Nueva categoría de servicio configurada: "${currentServiceCategory}"`);
+            
+            // Ahora debemos estar en la selección de categorías de servicios
+            console.log(`✓ Regresado a la selección de categorías de servicios`);
+            
+            // Seleccionar una nueva categoría de servicio diferente a la anterior
+            const newServiceButtons = page.locator('button').filter({ 
+              has: page.locator('p.text-neutral-800.font-medium') 
+            });
+            
+            const newServiceCount = await newServiceButtons.count();
+            
+            if (newServiceCount > 0) {
+              // Intentar seleccionar una categoría diferente a la actual
+              let newRandomServiceIndex;
+              let attempts = 0;
+              let newServiceName = currentServiceCategory;
+              
+              // Intentar hasta 5 veces encontrar una categoría diferente
+              while (newServiceName === currentServiceCategory && attempts < 5) {
+                newRandomServiceIndex = Math.floor(Math.random() * newServiceCount);
+                const newSelectedService = newServiceButtons.nth(newRandomServiceIndex);
+                const tempServiceName = await newSelectedService.locator('p.text-neutral-800.font-medium').textContent();
+                newServiceName = tempServiceName?.trim() || currentServiceCategory;
+                attempts++;
+              }
+              
+              const newSelectedService = newServiceButtons.nth(newRandomServiceIndex!);
+              console.log(`✓ Seleccionando nueva categoría de servicio: "${newServiceName?.trim()}" (índice ${newRandomServiceIndex})`);
+              
+              await newSelectedService.click();
+              console.log(`✓ Se hizo clic en la nueva categoría de servicio "${newServiceName?.trim()}"`);
+              
+              // Resetear variables para la nueva categoría
+              currentServiceCategory = newServiceName?.trim() || 'Desconocida';
+              navigationPath = [];
+              attemptsInCurrentCategory = 0;
+              
+              await page.waitForTimeout(2000);
+              console.log(`✓ Nueva categoría de servicio configurada: "${currentServiceCategory}"`);
+            }
           }
         }
         
