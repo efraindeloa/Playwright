@@ -322,15 +322,140 @@ test('Crear servicio', async ({ page }) => {
   await showStepMessage(page, '📝 LLENANDO DATOS DEL SERVICIO');
   await page.waitForTimeout(1000);
 
+  // Función para generar nombres apropiados según la categoría
+  function generateServiceName(category: string, subcategory: string): string {
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    
+    // Mapeo de categorías a nombres apropiados
+    const categoryNames: { [key: string]: string[] } = {
+      'Alimentos': [
+        'Catering Gourmet',
+        'Banquete Especial',
+        'Cocina Tradicional',
+        'Servicio Gastronómico',
+        'Menú Ejecutivo',
+        'Buffet Premium',
+        'Comida Artesanal',
+        'Culinaria Exclusiva'
+      ],
+      'Bebidas': [
+        'Bar Premium',
+        'Coctelería Artesanal',
+        'Servicio de Bebidas',
+        'Barra Libre',
+        'Bebidas Especiales',
+        'Cocteles Premium',
+        'Servicio de Licores',
+        'Barra Personalizada'
+      ],
+      'Lugares': [
+        'Salón de Eventos',
+        'Espacio Versátil',
+        'Lugar Exclusivo',
+        'Venue Premium',
+        'Espacio Elegante',
+        'Salón VIP',
+        'Lugar Único',
+        'Espacio Especial'
+      ],
+      'Mobiliario': [
+        'Mobiliario Premium',
+        'Equipamiento Completo',
+        'Mobiliario Elegante',
+        'Sillas y Mesas',
+        'Mobiliario Versátil',
+        'Equipamiento VIP',
+        'Mobiliario Personalizado',
+        'Sillas Especiales'
+      ],
+      'Entretenimiento': [
+        'Show en Vivo',
+        'Entretenimiento Premium',
+        'Actuación Especial',
+        'Show Personalizado',
+        'Entretenimiento VIP',
+        'Actuación Única',
+        'Show Exclusivo',
+        'Entretenimiento Artesanal'
+      ],
+      'Música': [
+        'Grupo Musical',
+        'DJ Premium',
+        'Música en Vivo',
+        'Sonido Profesional',
+        'Música Personalizada',
+        'DJ Especializado',
+        'Grupo Exclusivo',
+        'Música Artesanal'
+      ],
+      'Decoración': [
+        'Decoración Temática',
+        'Ambientación Premium',
+        'Decoración Personalizada',
+        'Diseño Exclusivo',
+        'Ambientación Elegante',
+        'Decoración Única',
+        'Diseño Especial',
+        'Ambientación Artesanal'
+      ],
+      'Invitaciones': [
+        'Invitaciones Elegantes',
+        'Diseño Personalizado',
+        'Tarjetas Premium',
+        'Invitaciones Únicas',
+        'Diseño Exclusivo',
+        'Tarjetas Especiales',
+        'Invitaciones Artesanales',
+        'Diseño Versátil'
+      ],
+      'Mesa de regalos': [
+        'Mesa de Regalos',
+        'Lista de Regalos',
+        'Registros Especiales',
+        'Mesa Personalizada',
+        'Lista Premium',
+        'Registros Únicos',
+        'Mesa Exclusiva',
+        'Lista Artesanal'
+      ],
+      'Servicios Especializados': [
+        'Servicio Especializado',
+        'Servicio Premium',
+        'Servicio Personalizado',
+        'Servicio Exclusivo',
+        'Servicio Único',
+        'Servicio Artesanal',
+        'Servicio Versátil',
+        'Servicio Elegante'
+      ]
+    };
+
+    // Obtener nombres para la categoría
+    const categoryOptions = categoryNames[category] || ['Servicio Premium', 'Servicio Especializado', 'Servicio Personalizado'];
+    
+    // Seleccionar un nombre aleatorio de la categoría
+    const randomName = categoryOptions[Math.floor(Math.random() * categoryOptions.length)];
+    
+    // Agregar subcategoría si es relevante
+    let finalName = randomName;
+    if (subcategory && subcategory !== category) {
+      finalName = `${randomName} - ${subcategory}`;
+    }
+    
+    return `${finalName} ${timestamp}`;
+  }
+
   // Generar datos dinámicos para el servicio
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const serviceName = `Servicio de prueba ${timestamp}`;
+  const serviceName = generateServiceName(tituloCategoria || 'Servicios Especializados', subcategoriaFinal || 'General');
   const serviceDescription = `Descripción del servicio de ${subcategoriaFinal} creado el ${now.toLocaleDateString()}`;
   const minCapacity = Math.floor(Math.random() * 10) + 1; // 1-10
   const maxCapacity = minCapacity + Math.floor(Math.random() * 50) + 10; // minCapacity + 10-60
 
   // Llenar nombre del servicio
+  console.log(`📝 Nombre del servicio generado: "${serviceName}"`);
   await page.locator('input[id="Name"]').fill(serviceName);
   await page.waitForTimeout(1000);
 

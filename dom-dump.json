@@ -51,7 +51,7 @@
     "text": null,
     "attributes": {
       "rel": "stylesheet",
-      "href": "/_next/static/css/7f9480539d1d3437.css",
+      "href": "/_next/static/css/638ae52e312e42f9.css",
       "data-precedence": "next"
     }
   },
@@ -64,7 +64,7 @@
       "rel": "preload",
       "as": "script",
       "fetchpriority": "low",
-      "href": "/_next/static/chunks/webpack-67da8395cd7649a6.js"
+      "href": "/_next/static/chunks/webpack-5f7c1591003f592f.js"
     }
   },
   {
@@ -73,7 +73,7 @@
     "class": null,
     "text": null,
     "attributes": {
-      "src": "https://connect.facebook.net/signals/config/2113594752336747?v=2.9.233&r=stable&domain=fiestamas.com&hme=dcbbef44c997927c5af260dbc0059090127dce285cd316734e66d01ffe06084e&ex_m=88%2C150%2C130%2C19%2C123%2C62%2C42%2C124%2C69%2C61%2C137%2C77%2C13%2C87%2C27%2C118%2C109%2C67%2C70%2C117%2C134%2C96%2C139%2C7%2C3%2C4%2C6%2C5%2C2%2C78%2C86%2C140%2C214%2C162%2C56%2C219%2C216%2C217%2C49%2C177%2C26%2C66%2C223%2C222%2C165%2C29%2C55%2C8%2C58%2C82%2C83%2C84%2C89%2C113%2C28%2C25%2C116%2C112%2C111%2C131%2C68%2C133%2C132%2C44%2C114%2C54%2C106%2C12%2C136%2C39%2C205%2C207%2C172%2C22%2C23%2C24%2C16%2C17%2C38%2C34%2C36%2C35%2C73%2C79%2C81%2C94%2C122%2C125%2C40%2C95%2C20%2C18%2C100%2C63%2C32%2C127%2C126%2C128%2C119%2C21%2C31%2C53%2C93%2C135%2C64%2C15%2C30%2C187%2C158%2C265%2C203%2C148%2C190%2C183%2C91%2C115%2C72%2C104%2C48%2C41%2C102%2C103%2C108%2C52%2C14%2C110%2C101%2C59%2C43%2C97%2C47%2C50%2C46%2C85%2C138%2C0%2C107%2C11%2C105%2C9%2C1%2C51%2C80%2C57%2C129%2C60%2C99%2C76%2C75%2C45%2C120%2C74%2C71%2C65%2C98%2C90%2C37%2C121%2C33%2C92%2C10%2C141",
+      "src": "https://connect.facebook.net/signals/config/2113594752336747?v=2.9.235&r=stable&domain=fiestamas.com&hme=17acfb61045d3371dfae695fa3b5ad6946c5e7b0f340bb5dc12b59e9cfc87854&ex_m=88%2C149%2C129%2C19%2C123%2C62%2C42%2C124%2C69%2C61%2C136%2C77%2C13%2C87%2C27%2C118%2C109%2C67%2C70%2C117%2C133%2C96%2C138%2C7%2C3%2C4%2C6%2C5%2C2%2C78%2C86%2C139%2C215%2C161%2C56%2C220%2C217%2C218%2C49%2C176%2C26%2C66%2C224%2C223%2C164%2C29%2C55%2C8%2C58%2C82%2C83%2C84%2C89%2C113%2C28%2C25%2C116%2C112%2C111%2C130%2C68%2C132%2C131%2C44%2C114%2C54%2C106%2C12%2C135%2C39%2C205%2C207%2C171%2C22%2C23%2C24%2C16%2C17%2C38%2C34%2C36%2C35%2C73%2C79%2C81%2C94%2C122%2C125%2C40%2C95%2C20%2C18%2C100%2C63%2C32%2C127%2C126%2C128%2C119%2C21%2C31%2C53%2C93%2C134%2C64%2C15%2C30%2C186%2C157%2C266%2C203%2C147%2C189%2C182%2C91%2C115%2C72%2C104%2C48%2C41%2C102%2C103%2C108%2C52%2C14%2C110%2C101%2C59%2C43%2C97%2C47%2C50%2C46%2C85%2C137%2C0%2C107%2C11%2C105%2C9%2C1%2C51%2C80%2C57%2C60%2C99%2C76%2C75%2C45%2C120%2C74%2C71%2C65%2C98%2C90%2C37%2C121%2C33%2C92%2C10%2C140",
       "async": ""
     }
   },
@@ -95,7 +95,7 @@
     "attributes": {
       "type": "text/javascript",
       "async": "",
-      "src": "https://www.googletagmanager.com/gtag/js?id=G-KWER2W333R&cx=c&gtm=4e5a11"
+      "src": "https://www.googletagmanager.com/gtag/js?id=G-KWER2W333R&cx=c&gtm=4e5ad0h1"
     }
   },
   {
@@ -106,7 +106,7 @@
     "attributes": {
       "type": "text/javascript",
       "async": "",
-      "src": "https://www.googletagmanager.com/gtag/js?id=AW-11340993667&cx=c&gtm=4e5a11"
+      "src": "https://www.googletagmanager.com/gtag/js?id=AW-11340993667&cx=c&gtm=4e5ad0h1"
     }
   },
   {
@@ -145,7 +145,7 @@
     "class": null,
     "text": null,
     "attributes": {
-      "src": "/_next/static/chunks/2186-8115cdf972c00c6f.js",
+      "src": "/_next/static/chunks/2186-a6b37c5614767e45.js",
       "async": ""
     }
   },
@@ -155,7 +155,7 @@
     "class": null,
     "text": null,
     "attributes": {
-      "src": "/_next/static/chunks/main-app-364bf57ff1e8df59.js",
+      "src": "/_next/static/chunks/main-app-be3276485f8106f9.js",
       "async": ""
     }
   },
@@ -195,127 +195,7 @@
     "class": null,
     "text": null,
     "attributes": {
-      "src": "/_next/static/chunks/3404-86566512d474ba1f.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
       "src": "/_next/static/chunks/2726-2f6f7f22faedd18e.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/2619-cf572fdaff25e281.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/1356-40942ddb28ab6b30.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/4517-04c6ceb23d7f0109.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/6541-2bb646b62297c2fc.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/3204-82c5363c1279d6d3.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/2998-8a96e830978052a3.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/3178-e982fcfa5b748f18.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/4174-133f49b2a0ee8f2d.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/2429-008b927cb56c5caf.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/4595-88e96b0176510984.js",
-      "async": ""
-    }
-  },
-  {
-    "tag": "script",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {
-      "src": "/_next/static/chunks/app/layout-1e63c10519b2c46c.js",
       "async": ""
     }
   },
@@ -336,7 +216,7 @@
     "text": null,
     "attributes": {
       "name": "sentry-trace",
-      "content": "c508ac1fcb8c45e33b05986b3efed39c-71454ca2c59109e7-1"
+      "content": "8741d5e1f7744f1b9ea9e7dd00f150d2-79648e89fbbcfad9-1"
     }
   },
   {
@@ -346,7 +226,7 @@
     "text": null,
     "attributes": {
       "name": "baggage",
-      "content": "sentry-environment=production,sentry-release=eabeb4cb93443fa025e238fb12af7971981942af,sentry-public_key=33841f3772048964e0868be36abbf1ad,sentry-trace_id=c508ac1fcb8c45e33b05986b3efed39c,sentry-org_id=4509805542768640,sentry-transaction=GET%20%2F,sentry-sampled=true,sentry-sample_rand=0.3627330479928026,sentry-sample_rate=1"
+      "content": "sentry-environment=production,sentry-release=6cf8738a7bb9d92f96f6ff8f8b6cd45fdde66f7e,sentry-public_key=33841f3772048964e0868be36abbf1ad,sentry-trace_id=8741d5e1f7744f1b9ea9e7dd00f150d2,sentry-org_id=4509805542768640,sentry-transaction=GET%20%2F,sentry-sampled=true,sentry-sample_rand=0.031613539117039346,sentry-sample_rate=1"
     }
   },
   {
@@ -369,15 +249,6 @@
       "href": "/favicon.ico",
       "type": "image/x-icon",
       "sizes": "32x30"
-    }
-  },
-  {
-    "tag": "style",
-    "id": "_goober",
-    "class": null,
-    "text": "@keyframes go2264125279{from{transform:scale(0) rotate(45deg);opacity:0;}to{transform:scale(1) rotat",
-    "attributes": {
-      "id": "_goober"
     }
   },
   {
@@ -408,6 +279,15 @@
   },
   {
     "tag": "style",
+    "id": "_goober",
+    "class": null,
+    "text": "@keyframes go2264125279{from{transform:scale(0) rotate(45deg);opacity:0;}to{transform:scale(1) rotat",
+    "attributes": {
+      "id": "_goober"
+    }
+  },
+  {
+    "tag": "style",
     "id": "googleidentityservice_button_styles",
     "class": null,
     "text": ".qJTHM{-webkit-user-select:none;color:#202124;direction:ltr;-webkit-touch-callout:none;font-family:\"",
@@ -424,7 +304,7 @@
     "attributes": {
       "type": "text/javascript",
       "async": "",
-      "src": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/11340993667/?random=1759508839047&cv=11&fst=1759508839047&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be5a11v9172023364z89229426361za200zb9229426361zd9229426361xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=101509157~103116026~103200004~103233427~104527907~104528501~104684208~104684211~104948813~115480709~115616985~115834636~115834638&u_w=1280&u_h=720&url=https%3A%2F%2Ffiestamas.com%2F&frm=0&tiba=Fiestamas&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1933102663.1759508839&uaa=x86&uab=64&uafvl=Chromium%3B140.0.7339.16%7CNot%253DA%253FBrand%3B24.0.0.0%7CHeadlessChrome%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&data=event%3Dgtag.config&rfmt=3&fmt=4"
+      "src": "https://googleads.g.doubleclick.net/pagead/viewthroughconversion/11340993667/?random=1760487931563&cv=11&fst=1760487931563&bg=ffffff&guid=ON&async=1&en=gtag.config&gtm=45be5ad0h1v9172023364z89229426361za200zb9229426361zd9229426361xec&gcd=13l3l3l3l1l1&dma=0&tag_exp=101509157~103116026~103200004~103233427~104527907~104528500~104684208~104684211~104948813~115480710~115616986~115752874~115834636~115834638~115868792~115868794~115995680~115995682&u_w=1280&u_h=720&url=https%3A%2F%2Ffiestamas.com%2F&frm=0&tiba=Fiestamas&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1126985711.1760487932&uaa=x86&uab=64&uafvl=Chromium%3B140.0.7339.16%7CNot%253DA%253FBrand%3B24.0.0.0%7CHeadlessChrome%3B140.0.7339.16&uamb=0&uam=&uap=Windows&uapv=10.0&uaw=0&data=event%3Dgtag.config&rfmt=3&fmt=4"
     }
   },
   {
@@ -465,7 +345,7 @@
     "class": null,
     "text": null,
     "attributes": {
-      "src": "/_next/static/chunks/webpack-67da8395cd7649a6.js",
+      "src": "/_next/static/chunks/webpack-5f7c1591003f592f.js",
       "id": "_R_",
       "async": ""
     }
@@ -533,21 +413,21 @@
     "tag": "script",
     "id": null,
     "class": null,
-    "text": "self.__next_f.push([1,\"ab6b30.js\\\",\\\"4517\\\",\\\"static/chunks/4517-04c6ceb23d7f0109.js\\\",\\\"3204\\\",\\\"st",
+    "text": "self.__next_f.push([1,\"7f0109.js\\\",\\\"1356\\\",\\\"static/chunks/1356-40942ddb28ab6b30.js\\\",\\\"3204\\\",\\\"st",
     "attributes": {}
   },
   {
     "tag": "script",
     "id": null,
     "class": null,
-    "text": "self.__next_f.push([1,\"db28ab6b30.js\\\",\\\"4517\\\",\\\"static/chunks/4517-04c6ceb23d7f0109.js\\\",\\\"3204\\\",",
+    "text": "self.__next_f.push([1,\"b23d7f0109.js\\\",\\\"1356\\\",\\\"static/chunks/1356-40942ddb28ab6b30.js\\\",\\\"3204\\\",",
     "attributes": {}
   },
   {
     "tag": "script",
     "id": null,
     "class": null,
-    "text": "self.__next_f.push([1,\"0:{\\\"P\\\":null,\\\"b\\\":\\\"qfp7aHbCMYj-zEKxWQVot\\\",\\\"p\\\":\\\"\\\",\\\"c\\\":[\\\"\\\",\\\"\\\"],\\\"",
+    "text": "self.__next_f.push([1,\"0:{\\\"P\\\":null,\\\"b\\\":\\\"VyKaF6wgrIJiyM-RPDdaB\\\",\\\"p\\\":\\\"\\\",\\\"c\\\":[\\\"\\\",\\\"\\\"],\\\"",
     "attributes": {}
   },
   {
@@ -568,7 +448,7 @@
     "tag": "script",
     "id": null,
     "class": null,
-    "text": "self.__next_f.push([1,\"14:[\\\"$\\\",\\\"$L15\\\",null,{\\\"locale\\\":\\\"es\\\",\\\"now\\\":\\\"$D2025-10-03T16:27:18.16",
+    "text": "self.__next_f.push([1,\"14:[\\\"$\\\",\\\"$L15\\\",null,{\\\"locale\\\":\\\"es\\\",\\\"now\\\":\\\"$D2025-10-15T00:25:29.12",
     "attributes": {}
   },
   {
@@ -620,7 +500,7 @@
     "tag": "main",
     "id": null,
     "class": "w-full",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "w-full"
     }
@@ -698,10 +578,10 @@
     "class": {},
     "text": null,
     "attributes": {
-      "id": "Capa_1",
-      "xmlns": "http://www.w3.org/2000/svg",
       "viewBox": "0 0 500 90.3",
-      "width": "282"
+      "xmlns": "http://www.w3.org/2000/svg",
+      "width": "282",
+      "id": "Capa_1"
     }
   },
   {
@@ -710,8 +590,8 @@
     "class": {},
     "text": null,
     "attributes": {
-      "fill": "#c6017f",
-      "d": "M278.3,23.7c-3.4,0-6.1,2.7-6.1,6.2v3.3c-5.9-6.8-13.3-10.2-22.1-10.2s-15.7,3.3-21.4,8.9c-4.4,4.4-9.6,12.2-9.6,24.7v.2c0,21.7,16,33.5,31,33.5s16-3.5,22.1-10.7v3.8c0,3.5,2.7,6.2,6.2,6.2s6.1-2.7,6.1-6.2V29.8c0-3.4-2.8-6.2-6.2-6.2M272.6,56.7c0,6.2-2.3,12-6.4,16.2-3.9,3.9-9.1,6.1-14.4,6.1s-10.4-2.1-14.1-6c-4-4.1-6.1-9.8-6.1-16.3v-.2c0-6.7,2.1-12.4,5.9-16.4,3.6-3.7,8.7-5.8,14.2-5.8s10.5,2.2,14.4,6.1c4.1,4.1,6.4,9.9,6.4,16.1v.2Z"
+      "d": "M278.3,23.7c-3.4,0-6.1,2.7-6.1,6.2v3.3c-5.9-6.8-13.3-10.2-22.1-10.2s-15.7,3.3-21.4,8.9c-4.4,4.4-9.6,12.2-9.6,24.7v.2c0,21.7,16,33.5,31,33.5s16-3.5,22.1-10.7v3.8c0,3.5,2.7,6.2,6.2,6.2s6.1-2.7,6.1-6.2V29.8c0-3.4-2.8-6.2-6.2-6.2M272.6,56.7c0,6.2-2.3,12-6.4,16.2-3.9,3.9-9.1,6.1-14.4,6.1s-10.4-2.1-14.1-6c-4-4.1-6.1-9.8-6.1-16.3v-.2c0-6.7,2.1-12.4,5.9-16.4,3.6-3.7,8.7-5.8,14.2-5.8s10.5,2.2,14.4,6.1c4.1,4.1,6.4,9.9,6.4,16.1v.2Z",
+      "fill": "#c6017f"
     }
   },
   {
@@ -849,10 +729,10 @@
     "class": {},
     "text": null,
     "attributes": {
-      "id": "Capa_1",
-      "xmlns": "http://www.w3.org/2000/svg",
       "viewBox": "0 0 500 90.3",
-      "width": "128"
+      "xmlns": "http://www.w3.org/2000/svg",
+      "width": "128",
+      "id": "Capa_1"
     }
   },
   {
@@ -861,8 +741,8 @@
     "class": {},
     "text": null,
     "attributes": {
-      "fill": "#c6017f",
-      "d": "M278.3,23.7c-3.4,0-6.1,2.7-6.1,6.2v3.3c-5.9-6.8-13.3-10.2-22.1-10.2s-15.7,3.3-21.4,8.9c-4.4,4.4-9.6,12.2-9.6,24.7v.2c0,21.7,16,33.5,31,33.5s16-3.5,22.1-10.7v3.8c0,3.5,2.7,6.2,6.2,6.2s6.1-2.7,6.1-6.2V29.8c0-3.4-2.8-6.2-6.2-6.2M272.6,56.7c0,6.2-2.3,12-6.4,16.2-3.9,3.9-9.1,6.1-14.4,6.1s-10.4-2.1-14.1-6c-4-4.1-6.1-9.8-6.1-16.3v-.2c0-6.7,2.1-12.4,5.9-16.4,3.6-3.7,8.7-5.8,14.2-5.8s10.5,2.2,14.4,6.1c4.1,4.1,6.4,9.9,6.4,16.1v.2Z"
+      "d": "M278.3,23.7c-3.4,0-6.1,2.7-6.1,6.2v3.3c-5.9-6.8-13.3-10.2-22.1-10.2s-15.7,3.3-21.4,8.9c-4.4,4.4-9.6,12.2-9.6,24.7v.2c0,21.7,16,33.5,31,33.5s16-3.5,22.1-10.7v3.8c0,3.5,2.7,6.2,6.2,6.2s6.1-2.7,6.1-6.2V29.8c0-3.4-2.8-6.2-6.2-6.2M272.6,56.7c0,6.2-2.3,12-6.4,16.2-3.9,3.9-9.1,6.1-14.4,6.1s-10.4-2.1-14.1-6c-4-4.1-6.1-9.8-6.1-16.3v-.2c0-6.7,2.1-12.4,5.9-16.4,3.6-3.7,8.7-5.8,14.2-5.8s10.5,2.2,14.4,6.1c4.1,4.1,6.4,9.9,6.4,16.1v.2Z",
+      "fill": "#c6017f"
     }
   },
   {
@@ -1077,7 +957,7 @@
     "tag": "main",
     "id": null,
     "class": "w-full pt-10 px-[24px] lg:px-[80px]",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "w-full pt-10 px-[24px] lg:px-[80px]"
     }
@@ -1086,7 +966,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-col py-4 relative lg:gap-6 gap-4",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "flex flex-col py-4 relative lg:gap-6 gap-4"
     }
@@ -1095,7 +975,7 @@
     "tag": "div",
     "id": null,
     "class": "w-full transition-all duration-300 cursor-grab active:cursor-grabbing select-none opacity-100 translate-x-0",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "w-full transition-all duration-300 cursor-grab active:cursor-grabbing select-none opacity-100 translate-x-0"
     }
@@ -1104,7 +984,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-1/2 w-full items-center justify-center",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "flex flex-1/2 w-full items-center justify-center"
     }
@@ -1113,7 +993,7 @@
     "tag": "div",
     "id": null,
     "class": "relative flex flex-col w-full h-[160px] lg:h-[320px] rounded-6 px-5 py-4 lg:px-8 lg:items-center lg:justify-center overflow-hidden",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "relative flex flex-col w-full h-[160px] lg:h-[320px] rounded-6 px-5 py-4 lg:px-8 lg:items-center lg:justify-center overflow-hidden"
     }
@@ -1139,7 +1019,7 @@
     "tag": "div",
     "id": null,
     "class": "relative z-10 flex flex-row w-[205px] h-[117px] lg:w-full lg:h-full lg:items-center",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "relative z-10 flex flex-row w-[205px] h-[117px] lg:w-full lg:h-full lg:items-center"
     }
@@ -1148,7 +1028,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-col gap-3 lg:gap-5",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro¡Empie",
     "attributes": {
       "class": "flex flex-col gap-3 lg:gap-5"
     }
@@ -1157,7 +1037,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-col gap-1 lg:gap-5",
-    "text": "Haz que tu talento llegue a más eventosHaz que tu talento llegue a más eventosVende más con Fiestama",
+    "text": "Encuentra proveedores para tu fiestaEncuentra proveedores para tu fiestaFácil, rápido y seguro",
     "attributes": {
       "class": "flex flex-col gap-1 lg:gap-5"
     }
@@ -1166,7 +1046,7 @@
     "tag": "h6",
     "id": null,
     "class": "text-light-light lg:hidden",
-    "text": "Haz que tu talento llegue a más eventos",
+    "text": "Encuentra proveedores para tu fiesta",
     "attributes": {
       "class": "text-light-light lg:hidden"
     }
@@ -1175,7 +1055,7 @@
     "tag": "h3",
     "id": null,
     "class": "text-light-light hidden lg:block",
-    "text": "Haz que tu talento llegue a más eventos",
+    "text": "Encuentra proveedores para tu fiesta",
     "attributes": {
       "class": "text-light-light hidden lg:block"
     }
@@ -1184,7 +1064,7 @@
     "tag": "p",
     "id": null,
     "class": "text-small lg:text-large text-light-light",
-    "text": "Vende más con Fiestamas",
+    "text": "Fácil, rápido y seguro",
     "attributes": {
       "class": "text-small lg:text-large text-light-light"
     }
@@ -1749,7 +1629,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-col w-full h-full gap-4 lg:gap-6",
-    "text": "¡Elige qué quieres celebrar!¡Elige qué quieres celebrar!CumpleañosBaby ShowerBautizoBodaVende en Fie",
+    "text": "¡Elige qué quieres celebrar!¡Elige qué quieres celebrar!CumpleañosBaby ShowerBautizoBodaOrganiza tu ",
     "attributes": {
       "class": "flex flex-col w-full h-full gap-4 lg:gap-6"
     }
@@ -1785,7 +1665,7 @@
     "tag": "div",
     "id": null,
     "class": "grid grid-cols-6 grid-rows-18 gap-5 lg:gap-[40px] w-full h-[1059px] lg:h-[950px] lg:grid-cols-12 lg:grid-rows-10",
-    "text": "CumpleañosBaby ShowerBautizoBodaVende en Fiestamas ¡Regístrate!RevelaciónDespedidaGraduacionesProvee",
+    "text": "CumpleañosBaby ShowerBautizoBodaOrganiza tu fiesta fácil!RevelaciónDespedidaGraduacionesProveedor: ¡",
     "attributes": {
       "class": "grid grid-cols-6 grid-rows-18 gap-5 lg:gap-[40px] w-full h-[1059px] lg:h-[950px] lg:grid-cols-12 lg:grid-rows-10"
     }
@@ -2054,7 +1934,7 @@
     "tag": "div",
     "id": "stim1",
     "class": "col-span-4 row-span-2 col-start-3 row-start-5 lg:col-span-4 lg:row-span-2 lg:col-start-1 lg:row-start-5",
-    "text": "Vende en Fiestamas ¡Regístrate!",
+    "text": "Organiza tu fiesta fácil!",
     "attributes": {
       "id": "stim1",
       "class": "col-span-4 row-span-2 col-start-3 row-start-5 lg:col-span-4 lg:row-span-2 lg:col-start-1 lg:row-start-5"
@@ -2064,7 +1944,7 @@
     "tag": "button",
     "id": null,
     "class": "flex flex-row w-full h-full items-center rounded-5 py-5 px-4 lg:px-6 gap-3 justify-between",
-    "text": "Vende en Fiestamas ¡Regístrate!",
+    "text": "Organiza tu fiesta fácil!",
     "attributes": {
       "type": "button",
       "class": "flex flex-row w-full h-full items-center rounded-5 py-5 px-4 lg:px-6 gap-3 justify-between",
@@ -2075,7 +1955,7 @@
     "tag": "div",
     "id": null,
     "class": "flex items-center gap-4 lg:gap-6",
-    "text": "Vende en Fiestamas ¡Regístrate!",
+    "text": "Organiza tu fiesta fácil!",
     "attributes": {
       "class": "flex items-center gap-4 lg:gap-6"
     }
@@ -2157,7 +2037,7 @@
     "tag": "div",
     "id": null,
     "class": "flex flex-row",
-    "text": "Vende en Fiestamas ¡Regístrate!",
+    "text": "Organiza tu fiesta fácil!",
     "attributes": {
       "class": "flex flex-row"
     }
@@ -2166,33 +2046,10 @@
     "tag": "p",
     "id": null,
     "class": "text-medium lg:text-large font-light text-start text-dark-dark",
-    "text": "Vende en Fiestamas ¡Regístrate!",
+    "text": "Organiza tu fiesta fácil!",
     "attributes": {
       "class": "text-medium lg:text-large font-light text-start text-dark-dark"
     }
-  },
-  {
-    "tag": "span",
-    "id": null,
-    "class": null,
-    "text": "Vende en Fiestamas ¡Regístrate!",
-    "attributes": {}
-  },
-  {
-    "tag": "b",
-    "id": null,
-    "class": "font-bold text-primary-neutral",
-    "text": "¡Regístrate!",
-    "attributes": {
-      "class": "font-bold text-primary-neutral"
-    }
-  },
-  {
-    "tag": "span",
-    "id": null,
-    "class": null,
-    "text": null,
-    "attributes": {}
   },
   {
     "tag": "i",

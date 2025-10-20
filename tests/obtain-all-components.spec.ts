@@ -29,13 +29,3 @@ test('extraer DOM y guardarlo en JSON', async ({ page }) => {
 });
 
 
-test('seleccionar categoría Alimentos', async ({ page }) => {
-  await page.goto('https://fiestamas.com/');
-  await page.waitForLoadState('networkidle');
-
-  // Clic en el botón que contiene el texto "Alimentos"
-  await page.getByRole('button', { name: 'Alimentos' }).click();
-
-  // Validar que se haya hecho el clic (ejemplo: que la página navegue o cambie)
-  await page.waitForTimeout(9000); // solo para ver el resultado en debug
-});
