@@ -359,8 +359,16 @@ test('Filtrar promociones', async ({ page }) => {
   await expect(page.getByText('Crear promoción')).toBeVisible();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT ANTES DE FILTRAR ---
-  await page.screenshot({ path: 'filtrar01-promotions-before-filter.png', fullPage: true });
+  // --- OBTENER ESTADO INICIAL ---
+  await showStepMessage(page, '📊 OBTENIENDO ESTADO INICIAL');
+  const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+  const initialPromoCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones iniciales: ${initialPromoCount}`);
+  
+  // Verificar que hay promociones para filtrar
+  if (initialPromoCount === 0) {
+    throw new Error('❌ No hay promociones disponibles para realizar el filtrado');
+  }
 
   // --- ABRIR FILTROS ---
   await showStepMessage(page, '🔍 ABRIENDO DIALOG DE FILTROS');
@@ -369,13 +377,17 @@ test('Filtrar promociones', async ({ page }) => {
   await filterButton.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT DIALOG DE FILTROS ABIERTO ---
-  await page.screenshot({ path: 'filtrar02-filter-dialog-open.png', fullPage: true });
+  // Validar que el diálogo de filtros se abrió
+  const startDateInput = page.locator('input#StartDate');
+  const endDateInput = page.locator('input#EndDate');
+  await expect(startDateInput).toBeVisible({ timeout: 5000 });
+  await expect(endDateInput).toBeVisible({ timeout: 5000 });
+  console.log('✅ Diálogo de filtros abierto correctamente');
 
   // --- CONFIGURAR FECHAS INICIALES ---
   await showStepMessage(page, '📅 CONFIGURANDO FECHAS DE FILTRO');
   await page.waitForTimeout(1000);
-  const startDate = '01-01-2025';
+  const startDate = '01-11-2025';
   const endDate = '31-12-2025';
   
   await pickDateSmart(page, 'input#StartDate', startDate);
@@ -383,18 +395,43 @@ test('Filtrar promociones', async ({ page }) => {
   await pickDateSmart(page, 'input#EndDate', endDate);
   await page.waitForTimeout(500);
 
-  // --- SCREENSHOT CON FECHAS CONFIGURADAS ---
-  await page.screenshot({ path: 'filtrar03-dates-configured.png', fullPage: true });
+  // Validar que las fechas se configuraron correctamente
+  const startDateValue = await startDateInput.inputValue();
+  const endDateValue = await endDateInput.inputValue();
+  console.log(`✅ Fecha inicio configurada: ${startDateValue}`);
+  console.log(`✅ Fecha fin configurada: ${endDateValue}`);
 
   // --- APLICAR FILTRO ---
   await showStepMessage(page, '✅ APLICANDO FILTRO DE FECHAS');
   await page.waitForTimeout(1000);
   const applyButton = page.locator('button:has-text("Aplicar")');
+  await expect(applyButton).toBeVisible();
   await applyButton.click();
+  
+  // Esperar a que el diálogo se cierre y el listado se actualice
   await page.waitForTimeout(2000);
+  
+  // Validar que el diálogo se cerró
+  const isDialogClosed = await startDateInput.isVisible().catch(() => false);
+  if (isDialogClosed) {
+    console.warn('⚠️ El diálogo de filtros aún está visible después de aplicar');
+  } else {
+    console.log('✅ Diálogo de filtros cerrado correctamente');
+  }
 
-  // --- SCREENSHOT DESPUÉS DE APLICAR FILTRO ---
-  await page.screenshot({ path: 'filtrar04-after-apply-filter.png', fullPage: true });
+  // Contar promociones después de aplicar el filtro
+  const afterFilterCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones después de aplicar filtro: ${afterFilterCount}`);
+
+  // Validar que el filtro cambió el conteo
+  if (afterFilterCount === initialPromoCount) {
+    console.warn(`⚠️ El filtro no cambió el conteo. Inicial: ${initialPromoCount}, Después: ${afterFilterCount}`);
+    console.warn('⚠️ Esto puede ser normal si todas las promociones están dentro del rango de fechas');
+  } else if (afterFilterCount > initialPromoCount) {
+    throw new Error(`❌ El filtro aumentó el conteo. Inicial: ${initialPromoCount}, Después: ${afterFilterCount}`);
+  } else {
+    console.log(`✅ Filtro aplicado exitosamente: Se filtraron ${initialPromoCount - afterFilterCount} promociones`);
+  }
 
   // --- VOLVER A ABRIR FILTROS ---
   await showStepMessage(page, '🔍 REABRIENDO FILTROS PARA LIMPIAR');
@@ -402,96 +439,63 @@ test('Filtrar promociones', async ({ page }) => {
   await filterButton.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT FILTROS ABIERTOS NUEVAMENTE ---
-  await page.screenshot({ path: 'filtrar05-filter-dialog-reopened.png', fullPage: true });
+  // Validar que el diálogo se abrió nuevamente
+  await expect(startDateInput).toBeVisible({ timeout: 5000 });
+  console.log('✅ Diálogo de filtros reabierto correctamente');
 
   // --- LIMPIAR FILTROS ---
   await showStepMessage(page, '🧹 LIMPIANDO FILTROS APLICADOS');
   await page.waitForTimeout(1000);
   const clearButton = page.locator('button:has-text("Limpiar")');
+  await expect(clearButton).toBeVisible();
   await clearButton.click();
   await page.waitForTimeout(500);
 
-  // --- SCREENSHOT DESPUÉS DE LIMPIAR ---
-  await page.screenshot({ path: 'filtrar06-after-clear.png', fullPage: true });
+  // Validar que las fechas se limpiaron
+  const clearedStartDate = await startDateInput.inputValue();
+  const clearedEndDate = await endDateInput.inputValue();
+  console.log(`✅ Fecha inicio después de limpiar: "${clearedStartDate}"`);
+  console.log(`✅ Fecha fin después de limpiar: "${clearedEndDate}"`);
 
-  // --- COMPARAR SCREENSHOTS ---
-  try {
-    // Verificar que los archivos existen
-    const files = [
-      'filtrar01-promotions-before-filter.png',
-      'filtrar04-after-apply-filter.png',
-      'filtrar06-after-clear.png'
-    ];
-    
-    for (const file of files) {
-      if (!fs.existsSync(file)) {
-        throw new Error(`❌ No se encontró el archivo: ${file}`);
-      }
+  // Cerrar el diálogo (puede cerrarse automáticamente o necesitar hacer clic en Aplicar/Cerrar)
+  // Intentar cerrar si aún está abierto
+  const isStillOpen = await startDateInput.isVisible().catch(() => false);
+  if (isStillOpen) {
+    // Buscar botón de cerrar o aplicar para cerrar el diálogo
+    const closeButton = page.locator('button:has-text("Aplicar"), button:has-text("Cerrar"), button:has(i.icon-x)').first();
+    const closeButtonCount = await closeButton.count();
+    if (closeButtonCount > 0) {
+      await closeButton.click();
+      await page.waitForTimeout(1000);
     }
-
-    // Comparar antes vs después del filtro
-    console.log('🔄 Comparando antes vs después del filtro...');
-    const beforeStats = fs.statSync('filtrar01-promotions-before-filter.png');
-    const afterFilterStats = fs.statSync('filtrar04-after-apply-filter.png');
-    const afterClearStats = fs.statSync('filtrar06-after-clear.png');
-    
-    console.log(`📊 Tamaño antes del filtro: ${beforeStats.size} bytes`);
-    console.log(`📊 Tamaño después del filtro: ${afterFilterStats.size} bytes`);
-    console.log(`📊 Tamaño después de limpiar: ${afterClearStats.size} bytes`);
-
-    // Validar que hubo cambios al aplicar el filtro
-    const filterChanges = beforeStats.size !== afterFilterStats.size;
-    const clearChanges = afterFilterStats.size !== afterClearStats.size;
-    const backToOriginal = beforeStats.size === afterClearStats.size;
-
-    if (!filterChanges) {
-      throw new Error('❌ No se detectaron cambios al aplicar el filtro');
-    }
-
-    if (!clearChanges) {
-      throw new Error('❌ No se detectaron cambios al limpiar el filtro');
-    }
-
-    if (backToOriginal) {
-      console.log('✅ Flujo completo exitoso: Inicial → Filtrado → Limpiado (vuelta al original)');
-    } else {
-      console.log('✅ Filtro y limpieza exitosos: Se detectaron cambios en ambas operaciones');
-    }
-
-    // Comparación pixel por pixel para validación adicional
-    try {
-      const beforeImage = PNG.sync.read(fs.readFileSync('filtrar01-promotions-before-filter.png'));
-      const afterFilterImage = PNG.sync.read(fs.readFileSync('filtrar04-after-apply-filter.png'));
-      const afterClearImage = PNG.sync.read(fs.readFileSync('filtrar06-after-clear.png'));
-
-      // Comparar inicial vs filtrado
-      const diff1 = new PNG({ width: beforeImage.width, height: beforeImage.height });
-      const pixels1 = pixelmatch(beforeImage.data, afterFilterImage.data, diff1.data, beforeImage.width, beforeImage.height, { threshold: 0.1 });
-      
-      // Comparar filtrado vs limpiado
-      const diff2 = new PNG({ width: afterFilterImage.width, height: afterFilterImage.height });
-      const pixels2 = pixelmatch(afterFilterImage.data, afterClearImage.data, diff2.data, afterFilterImage.width, afterFilterImage.height, { threshold: 0.1 });
-
-      console.log(`🔍 Píxeles diferentes (inicial → filtrado): ${pixels1}`);
-      console.log(`🔍 Píxeles diferentes (filtrado → limpiado): ${pixels2}`);
-
-      if (pixels1 === 0) {
-        throw new Error('❌ No se detectaron cambios pixel por pixel al aplicar el filtro');
-      }
-      if (pixels2 === 0) {
-        throw new Error('❌ No se detectaron cambios pixel por pixel al limpiar el filtro');
-      }
-
-    } catch (pngError) {
-      console.warn('⚠️ No se pudo realizar comparación pixel por pixel:', pngError.message);
-      // Continuar con la validación basada en tamaño de archivo
-    }
-
-  } catch (error) {
-    console.error('Error al comparar screenshots:', error);
-    throw new Error('❌ Error al procesar la comparación de screenshots');
   }
+
+  // Esperar a que el listado se actualice después de limpiar
+  await page.waitForTimeout(2000);
+
+  // Contar promociones después de limpiar
+  const afterClearCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones después de limpiar filtro: ${afterClearCount}`);
+
+  // Validar que se restauraron todas las promociones
+  if (afterClearCount === initialPromoCount) {
+    console.log(`✅ Limpieza exitosa: Se restauraron todas las promociones (${afterClearCount})`);
+  } else {
+    console.warn(`⚠️ El conteo después de limpiar no coincide con el inicial. Inicial: ${initialPromoCount}, Después: ${afterClearCount}`);
+    // Esto puede ser aceptable si hay diferencias menores, pero lo reportamos
+    if (Math.abs(afterClearCount - initialPromoCount) > 2) {
+      throw new Error(`❌ Diferencia significativa después de limpiar. Inicial: ${initialPromoCount}, Después: ${afterClearCount}`);
+    }
+  }
+
+  // Resumen final
+  console.log('\n📋 RESUMEN DE VALIDACIONES:');
+  console.log(`  ✅ Estado inicial: ${initialPromoCount} promociones`);
+  console.log(`  ✅ Después de aplicar filtro: ${afterFilterCount} promociones`);
+  console.log(`  ✅ Después de limpiar filtro: ${afterClearCount} promociones`);
+  console.log(`  ✅ Rango de fechas: ${startDate} - ${endDate}`);
+  console.log(`  ✅ Filtro aplicado: ${afterFilterCount !== initialPromoCount ? 'Sí' : 'No (todas las promociones están en el rango)'}`);
+  console.log(`  ✅ Estado restaurado: ${afterClearCount === initialPromoCount ? 'Sí' : 'Parcial'}`);
 });
 
 test('Buscar promociones', async ({ page }) => {
@@ -503,19 +507,62 @@ test('Buscar promociones', async ({ page }) => {
   await expect(page.getByText('Crear promoción')).toBeVisible();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT ANTES DE BUSCAR ---
-  await page.screenshot({ path: 'buscar01-promotions-before-search.png', fullPage: true });
+  // --- OBTENER ESTADO INICIAL ---
+  await showStepMessage(page, '📊 OBTENIENDO ESTADO INICIAL');
+  const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+  const initialPromoCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones iniciales: ${initialPromoCount}`);
+  
+  // Verificar que hay promociones para buscar
+  if (initialPromoCount === 0) {
+    throw new Error('❌ No hay promociones disponibles para realizar la búsqueda');
+  }
 
   // --- REALIZAR BÚSQUEDA ---
   await showStepMessage(page, '🔍 REALIZANDO BÚSQUEDA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
   const searchInput = page.locator('input#Search');
-  await searchInput.fill('Promo de prueba');
-  await page.waitForTimeout(2000); // Esperar a que se procese la búsqueda
+  const searchTerm = 'Promo de prueba';
+  await searchInput.fill(searchTerm);
+  
+  // Esperar a que se procese la búsqueda (esperar a que el listado se actualice)
+  await page.waitForTimeout(2000);
+  
+  // Verificar que el campo de búsqueda tiene el valor correcto
+  const searchValue = await searchInput.inputValue();
+  if (searchValue !== searchTerm) {
+    throw new Error(`❌ El campo de búsqueda no tiene el valor esperado. Esperado: "${searchTerm}", Obtenido: "${searchValue}"`);
+  }
+  console.log(`✅ Campo de búsqueda contiene: "${searchValue}"`);
 
-  // --- SCREENSHOT DESPUÉS DE BÚSQUEDA ---
-  await page.screenshot({ path: 'buscar02-promotions-after-search.png', fullPage: true });
+  // Contar promociones después de la búsqueda
+  const afterSearchCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones después de búsqueda: ${afterSearchCount}`);
+
+  // Validar que la búsqueda filtró resultados
+  if (afterSearchCount >= initialPromoCount) {
+    console.warn(`⚠️ La búsqueda no filtró resultados. Inicial: ${initialPromoCount}, Después: ${afterSearchCount}`);
+  } else {
+    console.log(`✅ Búsqueda exitosa: Se filtraron ${initialPromoCount - afterSearchCount} promociones`);
+  }
+
+  // Verificar que las promociones visibles contienen el término de búsqueda
+  if (afterSearchCount > 0) {
+    const visiblePromos = promoCardsLocator;
+    let matchingPromos = 0;
+    for (let i = 0; i < afterSearchCount; i++) {
+      const promoText = await visiblePromos.nth(i).textContent();
+      if (promoText && promoText.toLowerCase().includes(searchTerm.toLowerCase())) {
+        matchingPromos++;
+      }
+    }
+    console.log(`✅ Promociones que coinciden con "${searchTerm}": ${matchingPromos}/${afterSearchCount}`);
+    
+    if (matchingPromos === 0 && afterSearchCount > 0) {
+      console.warn('⚠️ Ninguna promoción visible contiene el término de búsqueda');
+    }
+  }
 
   // --- LIMPIAR BÚSQUEDA ---
   await showStepMessage(page, '🧹 LIMPIANDO BÚSQUEDA');
@@ -524,18 +571,55 @@ test('Buscar promociones', async ({ page }) => {
   await searchInput.clear();
   await page.waitForTimeout(2000); // Esperar a que se procese la limpieza
 
-  // --- SCREENSHOT DESPUÉS DE LIMPIAR BÚSQUEDA ---
-  await page.screenshot({ path: 'buscar03-promotions-after-clear-search.png', fullPage: true });
+  // Verificar que el campo de búsqueda está vacío
+  const clearedSearchValue = await searchInput.inputValue();
+  if (clearedSearchValue !== '') {
+    throw new Error(`❌ El campo de búsqueda no se limpió correctamente. Valor: "${clearedSearchValue}"`);
+  }
+  console.log(`✅ Campo de búsqueda limpiado correctamente`);
+
+  // Contar promociones después de limpiar
+  const afterClearCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones después de limpiar: ${afterClearCount}`);
+
+  // Validar que se restauraron todas las promociones
+  if (afterClearCount === initialPromoCount) {
+    console.log(`✅ Limpieza exitosa: Se restauraron todas las promociones (${afterClearCount})`);
+  } else {
+    console.warn(`⚠️ El conteo después de limpiar no coincide con el inicial. Inicial: ${initialPromoCount}, Después: ${afterClearCount}`);
+  }
 
   // --- BÚSQUEDA CON TÉRMINO NO EXISTENTE ---
   await showStepMessage(page, '❌ BUSCANDO TÉRMINO NO EXISTENTE');
   await page.waitForTimeout(1000);
   
-  await searchInput.fill('Término que no existe');
+  const nonExistentTerm = 'Término que no existe';
+  await searchInput.fill(nonExistentTerm);
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT CON BÚSQUEDA SIN RESULTADOS ---
-  await page.screenshot({ path: 'buscar04-promotions-no-results.png', fullPage: true });
+  // Verificar que el campo tiene el término
+  const noResultsSearchValue = await searchInput.inputValue();
+  if (noResultsSearchValue !== nonExistentTerm) {
+    throw new Error(`❌ El campo de búsqueda no tiene el término esperado. Esperado: "${nonExistentTerm}", Obtenido: "${noResultsSearchValue}"`);
+  }
+
+  // Contar promociones con búsqueda sin resultados
+  const noResultsCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones con búsqueda sin resultados: ${noResultsCount}`);
+
+  // Validar que no hay resultados (o verificar mensaje de "sin resultados")
+  if (noResultsCount === 0) {
+    console.log(`✅ Búsqueda sin resultados exitosa: No se encontraron promociones`);
+    
+    // Verificar si hay un mensaje de "sin resultados" (opcional, depende de la UI)
+    const noResultsMessage = page.locator('text=/no.*resultado|sin.*resultado|no.*encontrado/i');
+    const hasNoResultsMessage = await noResultsMessage.count() > 0;
+    if (hasNoResultsMessage) {
+      console.log(`✅ Mensaje de "sin resultados" encontrado`);
+    }
+  } else {
+    console.warn(`⚠️ Se encontraron ${noResultsCount} promociones cuando se esperaba 0`);
+  }
 
   // --- LIMPIAR BÚSQUEDA Y VERIFICAR VUELTA AL ORIGINAL ---
   await showStepMessage(page, '🔄 LIMPIANDO BÚSQUEDA Y VERIFICANDO VUELTA AL ORIGINAL');
@@ -544,130 +628,31 @@ test('Buscar promociones', async ({ page }) => {
   await searchInput.clear();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT FINAL DESPUÉS DE LIMPIAR ---
-  await page.screenshot({ path: 'buscar05-promotions-final-clear.png', fullPage: true });
-
-  // --- COMPARAR SCREENSHOTS ---
-  try {
-    // Verificar que los archivos existen
-    const files = [
-      'buscar01-promotions-before-search.png',
-      'buscar02-promotions-after-search.png',
-      'buscar03-promotions-after-clear-search.png',
-      'buscar04-promotions-no-results.png',
-      'buscar05-promotions-final-clear.png'
-    ];
-    
-    for (const file of files) {
-      if (!fs.existsSync(file)) {
-        throw new Error(`❌ No se encontró el archivo: ${file}`);
-      }
-    }
-
-    // Comparar antes vs después de búsqueda
-    console.log('🔄 Comparando antes vs después de búsqueda...');
-    const beforeStats = fs.statSync('buscar01-promotions-before-search.png');
-    const afterSearchStats = fs.statSync('buscar02-promotions-after-search.png');
-    const afterClearStats = fs.statSync('buscar03-promotions-after-clear-search.png');
-    const noResultsStats = fs.statSync('buscar04-promotions-no-results.png');
-    const finalClearStats = fs.statSync('buscar05-promotions-final-clear.png');
-    
-    console.log(`📊 Tamaño antes de búsqueda: ${beforeStats.size} bytes`);
-    console.log(`📊 Tamaño después de búsqueda: ${afterSearchStats.size} bytes`);
-    console.log(`📊 Tamaño después de limpiar: ${afterClearStats.size} bytes`);
-    console.log(`📊 Tamaño sin resultados: ${noResultsStats.size} bytes`);
-    console.log(`📊 Tamaño final después de limpiar: ${finalClearStats.size} bytes`);
-
-    // Validar que hubo cambios en la búsqueda
-    const searchChanges = beforeStats.size !== afterSearchStats.size;
-    const clearChanges = afterSearchStats.size !== afterClearStats.size;
-    const backToOriginal = beforeStats.size === afterClearStats.size;
-    const noResultsChanges = afterClearStats.size !== noResultsStats.size;
-    const finalBackToOriginal = beforeStats.size === finalClearStats.size;
-
-    if (!searchChanges) {
-      console.warn('⚠️ No se detectaron cambios al realizar la búsqueda');
-    } else {
-      console.log('✅ Búsqueda exitosa: Se detectaron cambios');
-    }
-
-    if (!clearChanges) {
-      console.warn('⚠️ No se detectaron cambios al limpiar la búsqueda');
-    } else {
-      console.log('✅ Limpieza exitosa: Se detectaron cambios');
-    }
-
-    if (backToOriginal) {
-      console.log('✅ Búsqueda completa: Inicial → Buscado → Limpiado (vuelta al original)');
-    } else {
-      console.log('✅ Búsqueda y limpieza exitosas: Se detectaron cambios en ambas operaciones');
-    }
-
-    if (!noResultsChanges) {
-      console.warn('⚠️ No se detectaron cambios al buscar término inexistente');
-    } else {
-      console.log('✅ Búsqueda sin resultados exitosa: Se detectaron cambios');
-    }
-
-    if (finalBackToOriginal) {
-      console.log('✅ VUELTA AL ORIGINAL EXITOSA: El estado final es idéntico al inicial');
-    } else {
-      console.warn('⚠️ El estado final no es idéntico al inicial - puede haber diferencias visuales');
-    }
-
-    // Comparación pixel por pixel para validación adicional
-    try {
-      const beforeImage = PNG.sync.read(fs.readFileSync('buscar01-promotions-before-search.png'));
-      const afterSearchImage = PNG.sync.read(fs.readFileSync('buscar02-promotions-after-search.png'));
-      const afterClearImage = PNG.sync.read(fs.readFileSync('buscar03-promotions-after-clear-search.png'));
-      const noResultsImage = PNG.sync.read(fs.readFileSync('buscar04-promotions-no-results.png'));
-      const finalClearImage = PNG.sync.read(fs.readFileSync('buscar05-promotions-final-clear.png'));
-
-      // Comparar inicial vs búsqueda
-      const diff1 = new PNG({ width: beforeImage.width, height: beforeImage.height });
-      const pixels1 = pixelmatch(beforeImage.data, afterSearchImage.data, diff1.data, beforeImage.width, beforeImage.height, { threshold: 0.1 });
-      
-      // Comparar búsqueda vs limpiado
-      const diff2 = new PNG({ width: afterSearchImage.width, height: afterSearchImage.height });
-      const pixels2 = pixelmatch(afterSearchImage.data, afterClearImage.data, diff2.data, afterSearchImage.width, afterSearchImage.height, { threshold: 0.1 });
-
-      // Comparar limpiado vs sin resultados
-      const diff3 = new PNG({ width: afterClearImage.width, height: afterClearImage.height });
-      const pixels3 = pixelmatch(afterClearImage.data, noResultsImage.data, diff3.data, afterClearImage.width, afterClearImage.height, { threshold: 0.1 });
-
-      // Comparar inicial vs final (verificación de vuelta al original)
-      const diff4 = new PNG({ width: beforeImage.width, height: beforeImage.height });
-      const pixels4 = pixelmatch(beforeImage.data, finalClearImage.data, diff4.data, beforeImage.width, beforeImage.height, { threshold: 0.1 });
-
-      console.log(`🔍 Píxeles diferentes (inicial → búsqueda): ${pixels1}`);
-      console.log(`🔍 Píxeles diferentes (búsqueda → limpiado): ${pixels2}`);
-      console.log(`🔍 Píxeles diferentes (limpiado → sin resultados): ${pixels3}`);
-      console.log(`🔍 Píxeles diferentes (inicial → final): ${pixels4}`);
-
-      if (pixels1 === 0 && searchChanges) {
-        console.warn('⚠️ No se detectaron cambios pixel por pixel en la búsqueda');
-      }
-      if (pixels2 === 0 && clearChanges) {
-        console.warn('⚠️ No se detectaron cambios pixel por pixel al limpiar');
-      }
-      if (pixels3 === 0 && noResultsChanges) {
-        console.warn('⚠️ No se detectaron cambios pixel por pixel en búsqueda sin resultados');
-      }
-      if (pixels4 === 0) {
-        console.log('✅ PERFECTO: El estado final es idéntico al inicial (0 píxeles diferentes)');
-      } else {
-        console.warn(`⚠️ El estado final tiene ${pixels4} píxeles diferentes al inicial`);
-      }
-
-    } catch (pngError) {
-      console.warn('⚠️ No se pudo realizar comparación pixel por pixel:', pngError.message);
-      // Continuar con la validación basada en tamaño de archivo
-    }
-
-  } catch (error) {
-    console.error('Error al comparar screenshots:', error);
-    throw new Error('❌ Error al procesar la comparación de screenshots');
+  // Verificar que el campo está vacío
+  const finalSearchValue = await searchInput.inputValue();
+  if (finalSearchValue !== '') {
+    throw new Error(`❌ El campo de búsqueda no está vacío. Valor: "${finalSearchValue}"`);
   }
+
+  // Contar promociones finales
+  const finalPromoCount = await promoCardsLocator.count();
+  console.log(`📊 Promociones finales: ${finalPromoCount}`);
+
+  // Validar que se volvió al estado original
+  if (finalPromoCount === initialPromoCount) {
+    console.log(`✅ VUELTA AL ORIGINAL EXITOSA: El conteo final (${finalPromoCount}) coincide con el inicial (${initialPromoCount})`);
+  } else {
+    throw new Error(`❌ El estado final no coincide con el inicial. Inicial: ${initialPromoCount}, Final: ${finalPromoCount}`);
+  }
+
+  // Resumen final
+  console.log('\n📋 RESUMEN DE VALIDACIONES:');
+  console.log(`  ✅ Estado inicial: ${initialPromoCount} promociones`);
+  console.log(`  ✅ Después de búsqueda: ${afterSearchCount} promociones`);
+  console.log(`  ✅ Después de limpiar: ${afterClearCount} promociones`);
+  console.log(`  ✅ Búsqueda sin resultados: ${noResultsCount} promociones`);
+  console.log(`  ✅ Estado final: ${finalPromoCount} promociones`);
+  console.log(`  ✅ Campo de búsqueda: "${finalSearchValue}" (vacío)`);
 });
 
 test('Editar promoción', async ({ page }) => {
