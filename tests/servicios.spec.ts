@@ -161,8 +161,6 @@ test('Crear servicio', async ({ page }) => {
   await serviciosBtn.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT PÁGINA DE SERVICIOS ---
-  await page.screenshot({ path: 'servicios01-services-page.png', fullPage: true });
 
   // --- CREAR SERVICIO ---
   await showStepMessage(page, '➕ CREANDO NUEVO SERVICIO');
@@ -172,15 +170,11 @@ test('Crear servicio', async ({ page }) => {
   await crearServicioBtn.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT FORMULARIO DE CREAR SERVICIO ---
-  await page.screenshot({ path: 'Servicios-Crear-01-formulario-crear-servicio.png', fullPage: true });
 
   // --- SELECCIONAR CATEGORÍA ALEATORIA ---
   const nombreCategoria = await selectRandomCategory(page, 'SELECCIONANDO CATEGORÍA ALEATORIA');
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT DESPUÉS DE SELECCIONAR CATEGORÍA ---
-  await page.screenshot({ path: 'Servicios-Crear-02-categoria-seleccionada.png', fullPage: true });
 
   // --- SELECCIONAR SUBCATEGORÍA ALEATORIA ---
   // Detectar la categoría actual por el título (más específico)
@@ -212,15 +206,11 @@ test('Crear servicio', async ({ page }) => {
     await showStepMessage(page, '🎯 SELECCIONANDO SUBCATEGORÍA ANIDADA');
     await page.waitForTimeout(2000);
 
-    // --- SCREENSHOT ANTES DE SELECCIONAR SUBCATEGORÍA ANIDADA ---
-    await page.screenshot({ path: 'servicios04-before-nested-subcategory.png', fullPage: true });
 
     try {
       nombreSubcategoriaAnidada = await selectRandomCategory(page, 'SELECCIONANDO SUBCATEGORÍA ANIDADA');
       await page.waitForTimeout(2000);
 
-      // --- SCREENSHOT DESPUÉS DE SELECCIONAR SUBCATEGORÍA ANIDADA ---
-      await page.screenshot({ path: 'servicios04-nested-subcategory-selected.png', fullPage: true });
 
       console.log(`✅ Subcategoría anidada "${nombreSubcategoriaAnidada}" seleccionada exitosamente`);
     } catch (error) {
@@ -229,8 +219,6 @@ test('Crear servicio', async ({ page }) => {
     }
   }
 
-  // --- SCREENSHOT DESPUÉS DE SELECCIONAR SUBCATEGORÍA ---
-  await page.screenshot({ path: 'Servicios-Crear-03-subcategoria-seleccionada.png', fullPage: true });
 
   const subcategoriaFinal = nombreSubcategoriaAnidada || nombreSubcategoria;
   console.log(`✅ Subcategoría final "${subcategoriaFinal}" de "${tituloCategoria}" seleccionada exitosamente`);
@@ -397,8 +385,6 @@ test('Crear servicio', async ({ page }) => {
   await page.locator('input[id="MaxAmount"]').fill(maxCapacity.toString());
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT FORMULARIO LLENO ---
-  await page.screenshot({ path: 'Servicios-Crear-04-formulario-datos-llenado.png', fullPage: true });
 
   // Enviar formulario
   console.log('🔍 TRACE: Enviando formulario de detalles...');
@@ -411,8 +397,6 @@ test('Crear servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Espera después de ServiceDetailsForm completada');
 
-  // --- SCREENSHOT PÁGINA DE PRECIOS ---
-  await page.screenshot({ path: 'Servicios-Crear-05-pagina-precios.png', fullPage: true });
 
   // --- LLENAR FORMULARIO DE PRECIOS Y CONDICIONES ---
   await showStepMessage(page, '💰 CONFIGURANDO PRECIOS Y CONDICIONES');
@@ -477,8 +461,6 @@ test('Crear servicio', async ({ page }) => {
     await page.waitForTimeout(500);
   }
 
-  // --- SCREENSHOT FORMULARIO DE PRECIOS LLENO ---
-  await page.screenshot({ path: 'Servicios-Crear-06-formulario-precios-llenado.png', fullPage: true });
 
   // Enviar formulario de precios
   console.log('🔍 TRACE: Enviando formulario de precios...');
@@ -491,8 +473,6 @@ test('Crear servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Espera después de ServicePriceConditionsForm completada');
 
-  // --- SCREENSHOT PÁGINA DE ATRIBUTOS ---
-  await page.screenshot({ path: 'Servicios-Crear-07-pagina-atributos.png', fullPage: true });
 
   console.log(`✅ Formulario de precios llenado exitosamente: $${price}`);
 
@@ -521,8 +501,6 @@ test('Crear servicio', async ({ page }) => {
     }
   }
 
-  // --- SCREENSHOT DESPUÉS DE SELECCIONAR ATRIBUTOS ---
-  await page.screenshot({ path: 'Servicios-Crear-08-atributos-seleccionados.png', fullPage: true });
 
   // Enviar formulario de atributos
   console.log('🔍 TRACE: Enviando formulario de atributos...');
@@ -535,8 +513,6 @@ test('Crear servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Espera después de ServiceAttributesForm completada');
 
-  // --- SCREENSHOT PÁGINA DE RANGO DE SERVICIO ---
-  await page.screenshot({ path: 'Servicios-Crear-09-pagina-rango-servicio.png', fullPage: true });
 
   console.log(`✅ Atributos seleccionados exitosamente`);
 
@@ -562,8 +538,6 @@ test('Crear servicio', async ({ page }) => {
     await rangeSlider.fill(String(randomRangeIndex));
     await page.waitForTimeout(2000);
 
-    // --- SCREENSHOT FORMULARIO DE RANGO LLENO ---
-    await page.screenshot({ path: 'Servicios-Crear-10-formulario-rango-llenado.png', fullPage: true });
 
     // Enviar formulario de rango
     console.log('🔍 TRACE: Enviando formulario de rango...');
@@ -581,8 +555,6 @@ test('Crear servicio', async ({ page }) => {
     await showStepMessage(page, '📍 OMITIENDO RANGO DE SERVICIO (CATEGORÍA LUGARES)');
     await page.waitForTimeout(2000);
 
-    // --- SCREENSHOT OMITIENDO RANGO ---
-    await page.screenshot({ path: 'Servicios-Crear-10-omitir-rango-lugares.png', fullPage: true });
   }
 
   // Esperar a que aparezca la página de media o el botón final
@@ -591,8 +563,6 @@ test('Crear servicio', async ({ page }) => {
     await page.waitForSelector('#Step_6', { timeout: 10000 });
     console.log('✅ TRACE: Llegamos a la página de media');
 
-    // --- SCREENSHOT PÁGINA DE MEDIA ---
-    await page.screenshot({ path: 'Servicios-Crear-11-pagina-media.png', fullPage: true });
 
     // Subir 1 IMAGEN PEQUEÑA para activar el botón de envío (más rápido)
     console.log('🔍 TRACE: Iniciando subida de imagen...');
@@ -633,8 +603,6 @@ test('Crear servicio', async ({ page }) => {
       console.log('🔍 TRACE: Tiempo adicional de espera completado');
     }
 
-    // --- SCREENSHOT DESPUÉS DE SUBIR IMAGEN ---
-    await page.screenshot({ path: 'Servicios-Crear-12-imagen-subida.png', fullPage: true });
 
     // Hacer clic en el botón de envío (ya verificamos que está visible)
     console.log('🔍 TRACE: Haciendo clic en botón ServiceMediaForm...');
@@ -669,9 +637,6 @@ test('Crear servicio', async ({ page }) => {
     await page.waitForTimeout(3000);
     console.log('🔍 TRACE: Espera después de ServiceMediaForm completada');
 
-    // --- SCREENSHOT DESPUÉS DE CLIC EN SERVICEMEDIAFORM ---
-    await page.screenshot({ path: 'Servicios-Crear-13-despues-clic-servicemediaform.png', fullPage: true });
-    console.log('🔍 TRACE: Screenshot tomado después de ServiceMediaForm');
 
     // Página intermedia de confirmación con botón "Finalizar"
     console.log('🔍 TRACE: Buscando página de confirmación con botón "Finalizar"...');
@@ -745,8 +710,6 @@ test('Crear servicio', async ({ page }) => {
     console.log(`🔍 TRACE: Error al buscar "Crear servicio": ${error}`);
   }
 
-  // --- SCREENSHOT ADMINISTRADOR DE SERVICIOS ---
-  await page.screenshot({ path: 'Servicios-Crear-14-regreso-administrador-servicios.png', fullPage: true });
 
   console.log(`✅ Servicio "${serviceName}" creado exitosamente`);
 });
@@ -776,8 +739,6 @@ test('Editar servicio', async ({ page }) => {
 
   await page.waitForTimeout(3000);
 
-  // --- SCREENSHOT ADMINISTRADOR DE SERVICIOS ---
-  await page.screenshot({ path: 'Servicios-Editar-01-administrador-servicios.png', fullPage: true });
 
   // --- BUSCAR SERVICIO ALEATORIO Y ABRIR MENÚ ---
   console.log('🔍 TRACE: Buscando servicios disponibles en la lista...');
@@ -805,12 +766,6 @@ test('Editar servicio', async ({ page }) => {
   await expect(threeDotsButton).toBeVisible({ timeout: 10000 });
   console.log('🔍 TRACE: Botón de tres puntos del servicio aleatorio encontrado');
 
-  // --- SCREENSHOT SERVICIO SELECCIONADO ALEATORIAMENTE ---
-  await page.screenshot({ path: 'Servicios-Editar-02-servicio-seleccionado.png', fullPage: true });
-  console.log(`🔍 TRACE: Screenshot tomado del servicio seleccionado (índice ${randomIndex})`);
-
-  // --- SCREENSHOT ANTES DE ABRIR MENÚ ---
-  await page.screenshot({ path: 'Servicios-Editar-03-antes-abrir-menu.png', fullPage: true });
 
   // Hacer clic en el botón de tres puntos
   console.log('🔍 TRACE: Haciendo clic en botón de tres puntos...');
@@ -818,8 +773,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(2000);
   console.log('🔍 TRACE: Clic en tres puntos completado');
 
-  // --- SCREENSHOT MENÚ ABIERTO ---
-  await page.screenshot({ path: 'Servicios-Editar-04-menu-abierto.png', fullPage: true });
 
   // --- SELECCIONAR OPCIÓN "Editar" ---
   console.log('🔍 TRACE: Buscando opción "Editar" en el menú...');
@@ -833,8 +786,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Clic en "Editar" completado');
 
-  // --- SCREENSHOT PÁGINA DE EDICIÓN ---
-  await page.screenshot({ path: 'Servicios-Editar-05-pagina-edicion.png', fullPage: true });
 
   // --- EDITAR NOMBRE DEL SERVICIO ---
   console.log('🔍 TRACE: Editando nombre del servicio...');
@@ -881,8 +832,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(1000);
   console.log(`🔍 TRACE: Capacidad editada: ${newMinCapacity}-${newMaxCapacity}`);
 
-  // --- SCREENSHOT FORMULARIO EDITADO ---
-  await page.screenshot({ path: 'Servicios-Editar-06-formulario-editado.png', fullPage: true });
 
   // --- ENVIAR FORMULARIO DE DETALLES ---
   console.log('🔍 TRACE: Enviando formulario de detalles editado...');
@@ -893,8 +842,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Formulario de detalles enviado');
 
-  // --- SCREENSHOT PÁGINA DE PRECIOS EDITADA ---
-  await page.screenshot({ path: 'Servicios-Editar-07-pagina-precios.png', fullPage: true });
 
   // --- EDITAR PRECIO ---
   console.log('🔍 TRACE: Editando precio...');
@@ -919,8 +866,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(1000);
   console.log('🔍 TRACE: Condiciones editadas');
 
-  // --- SCREENSHOT FORMULARIO DE PRECIOS EDITADO ---
-  await page.screenshot({ path: 'Servicios-Editar-08-formulario-precios-editado.png', fullPage: true });
 
   // --- ENVIAR FORMULARIO DE PRECIOS ---
   console.log('🔍 TRACE: Enviando formulario de precios editado...');
@@ -931,8 +876,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Formulario de precios enviado');
 
-  // --- SCREENSHOT PÁGINA DE ATRIBUTOS EDITADA ---
-  await page.screenshot({ path: 'Servicios-Editar-09-pagina-atributos.png', fullPage: true });
 
   // --- EDITAR ATRIBUTOS ---
   console.log('🔍 TRACE: Editando atributos...');
@@ -973,8 +916,6 @@ test('Editar servicio', async ({ page }) => {
     }
   }
 
-  // --- SCREENSHOT ATRIBUTOS EDITADOS ---
-  await page.screenshot({ path: 'Servicios-Editar-10-atributos-editados.png', fullPage: true });
 
   // --- ENVIAR FORMULARIO DE ATRIBUTOS ---
   console.log('🔍 TRACE: Enviando formulario de atributos editado...');
@@ -985,8 +926,6 @@ test('Editar servicio', async ({ page }) => {
   await page.waitForTimeout(3000);
   console.log('🔍 TRACE: Formulario de atributos enviado');
 
-  // --- SCREENSHOT PÁGINA DE RANGO EDITADA ---
-  await page.screenshot({ path: 'Servicios-Editar-11-pagina-rango.png', fullPage: true });
 
   // --- EDITAR RANGO (si no es categoría Lugares) ---
   console.log('🔍 TRACE: Verificando si necesita editar rango...');
@@ -1008,8 +947,6 @@ test('Editar servicio', async ({ page }) => {
       await page.waitForTimeout(1000);
       console.log(`🔍 TRACE: Rango editado: ${newRangeIndex}`);
 
-      // --- SCREENSHOT RANGO EDITADO ---
-      await page.screenshot({ path: 'Servicios-Editar-12-rango-editado.png', fullPage: true });
 
       // --- ENVIAR FORMULARIO DE RANGO ---
       console.log('🔍 TRACE: Enviando formulario de rango editado...');
@@ -1024,8 +961,6 @@ test('Editar servicio', async ({ page }) => {
     console.log(`🔍 TRACE: Error editando rango: ${error}`);
   }
 
-  // --- SCREENSHOT PÁGINA DE MEDIA ---
-  await page.screenshot({ path: 'Servicios-Editar-13-pagina-media.png', fullPage: true });
 
   // --- AGREGAR NUEVA IMAGEN ---
   console.log('🔍 TRACE: Agregando nueva imagen...');
@@ -1064,8 +999,6 @@ test('Editar servicio', async ({ page }) => {
     await page.waitForTimeout(5000);
   }
 
-  // --- SCREENSHOT DESPUÉS DE AGREGAR IMAGEN ---
-  await page.screenshot({ path: 'Servicios-Editar-14-imagen-agregada.png', fullPage: true });
 
   // --- FINALIZAR EDICIÓN ---
   console.log('🔍 TRACE: Finalizando edición...');
@@ -1126,8 +1059,6 @@ test('Editar servicio', async ({ page }) => {
     console.log(`🔍 TRACE: Error con botón final: ${error}`);
   }
 
-  // --- SCREENSHOT FINAL ---
-  await page.screenshot({ path: 'Servicios-Editar-15-finalizacion.png', fullPage: true });
 
   // --- REGRESAR AL ADMINISTRADOR DE SERVICIOS ---
   console.log('🔍 TRACE: Regresando al administrador de servicios...');
@@ -1183,8 +1114,6 @@ test('Editar servicio', async ({ page }) => {
     }
   }
 
-  // --- SCREENSHOT ADMINISTRADOR DE SERVICIOS FINAL ---
-  await page.screenshot({ path: 'Servicios-Editar-16-regreso-administrador.png', fullPage: true });
 
   console.log(`✅ Servicio editado exitosamente: ${newName}`);
   console.log('✅ Regreso al administrador de servicios completado');
@@ -1534,13 +1463,7 @@ test('Filtrar servicios', async ({ page }) => {
   await clearButton.click();
   await page.waitForTimeout(500);
 
-  // Validar que los filtros se limpiaron (verificar que los botones volvieron a su estado inicial)
-  const categoriaAfterClear = await botonCategoria.textContent();
-  const statusAfterClear = await botonStatus.textContent();
-  console.log(`✅ Categoría después de limpiar: "${categoriaAfterClear}"`);
-  console.log(`✅ Estatus después de limpiar: "${statusAfterClear}"`);
-
-  // Cerrar el diálogo si aún está abierto
+    // Cerrar el diálogo si aún está abierto
   const isStillOpen = await botonCategoria.isVisible().catch(() => false);
   if (isStillOpen) {
     // Buscar botón de cerrar o aplicar para cerrar el diálogo
@@ -1590,8 +1513,6 @@ test('Ordenar servicios', async ({ page }) => {
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT ANTES DE ORDENAR ---
-  await page.screenshot({ path: 'Servicios-Ordenar-01-antes-ordenar.png', fullPage: true });
 
   // --- BUSCAR BOTÓN DE ORDENAMIENTO ---
   const sortButton = page.locator('button:has(i.icon-sort), button:has(i.icon-sort-descending), button:has(i.icon-sort-ascending), button[class*="sort"]').first();
@@ -1602,8 +1523,6 @@ test('Ordenar servicios', async ({ page }) => {
     await sortButton.click();
     await page.waitForTimeout(2000);
 
-    // --- SCREENSHOT DESPUÉS DE PRIMER ORDENAMIENTO ---
-    await page.screenshot({ path: 'Servicios-Ordenar-02-despues-primer-orden.png', fullPage: true });
 
     // --- ORDENAR SEGUNDA VEZ ---
     await showStepMessage(page, '🟢 ORDENANDO SERVICIOS (SEGUNDA VEZ)');
@@ -1611,8 +1530,6 @@ test('Ordenar servicios', async ({ page }) => {
     await sortButton.click();
     await page.waitForTimeout(2000);
 
-    // --- SCREENSHOT DESPUÉS DE SEGUNDO ORDENAMIENTO ---
-    await page.screenshot({ path: 'Servicios-Ordenar-03-despues-segundo-orden.png', fullPage: true });
 
     console.log('✅ Ordenamiento de servicios completado');
   } else {
@@ -1632,8 +1549,6 @@ test('Navegar a chats desde servicios', async ({ page }) => {
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT PÁGINA DE SERVICIOS ---
-  await page.screenshot({ path: 'Servicios-Navegacion-01-servicios-page.png', fullPage: true });
 
   // --- NAVEGAR A CHATS DESDE SERVICIOS ---
   await showStepMessage(page, '💬 NAVEGANDO AL DASHBOARD DE CHATS DESDE SERVICIOS');
@@ -1652,8 +1567,6 @@ test('Navegar a chats desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba /provider/chats, obtuvo: ${currentUrl}`);
     }
 
-    // --- SCREENSHOT PÁGINA DE CONVERSACIONES ---
-    await page.screenshot({ path: 'Servicios-Navegacion-02-conversations-page.png', fullPage: true });
 
     // --- REGRESAR A PÁGINA DE SERVICIOS ---
     await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE SERVICIOS');
@@ -1670,8 +1583,6 @@ test('Navegar a chats desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba /provider/services, obtuvo: ${finalUrl}`);
     }
 
-    // --- SCREENSHOT FINAL DE REGRESO ---
-    await page.screenshot({ path: 'Servicios-Navegacion-03-back-to-services.png', fullPage: true });
 
     console.log('✅ Navegación completa: Servicios → Chats → Servicios');
   } else {
@@ -1691,8 +1602,6 @@ test('Navegar a perfil desde servicios', async ({ page }) => {
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT PÁGINA DE SERVICIOS ---
-  await page.screenshot({ path: 'Servicios-Perfil-01-servicios-page.png', fullPage: true });
 
   // --- NAVEGAR A PERFIL DESDE SERVICIOS ---
   await showStepMessage(page, '👤 NAVEGANDO AL PERFIL DESDE SERVICIOS');
@@ -1711,8 +1620,6 @@ test('Navegar a perfil desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba /provider/profile, obtuvo: ${currentUrl}`);
     }
 
-    // --- SCREENSHOT PÁGINA DE PERFIL ---
-    await page.screenshot({ path: 'Servicios-Perfil-02-profile-page.png', fullPage: true });
 
     // --- VALIDAR ELEMENTOS DE LA PÁGINA ---
     const datosPersonales = page.locator('h5:has-text("Datos personales"), h4:has-text("Datos personales"), h3:has-text("Datos personales")').first();
@@ -1735,8 +1642,6 @@ test('Navegar a perfil desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba /provider/services, obtuvo: ${finalUrl}`);
     }
 
-    // --- SCREENSHOT FINAL DE REGRESO ---
-    await page.screenshot({ path: 'Servicios-Perfil-03-back-to-services.png', fullPage: true });
 
     console.log('✅ Navegación completa: Servicios → Perfil → Servicios');
   } else {
@@ -1756,8 +1661,6 @@ test('Navegar a home desde servicios', async ({ page }) => {
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT PÁGINA DE SERVICIOS ---
-  await page.screenshot({ path: 'Servicios-Home-01-servicios-page.png', fullPage: true });
 
   // --- NAVEGAR A HOME DESDE SERVICIOS ---
   await showStepMessage(page, '🏠 NAVEGANDO AL HOME DESDE SERVICIOS');
@@ -1776,8 +1679,6 @@ test('Navegar a home desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba dashboard principal, obtuvo: ${currentUrl}`);
     }
 
-    // --- SCREENSHOT PÁGINA DE HOME ---
-    await page.screenshot({ path: 'Servicios-Home-02-home-page.png', fullPage: true });
 
     // --- VALIDAR ELEMENTOS DE LA PÁGINA ---
     const logo = page.locator('svg#Capa_1[width="282"]');
@@ -1806,8 +1707,6 @@ test('Navegar a home desde servicios', async ({ page }) => {
       throw new Error(`❌ URL incorrecta. Esperaba /provider/services, obtuvo: ${finalUrl}`);
     }
 
-    // --- SCREENSHOT FINAL DE REGRESO ---
-    await page.screenshot({ path: 'Servicios-Home-03-back-to-services.png', fullPage: true });
 
     console.log('✅ Navegación completa: Servicios → Home → Servicios');
   } else {
