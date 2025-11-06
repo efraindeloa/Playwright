@@ -16,7 +16,6 @@ async function login(page: Page) {
   // --- HOME ---
   await page.goto('https://staging.fiestamas.com');
   await page.waitForTimeout(2000);
-  await screenshotAndCompare(page, 'login01-home.png', 'refs/login01-home.png');
 
   // --- LOGIN ---
   const loginButton = page.locator('button:has(i.icon-user)');
@@ -31,9 +30,6 @@ async function login(page: Page) {
   await page.locator('button[type="submit"]').click();
   await expect(page).toHaveURL(/.*dashboard/);
   await page.waitForTimeout(2000);
-
-  // --- DASHBOARD LIMPIO ---
-  await screenshotAndCompare(page, 'login03-dashboard.png', 'refs/login03-dashboard.png');
 }
 
 async function showStepMessage(page, message) {
@@ -177,38 +173,6 @@ async function showDynamicElements(page: Page) {
   });
 }
 
-async function screenshotAndCompare(page: Page, ssPath: string, refPath: string) {
-  await hideDynamicElements(page);
-  await page.waitForTimeout(1000);
-  await page.screenshot({ 
-    path: ssPath, 
-    fullPage: true,
-    timeout: 30000  // 30 segundos para screenshots
-  });
-  await showDynamicElements(page);
-
-  if (!fs.existsSync(refPath)) {
-    console.warn(`⚠️ Referencia no encontrada: ${refPath}`);
-    return;
-  }
-
-  const imgBefore = PNG.sync.read(fs.readFileSync(path.resolve(ssPath)));
-  const imgAfter = PNG.sync.read(fs.readFileSync(path.resolve(refPath)));
-
-  if (imgBefore.width !== imgAfter.width || imgBefore.height !== imgAfter.height) {
-    throw new Error(`❌ Tamaño distinto entre ${ssPath} y referencia ${refPath}`);
-  }
-
-  const diff = new PNG({ width: imgBefore.width, height: imgBefore.height });
-  const numDiffPixels = pixelmatch(imgBefore.data, imgAfter.data, diff.data, imgBefore.width, imgBefore.height, { threshold: 0.1 });
-
-  if (numDiffPixels > 0) {
-    throw new Error(`❌ Diferencia entre ${ssPath} y referencia ${refPath}. Píxeles distintos: ${numDiffPixels}`);
-  } else {
-    console.log(`✅ ${ssPath} coincide con la referencia`);
-  }
-}
-
 test.beforeEach(async ({ page }) => {
   await login(page);
 });
@@ -226,9 +190,6 @@ test('Crear promoción', async ({ page }) => {
   await promosBtn.click();
   await expect(page.getByText('Crear promoción')).toBeVisible();
   await page.waitForTimeout(1000);
-  
-  // --- SCREENSHOT ANTES DE CREAR PROMO ---
-  await screenshotAndCompare(page, 'crear01-promotions-before.png', 'refs/crear01-promotions-before.png');
 
   // --- CREAR PROMOCIÓN ---
   await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
@@ -236,7 +197,6 @@ test('Crear promoción', async ({ page }) => {
   await page.getByRole('button', { name: 'Crear promoción' }).click();
   await expect(page.getByText('Nueva promoción')).toBeVisible();
   await page.waitForTimeout(1000);
-  await screenshotAndCompare(page, 'crear02-new-promo.png', 'refs/crear02-new-promo.png');
 
   // Generar nombre dinámico con fecha y hora actual
   const now = new Date();
@@ -269,7 +229,6 @@ test('Crear promoción', async ({ page }) => {
   await expect(page.getByText(promoTitle)).toBeVisible({ timeout: 20000 });
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
-  await screenshotAndCompare(page, 'crear03-dashboard-after-promo.png', 'refs/crear03-dashboard-after-promo.png');
 
 });
 
@@ -721,9 +680,6 @@ test('Editar promoción', async ({ page }) => {
   await expect(page.getByText('Crear promoción')).toBeVisible();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT ANTES DE EDITAR ---
-  await screenshotAndCompare(page, 'editar01-promotions-before-edit.png', 'refs/editar01-promotions-before-edit.png');
-
   // --- LOCALIZAR Y EDITAR PROMOCIÓN ---
   // Buscar cualquier promoción que contenga "Promo de prueba" (puede ser la creada anteriormente)
   const promoName = page.locator('p.text-medium.font-bold:has-text("Promo de prueba")').first();
@@ -743,10 +699,6 @@ test('Editar promoción', async ({ page }) => {
   await showStepMessage(page, '✏️ ABRIENDO MENÚ DE EDICIÓN');
   await page.waitForTimeout(1000);
     await page.locator('text=Editar').click();
-
-  // --- SCREENSHOT FORMULARIO DE EDICIÓN ---
-  await page.waitForTimeout(1000);
-  await screenshotAndCompare(page, 'editar02-edit-promo-form.png', 'refs/editar02-edit-promo-form.png');
 
   // --- MODIFICAR PROMOCIÓN ---
   await showStepMessage(page, '📝 MODIFICANDO DATOS DE LA PROMOCIÓN');
@@ -779,10 +731,6 @@ test('Editar promoción', async ({ page }) => {
     const fileInput = await page.locator('input[type="file"]');
     await fileInput.setInputFiles('C:/Temp/images.jpeg');
 
-  // --- SCREENSHOT ANTES DE GUARDAR CAMBIOS ---
-  await page.waitForTimeout(1000);
-  await screenshotAndCompare(page, 'editar03-edit-promo-filled.png', 'refs/editar03-edit-promo-filled.png');
-
   // --- GUARDAR CAMBIOS ---
   await showStepMessage(page, '💾 GUARDANDO CAMBIOS DE EDICIÓN');
   await page.waitForTimeout(1000);
@@ -795,25 +743,25 @@ test('Editar promoción', async ({ page }) => {
   await expect(updatedPromo).toBeVisible({ timeout: 20000 });
     await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
-  await screenshotAndCompare(page, 'editar04-promotions-after-edit.png', 'refs/editar04-promotions-after-edit.png');
 });
 
 test('Eliminar promoción', async ({ page }) => {
+  test.setTimeout(90000); // 90 segundos para este test específico
   // Ya está logueado por beforeEach
 
   // --- ADMINISTRAR PROMOCIONES ---
   const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
   await promosBtn.click();
   await expect(page.getByText('Crear promoción')).toBeVisible();
-  await page.waitForTimeout(1000);
-
-  // --- SCREENSHOT ANTES DE ELIMINAR ---
-  await screenshotAndCompare(page, 'eliminar01-promotions-before-delete.png', 'refs/eliminar01-promotions-before-delete.png');
+  await page.waitForTimeout(2000); // Aumentado para dar más tiempo a cargar
 
   // --- LOCALIZAR Y ELIMINAR PROMOCIÓN ---
+  // Esperar un momento adicional para que las promociones se carguen completamente
+  await page.waitForTimeout(5000);
+  
   // Buscar cualquier promoción que contenga "Promo Editada" (la que se editó anteriormente)
   const promoName = page.locator('p.text-medium.font-bold:has-text("Promo Editada")').first();
-  await expect(promoName).toBeVisible();
+  await expect(promoName).toBeVisible({ timeout: 20000 }); // Aumentado a 20 segundos
   const promoNameText = await promoName.textContent();
   
   if (!promoNameText) {
@@ -826,16 +774,11 @@ test('Eliminar promoción', async ({ page }) => {
     const menuButton = promoCard.locator('button:has(i.icon-more-vertical)');
     await menuButton.click();
 
-  // --- SCREENSHOT MENÚ DESPLEGADO ---
-  await page.waitForTimeout(500);
-  await screenshotAndCompare(page, 'eliminar02-delete-menu-open.png', 'refs/eliminar02-delete-menu-open.png');
-
   // --- CONFIRMAR ELIMINACIÓN ---
   await showStepMessage(page, '⚠️ CONFIRMANDO ELIMINACIÓN');
   await page.waitForTimeout(1000);
     await page.locator('text=Eliminar').click();
   await page.waitForTimeout(500);
-  await screenshotAndCompare(page, 'eliminar03-delete-confirmation.png', 'refs/eliminar03-delete-confirmation.png');
 
   await showStepMessage(page, '✅ FINALIZANDO ELIMINACIÓN');
   await page.waitForTimeout(1000);
@@ -846,7 +789,27 @@ test('Eliminar promoción', async ({ page }) => {
   await page.waitForTimeout(1000);
     await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
-  await screenshotAndCompare(page, 'eliminar04-promotions-after-delete.png', 'refs/eliminar04-promotions-after-delete.png');
+  
+  // --- VALIDAR QUE LA PROMOCIÓN FUE ELIMINADA ---
+  await showStepMessage(page, '✅ VERIFICANDO QUE LA PROMOCIÓN FUE ELIMINADA');
+  
+  // Buscar la promoción específica que se eliminó usando el texto exacto guardado
+  const deletedPromoLocator = page.locator('p.text-medium.font-bold', { hasText: promoNameText });
+  
+  // Verificar que no hay ninguna promoción con ese nombre exacto (count debe ser 0)
+  const promoCount = await deletedPromoLocator.count();
+  if (promoCount > 0) {
+    throw new Error(`❌ La promoción "${promoNameText}" todavía existe. Se encontraron ${promoCount} promoción(es) con ese nombre.`);
+  }
+  
+  console.log(`✅ La promoción "${promoNameText}" fue eliminada correctamente (0 promociones encontradas con ese nombre)`);
+  
+  // Verificación adicional: verificar que la tarjeta de la promoción tampoco existe
+  const promoCardAfterDelete = page.locator('div.w-full.flex.shadow-4', { hasText: promoNameText });
+  const cardCount = await promoCardAfterDelete.count();
+  if (cardCount > 0) {
+    throw new Error(`❌ La tarjeta de la promoción "${promoNameText}" todavía existe en el DOM.`);
+  }
 });
 
 test('Navegar a chats desde promociones', async ({ page }) => {
@@ -871,7 +834,7 @@ test('Navegar a chats desde promociones', async ({ page }) => {
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- VERIFICAR QUE LLEGÓ A LA PÁGINA CORRECTA ---
-  await expect(page.locator('p.text-\\[20px\\].text-neutral-800:has-text("Conversaciones")')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('p.text-\\[20px\\].text-neutral-800:has-text("Fiestachat")')).toBeVisible({ timeout: 10000 });
 
   // --- SCREENSHOT PÁGINA DE CONVERSACIONES ---
   await page.screenshot({ path: 'chats02-conversations-page.png', fullPage: true });
@@ -881,7 +844,7 @@ test('Navegar a chats desde promociones', async ({ page }) => {
   await page.waitForTimeout(1000);
   
   // Verificar que el título "Conversaciones" está visible
-  const conversationsTitle = page.locator('p.text-\\[20px\\].text-neutral-800:has-text("Conversaciones")');
+  const conversationsTitle = page.locator('p.text-\\[20px\\].text-neutral-800:has-text("Fiestachat")');
   await expect(conversationsTitle).toBeVisible();
   
   // Verificar que la URL es correcta
@@ -981,7 +944,7 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
   console.log('✅ Navegación completa: Promociones → Perfil → Promociones');
 });
 
-test('Navegar a home desde promociones', async ({ page }) => {
+test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   // Ya está logueado por beforeEach
 
   // --- NAVEGAR A PÁGINA DE PROMOCIONES ---

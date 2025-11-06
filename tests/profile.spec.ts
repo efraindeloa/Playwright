@@ -242,7 +242,7 @@ test.use({
   
     // --- DATOS PERSONALES ---
     const seccionDatosPersonales = page.locator('div.flex-col').filter({
-      has: page.locator('h5:text("Datos personales")')
+      has: page.locator('h5:text("Modifica tus datos personales")')
     });
   
     const btnEditarDatosPersonales = seccionDatosPersonales.locator('button').filter({

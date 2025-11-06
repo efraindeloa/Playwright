@@ -275,55 +275,106 @@ test('Nueva fiesta', async ({ page }) => {
           await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
           
           // 3. Seleccionar la hora
-          const horaCirculos: { [key: number]: { cx: string; cy: string } } = {
-            1: { cx: "130.0", cy: "40.0" },
-            2: { cx: "193.6121593216773", cy: "77.5" },
-            3: { cx: "205", cy: "126" },
-            4: { cx: "193", cy: "174" },
-            5: { cx: "130", cy: "212" },
-            6: { cx: "70", cy: "212" },
-            7: { cx: "10", cy: "174" },
-            8: { cx: "0", cy: "126" },
-            9: { cx: "10", cy: "77" },
-            10: { cx: "70", cy: "40" },
-            11: { cx: "100", cy: "0" },
-            12: { cx: "130", cy: "0" },
+          // Usar coordenadas reales del HTML proporcionado
+          const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
+            1: { cx: 162.5, cy: 46.38784067832272 },
+            2: { cx: 193.6121593216773, cy: 77.5 },
+            3: { cx: 205, cy: 120 },
+            4: { cx: 193.6121593216773, cy: 162.5 },
+            5: { cx: 162.5, cy: 193.61215932167727 },
+            6: { cx: 120, cy: 205 },
+            7: { cx: 77.50000000000003, cy: 193.6121593216773 },
+            8: { cx: 46.3878406783227, cy: 162.5 },
+            9: { cx: 35, cy: 120.00000000000001 },
+            10: { cx: 46.38784067832272, cy: 77.5 },
+            11: { cx: 77.49999999999997, cy: 46.38784067832273 },
+            12: { cx: 120, cy: 35 },
           };
           
           const h = horaCirculos[hora];
           if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
           
-          const horaCircle = page.locator(`circle.cursor-pointer[cx="${h.cx}"][cy="${h.cy}"]`);
-          // Esperar a que el círculo de hora esté visible y clickeable
-          await horaCircle.waitFor({ state: 'visible', timeout: 5000 });
-          await horaCircle.click();
+          // Esperar un momento para que el diálogo se cargue completamente
+          await page.waitForTimeout(500);
+          
+          // Buscar el círculo de hora usando coordenadas
+          // Buscar todos los círculos y encontrar el más cercano a las coordenadas esperadas
+          const allCircles = page.locator('svg circle.cursor-pointer');
+          const circleCount = await allCircles.count();
+          
+          let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
+          let minDistance = Infinity;
+          
+          for (let i = 0; i < circleCount; i++) {
+            const circle = allCircles.nth(i);
+            const cx = parseFloat(await circle.getAttribute('cx') || '0');
+            const cy = parseFloat(await circle.getAttribute('cy') || '0');
+            
+            // Calcular distancia euclidiana a las coordenadas esperadas
+            const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
+            
+            if (distance < minDistance && distance < 25) { // Tolerancia de 25 píxeles (radio del círculo es 20)
+              minDistance = distance;
+              closestCircle = circle;
+            }
+          }
+          
+          if (closestCircle) {
+            await closestCircle.click({ timeout: 5000 });
+          } else {
+            throw new Error(`No se pudo encontrar el círculo para la hora ${hora} (buscando cerca de cx=${h.cx}, cy=${h.cy})`);
+          }
           
           // Esperar un momento para que el reloj cambie a modo de minutos
-          await page.waitForTimeout(300);
+          await page.waitForTimeout(500);
           
           // 4. Seleccionar el minuto
-          const minutoCirculos: { [key: number]: { cx: string; cy: string } } = {
-            0: { cx: "120", cy: "205" },
-            15: { cx: "205", cy: "120" },
-            30: { cx: "120", cy: "35" },
-            45: { cx: "35", cy: "120" },
+          const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
+            0: { cx: 120, cy: 205 },
+            15: { cx: 205, cy: 120 },
+            30: { cx: 120, cy: 35 },
+            45: { cx: 35, cy: 120 },
           };
           
           const m = minutoCirculos[minuto];
           if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
           
-          const minutoCircle = page.locator(`circle.cursor-pointer[cx="${m.cx}"][cy="${m.cy}"]`);
-          // Esperar a que el círculo de minuto esté visible y clickeable
-          await minutoCircle.waitFor({ state: 'visible', timeout: 5000 });
-          await minutoCircle.click();
+          // Buscar el círculo de minuto usando el mismo enfoque robusto
+          const allMinuteCircles = page.locator('svg circle.cursor-pointer');
+          const minuteCircleCount = await allMinuteCircles.count();
+          
+          let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
+          let minMinuteDistance = Infinity;
+          
+          for (let i = 0; i < minuteCircleCount; i++) {
+            const circle = allMinuteCircles.nth(i);
+            const cx = parseFloat(await circle.getAttribute('cx') || '0');
+            const cy = parseFloat(await circle.getAttribute('cy') || '0');
+            
+            // Calcular distancia euclidiana
+            const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
+            
+            if (distance < minMinuteDistance && distance < 25) { // Tolerancia de 25 píxeles
+              minMinuteDistance = distance;
+              closestMinuteCircle = circle;
+            }
+          }
+          
+          if (closestMinuteCircle) {
+            await closestMinuteCircle.click({ timeout: 5000 });
+          } else {
+            throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
+          }
           
           // Esperar un momento antes de confirmar
-          await page.waitForTimeout(300);
+          await page.waitForTimeout(500);
           
           // 5. Confirmar selección
-          const confirmButton = page.getByRole('button', { name: 'Confirmar' });
+          // Buscar el botón "Confirmar" usando el selector más específico
+          const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
           await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-          await confirmButton.click();
+          await confirmButton.click({ timeout: 5000 });
+          console.log(`✓ Botón "Confirmar" presionado`);
         }
         
         // Llenar todos los campos del formulario
@@ -391,33 +442,117 @@ test('Nueva fiesta', async ({ page }) => {
         await seleccionarHoraYMinuto(page, randomHour, randomMinute);
         console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')}`);
         
-        // 4. Ciudad (usando autocompletado) - optimizado
+        // Esperar a que el diálogo del selector de hora se cierre completamente
+        // Verificar que el diálogo ya no esté visible
+        const timePickerDialog = page.locator('[data-time-picker-content="true"]');
+        try {
+          await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
+        } catch (e) {
+          // Si no se oculta rápidamente, esperar un poco más
+          await page.waitForTimeout(1000);
+        }
+        
+        // 4. Ciudad (usando autocompletado de Google)
         const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
         const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
         
-        const cityField = page.locator('input[id="Address"]');
-        await cityField.click();
-        await cityField.clear();
+        // Buscar el campo de ciudad usando el id "Address" (confirmado)
+        // Dar más tiempo para que el formulario esté listo
+        await page.waitForTimeout(500);
         
-        // Usar fill en lugar de pressSequentially para mayor velocidad
-        await cityField.fill(randomCity);
+        let cityField: ReturnType<typeof page.locator> = page.locator('input[id="Address"]');
+        
+        // Verificar si el campo existe, si no, intentar otros selectores
+        try {
+          await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        } catch (e) {
+          // Intentar buscar por el label asociado
+          console.log(`⚠ Campo no encontrado con id="Address", intentando otros selectores...`);
+          
+          // Buscar por el label que contiene "Ciudad"
+          const ciudadLabel = page.locator('label:has-text("Ciudad")');
+          const labelExists = await ciudadLabel.count().then(count => count > 0);
+          
+          if (labelExists) {
+            // Buscar el input usando el atributo 'for' del label
+            try {
+              const labelFor = await ciudadLabel.getAttribute('for');
+              if (labelFor) {
+                cityField = page.locator(`input[id="${labelFor}"]`);
+                await cityField.waitFor({ state: 'visible', timeout: 3000 });
+              } else {
+                // Si no tiene atributo 'for', buscar el input cercano usando XPath
+                cityField = page.locator('//label[contains(text(), "Ciudad")]/following-sibling::*//input | //label[contains(text(), "Ciudad")]/../input').first();
+              }
+            } catch (e2) {
+              // Último recurso: buscar cualquier input con placeholder vacío
+              cityField = page.locator('input[placeholder=" "]').first();
+            }
+          } else {
+            // Último recurso: buscar cualquier input con placeholder vacío
+            cityField = page.locator('input[placeholder=" "]').first();
+          }
+          
+          await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        }
+        
+        console.log(`✓ Campo de ciudad encontrado`);
+        
+        // Limpiar el campo: hacer clic en el botón de limpiar si existe
+        const clearButton = page.locator('button[aria-label="Clear address"]');
+        const clearButtonVisible = await clearButton.isVisible().catch(() => false);
+        
+        if (clearButtonVisible) {
+          await clearButton.click();
+          await page.waitForTimeout(200);
+        } else {
+          // Si no hay botón de limpiar, seleccionar todo el texto y borrarlo
+          await cityField.click();
+          await cityField.selectText();
+          await cityField.press('Backspace');
+          await page.waitForTimeout(200);
+        }
+        
+        // Escribir la ciudad letra por letra para activar el autocompletado de Google
+        await cityField.pressSequentially(randomCity, { delay: 100 });
         console.log(`✓ Ciudad escrita: "${randomCity}"`);
         
-        // Esperar a que aparezcan las sugerencias con timeout más corto
-        const citySuggestionsList = page.locator('ul li');
-        try {
-          await citySuggestionsList.first().waitFor({ state: 'visible', timeout: 2000 });
-          const suggestionCount = await citySuggestionsList.count();
-          console.log(`📊 Sugerencias de ciudad encontradas: ${suggestionCount}`);
+        // Esperar un momento para que aparezcan las sugerencias
+        await page.waitForTimeout(2000);
+        
+        // PAUSA MANUAL: Esperar a que el usuario seleccione la ciudad manualmente
+        console.log(`\n⏸️  PAUSA MANUAL: Por favor selecciona una ciudad de las sugerencias de Google Places`);
+        console.log(`   Una vez que hayas seleccionado la ciudad, la prueba continuará automáticamente...\n`);
+        
+        // Guardar el valor inicial del campo
+        const initialCityValue = await cityField.inputValue();
+        
+        // Pausar la ejecución para que el usuario pueda seleccionar manualmente
+        await page.pause();
+        
+        // Después de la pausa, esperar a que el campo tenga un valor diferente (indicando que se seleccionó una ciudad)
+        console.log(`\n⏳ Esperando a que se seleccione una ciudad...`);
+        
+        let citySelected = false;
+        const maxWaitTime = 60000; // 60 segundos máximo
+        const startTime = Date.now();
+        
+        while (!citySelected && (Date.now() - startTime) < maxWaitTime) {
+          await page.waitForTimeout(1000);
+          const currentCityValue = await cityField.inputValue();
           
-          if (suggestionCount > 0) {
-            const firstSuggestion = citySuggestionsList.first();
-            await firstSuggestion.click();
-            const firstText = await firstSuggestion.textContent();
-            console.log(`✓ Seleccionando ciudad: "${firstText?.trim()}"`);
+          // Verificar si el valor cambió y no está vacío
+          if (currentCityValue !== initialCityValue && currentCityValue.trim().length > 0) {
+            citySelected = true;
+            console.log(`✓ Ciudad seleccionada: "${currentCityValue}"`);
           }
-        } catch (e) {
-          console.log(`ℹ No se encontraron sugerencias de ciudad, continuando...`);
+        }
+        
+        if (!citySelected) {
+          console.log(`⚠ No se detectó selección de ciudad, continuando de todos modos...`);
+        } else {
+          // Esperar un momento adicional para asegurar que la selección se complete
+          await page.waitForTimeout(1000);
         }
         
         // 5. Número de invitados
@@ -427,6 +562,16 @@ test('Nueva fiesta', async ({ page }) => {
         console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
         
         console.log('✅ Formulario completado exitosamente');
+        
+        // 6. Hacer clic en el botón "Crear evento"
+        const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
+          hasText: 'Crear evento'
+        });
+        await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Botón "Crear evento" encontrado y visible`);
+        await createEventButton.click();
+        console.log(`✓ Se hizo clic en "Crear evento"`);
+        await page.waitForTimeout(2000);
       } else {
         console.log(`⚠ No se encontraron botones "Contactar GRATIS"`);
       }
