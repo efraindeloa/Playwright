@@ -451,25 +451,6 @@ test('Filtrar promociones', async ({ page }) => {
   await clearButton.click();
   await page.waitForTimeout(500);
 
-  // Validar que las fechas se limpiaron
-  const clearedStartDate = await startDateInput.inputValue();
-  const clearedEndDate = await endDateInput.inputValue();
-  console.log(`✅ Fecha inicio después de limpiar: "${clearedStartDate}"`);
-  console.log(`✅ Fecha fin después de limpiar: "${clearedEndDate}"`);
-
-  // Cerrar el diálogo (puede cerrarse automáticamente o necesitar hacer clic en Aplicar/Cerrar)
-  // Intentar cerrar si aún está abierto
-  const isStillOpen = await startDateInput.isVisible().catch(() => false);
-  if (isStillOpen) {
-    // Buscar botón de cerrar o aplicar para cerrar el diálogo
-    const closeButton = page.locator('button:has-text("Aplicar"), button:has-text("Cerrar"), button:has(i.icon-x)').first();
-    const closeButtonCount = await closeButton.count();
-    if (closeButtonCount > 0) {
-      await closeButton.click();
-      await page.waitForTimeout(1000);
-    }
-  }
-
   // Esperar a que el listado se actualice después de limpiar
   await page.waitForTimeout(2000);
 
