@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
 
 /**
  * Llenar un input de forma segura, esperando que esté visible y editable.
@@ -22,10 +22,27 @@ export async function safeFill(page: Page, label: string, value: string, timeout
 }
 
 /**
- * Login seguro usando los campos de correo y contraseña.
+ * Login completo: navega a la página, abre el formulario de login, llena los campos y valida el acceso.
  */
 export async function login(page: Page, email: string, password: string) {
+  // --- HOME ---
+  await page.goto('https://staging.fiestamas.com');
+  await page.waitForTimeout(2000);
+
+  // --- LOGIN ---
+  const loginButton = page.locator('button:has(i.icon-user)');
+  await loginButton.click();
+  
+  // Screenshot de la página de login
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: 'login02-login.png', fullPage: true });
+  
+  // Llenar campos y hacer login
   await safeFill(page, 'Correo', email);
   await safeFill(page, 'Contraseña', password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
+  
+  // Validar que se redirigió al dashboard
+  await expect(page).toHaveURL(/.*dashboard/);
+  await page.waitForTimeout(2000);
 }

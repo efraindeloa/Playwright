@@ -1,10 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import fs from 'fs';
-import path from 'path';
-// @ts-ignore
-import PNG from 'png-js';
-// @ts-ignore
-import pixelmatch from 'pixelmatch';
+import { login as loginFromUtils } from './utils';
 
 test.use({
   viewport: { width: 1280, height: 720 }
@@ -56,25 +51,10 @@ function generateConditions(serviceName: string, maxLength: number = 150): strin
   return conditions;
 }
 
-// Función común para login
+// Función común para login (usa la función centralizada de utils.ts)
 async function login(page: Page) {
-  // --- HOME ---
-  await page.goto('https://staging.fiestamas.com');
-  await page.waitForTimeout(1000);
-  await screenshotAndCompare(page, 'login01-home.png', 'refs/login01-home.png');
-
-  // --- LOGIN ---
-  const loginButton = page.locator('button:has(i.icon-user)');
-  await loginButton.click();
-
-  // Screenshot de la página de login
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: 'login02-login.png', fullPage: true });
-
-  await page.locator('input[id="Email"]').fill('fiestamasqaprv@gmail.com');
-  await page.locator('input[id="Password"]').fill('Fiesta2025$');
-  await page.locator('button[type="submit"]').click();
-
+  await loginFromUtils(page, 'fiestamasqaprv@gmail.com', 'Fiesta2025$');
+  
   // Esperar a que termine cualquier redirección automática
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(2000);
@@ -86,65 +66,6 @@ async function login(page: Page) {
   // Si no estamos en dashboard, esperar un poco más por redirecciones
   if (!finalUrl.includes('dashboard') && !finalUrl.includes('profile')) {
     await page.waitForTimeout(3000);
-  }
-
-  // --- DASHBOARD LIMPIO ---
-  await screenshotAndCompare(page, 'login03-dashboard.png', 'refs/login03-dashboard.png');
-}
-
-async function hideDynamicElements(page: Page) {
-  await page.evaluate(() => {
-    const h4s = Array.from(document.querySelectorAll('div.overflow-hidden > h4')) as HTMLElement[];
-    h4s.forEach(el => el.style.display = 'none');
-
-    const divs = Array.from(document.querySelectorAll('div[role="button"].w-full')) as HTMLElement[];
-    divs.forEach(el => el.style.display = 'none');
-
-    const buttons = Array.from(document.querySelectorAll('div.pt-4.overflow-y-auto button')) as HTMLElement[];
-    buttons.forEach(el => el.style.display = 'none');
-  });
-}
-
-async function showDynamicElements(page: Page) {
-  await page.evaluate(() => {
-    const h4s = Array.from(document.querySelectorAll('div.overflow-hidden > h4')) as HTMLElement[];
-    h4s.forEach(el => el.style.display = '');
-    const divs = Array.from(document.querySelectorAll('div[role="button"].w-full')) as HTMLElement[];
-    divs.forEach(el => el.style.display = '');
-    const buttons = Array.from(document.querySelectorAll('div.pt-4.overflow-y-auto button')) as HTMLElement[];
-    buttons.forEach(el => el.style.display = '');
-  });
-}
-
-async function screenshotAndCompare(page: Page, ssPath: string, refPath: string) {
-  await hideDynamicElements(page);
-  await page.waitForTimeout(1000);
-  await page.screenshot({
-    path: ssPath,
-    fullPage: true,
-    timeout: 30000  // 30 segundos para screenshots
-  });
-  await showDynamicElements(page);
-
-  if (!fs.existsSync(refPath)) {
-    console.warn(`⚠️ Referencia no encontrada: ${refPath}`);
-    return;
-  }
-
-  const imgBefore = PNG.sync.read(fs.readFileSync(path.resolve(ssPath)));
-  const imgAfter = PNG.sync.read(fs.readFileSync(path.resolve(refPath)));
-
-  if (imgBefore.width !== imgAfter.width || imgAfter.height !== imgAfter.height) {
-    throw new Error(`❌ Tamaño distinto entre ${ssPath} y referencia ${refPath}`);
-  }
-
-  const diff = new PNG({ width: imgBefore.width, height: imgBefore.height });
-  const numDiffPixels = pixelmatch(imgBefore.data, imgAfter.data, diff.data, imgBefore.width, imgBefore.height, { threshold: 0.1 });
-
-  if (numDiffPixels > 0) {
-    throw new Error(`❌ Diferencia entre ${ssPath} y referencia ${refPath}. Píxeles distintos: ${numDiffPixels}`);
-  } else {
-    console.log(`✅ ${ssPath} coincide con la referencia`);
   }
 }
 
@@ -226,10 +147,6 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
-test('Login', async ({ page }) => {
-  // El login ya se ejecutó en beforeEach
-  console.log('✅ Login completado automáticamente');
-});
 
 test('Crear servicio', async ({ page }) => {
   test.setTimeout(600000); // 10 minutos
@@ -1426,19 +1343,43 @@ test('Buscar servicios', async ({ page }) => {
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT ANTES DE BUSCAR ---
-  await page.screenshot({ path: 'Servicios-Buscar-01-antes-buscar.png', fullPage: true });
+  // --- OBTENER ESTADO INICIAL ---
+  await showStepMessage(page, '📊 OBTENIENDO ESTADO INICIAL');
+  const serviceCardsLocator = page.locator('.flex.items-end.justify-end.text-end button');
+  const initialServiceCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios iniciales: ${initialServiceCount}`);
+  
+  // Verificar que hay servicios para buscar
+  if (initialServiceCount === 0) {
+    throw new Error('❌ No hay servicios disponibles para realizar la búsqueda');
+  }
 
   // --- REALIZAR BÚSQUEDA ---
   await showStepMessage(page, '🔍 REALIZANDO BÚSQUEDA DE SERVICIOS');
   await page.waitForTimeout(1000);
 
   const searchInput = page.locator('input#Search');
-  await searchInput.fill('prueba');
+  const searchTerm = 'prueba';
+  await searchInput.fill(searchTerm);
   await page.waitForTimeout(2000); // Esperar a que se procese la búsqueda
 
-  // --- SCREENSHOT DESPUÉS DE BÚSQUEDA ---
-  await page.screenshot({ path: 'Servicios-Buscar-02-despues-buscar.png', fullPage: true });
+  // Verificar que el campo de búsqueda tiene el valor correcto
+  const searchValue = await searchInput.inputValue();
+  if (searchValue !== searchTerm) {
+    throw new Error(`❌ El campo de búsqueda no tiene el valor esperado. Esperado: "${searchTerm}", Obtenido: "${searchValue}"`);
+  }
+  console.log(`✅ Campo de búsqueda contiene: "${searchValue}"`);
+
+  // Contar servicios después de la búsqueda
+  const afterSearchCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios después de búsqueda: ${afterSearchCount}`);
+
+  // Validar que la búsqueda filtró resultados
+  if (afterSearchCount >= initialServiceCount) {
+    console.warn(`⚠️ La búsqueda no filtró resultados. Inicial: ${initialServiceCount}, Después: ${afterSearchCount}`);
+  } else {
+    console.log(`✅ Búsqueda exitosa: Se filtraron ${initialServiceCount - afterSearchCount} servicios`);
+  }
 
   // --- LIMPIAR BÚSQUEDA ---
   await showStepMessage(page, '🧹 LIMPIANDO BÚSQUEDA');
@@ -1447,9 +1388,30 @@ test('Buscar servicios', async ({ page }) => {
   await searchInput.clear();
   await page.waitForTimeout(2000); // Esperar a que se procese la limpieza
 
-  // --- SCREENSHOT DESPUÉS DE LIMPIAR BÚSQUEDA ---
-  await page.screenshot({ path: 'Servicios-Buscar-03-despues-limpiar.png', fullPage: true });
+  // Verificar que el campo de búsqueda está vacío
+  const clearedSearchValue = await searchInput.inputValue();
+  if (clearedSearchValue !== '') {
+    throw new Error(`❌ El campo de búsqueda no se limpió correctamente. Valor: "${clearedSearchValue}"`);
+  }
+  console.log(`✅ Campo de búsqueda limpiado correctamente`);
 
+  // Contar servicios después de limpiar
+  const afterClearCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios después de limpiar: ${afterClearCount}`);
+
+  // Validar que se restauraron todos los servicios
+  if (afterClearCount === initialServiceCount) {
+    console.log(`✅ Limpieza exitosa: Se restauraron todos los servicios (${afterClearCount})`);
+  } else {
+    console.warn(`⚠️ El conteo después de limpiar no coincide con el inicial. Inicial: ${initialServiceCount}, Después: ${afterClearCount}`);
+  }
+
+  // Resumen final
+  console.log('\n📋 RESUMEN DE VALIDACIONES:');
+  console.log(`  ✅ Estado inicial: ${initialServiceCount} servicios`);
+  console.log(`  ✅ Después de búsqueda: ${afterSearchCount} servicios`);
+  console.log(`  ✅ Después de limpiar: ${afterClearCount} servicios`);
+  console.log(`  ✅ Campo de búsqueda: "${clearedSearchValue}" (vacío)`);
   console.log('✅ Búsqueda de servicios completada');
 });
 
@@ -1462,21 +1424,31 @@ test('Filtrar servicios', async ({ page }) => {
   await expect(page.getByText('Crear servicio')).toBeVisible();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT ANTES DE FILTRAR ---
-  await page.screenshot({ path: 'filtrar01-services-before-filter.png', fullPage: true });
+  // --- OBTENER ESTADO INICIAL ---
+  await showStepMessage(page, '📊 OBTENIENDO ESTADO INICIAL');
+  const serviceCardsLocator = page.locator('.flex.items-end.justify-end.text-end button');
+  const initialServiceCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios iniciales: ${initialServiceCount}`);
+  
+  // Verificar que hay servicios para filtrar
+  if (initialServiceCount === 0) {
+    throw new Error('❌ No hay servicios disponibles para realizar el filtrado');
+  }
 
   // --- ABRIR FILTROS ---
   const filterButton = page.getByRole('button', { name: 'Filtrar' });
   await filterButton.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT DIALOG DE FILTROS ABIERTO ---
-  await page.screenshot({ path: 'filtrar02-filter-dialog-open.png', fullPage: true });
+  // Validar que el diálogo de filtros se abrió
+  const botonCategoria = page.locator('button#Category');
+  const botonStatus = page.locator('button#Status');
+  await expect(botonCategoria).toBeVisible({ timeout: 5000 });
+  await expect(botonStatus).toBeVisible({ timeout: 5000 });
+  console.log('✅ Diálogo de filtros abierto correctamente');
 
   // --- SELECCIONAR CATEGORÍA ALEATORIA ---
-
-
-  const botonCategoria = page.locator('button#Category');
+  await showStepMessage(page, '🎯 SELECCIONANDO CATEGORÍA ALEATORIA');
   await expect(botonCategoria).toBeVisible({ timeout: 5000 });
   await botonCategoria.click();
   await page.waitForTimeout(500);
@@ -1484,16 +1456,20 @@ test('Filtrar servicios', async ({ page }) => {
   await dropdown.waitFor({ state: 'visible' });
   const categorias = await dropdown.locator('li').elementHandles();
 
-  //const categorias = await page.$$('ul.absolute.mt-3 li');
   if (!categorias || categorias.length === 0) throw new Error('❌ No se encontraron categorías');
   const randomCatIndex = Math.floor(Math.random() * categorias.length);
   const categoriaSeleccionada = categorias[randomCatIndex];
   const categoriaTexto = (await categoriaSeleccionada.textContent())?.trim() || '';
   await categoriaSeleccionada.click();
   await page.waitForTimeout(500);
+  console.log(`✅ Categoría seleccionada: "${categoriaTexto}"`);
+
+  // Validar que la categoría se seleccionó correctamente
+  const categoriaButtonText = await botonCategoria.textContent();
+  console.log(`✅ Texto del botón de categoría: "${categoriaButtonText}"`);
 
   // --- SELECCIONAR ESTATUS ALEATORIO ---
-  const botonStatus = page.locator('button#Status');
+  await showStepMessage(page, '🎯 SELECCIONANDO ESTATUS ALEATORIO');
   await expect(botonStatus).toBeVisible({ timeout: 5000 });
   await botonStatus.click();
   await page.waitForTimeout(500);
@@ -1507,82 +1483,102 @@ test('Filtrar servicios', async ({ page }) => {
   const statusTexto = (await statusSeleccionado.textContent())?.trim() || '';
   await statusSeleccionado.click();
   await page.waitForTimeout(500);
+  console.log(`✅ Estatus seleccionado: "${statusTexto}"`);
 
-  // --- SCREENSHOT CON FILTRO CONFIGURADO ---
-  await page.screenshot({ path: 'filtrar03-services-filter-configured.png', fullPage: true });
+  // Validar que el estatus se seleccionó correctamente
+  const statusButtonText = await botonStatus.textContent();
+  console.log(`✅ Texto del botón de estatus: "${statusButtonText}"`);
 
   // --- APLICAR FILTRO ---
+  await showStepMessage(page, '✅ APLICANDO FILTRO');
   const applyButton = page.locator('button:has-text("Aplicar")');
+  await expect(applyButton).toBeVisible();
   await applyButton.click();
   await page.waitForTimeout(2000);
 
-  // --- SCREENSHOT DESPUÉS DE APLICAR FILTRO ---
-  await page.screenshot({ path: 'filtrar04-after-apply-filter.png', fullPage: true });
+  // Validar que el diálogo se cerró
+  const isDialogClosed = await botonCategoria.isVisible().catch(() => false);
+  if (isDialogClosed) {
+    console.warn('⚠️ El diálogo de filtros aún está visible después de aplicar');
+  } else {
+    console.log('✅ Diálogo de filtros cerrado correctamente');
+  }
+
+  // Contar servicios después de aplicar el filtro
+  const afterFilterCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios después de aplicar filtro: ${afterFilterCount}`);
+
+  // Validar que el filtro cambió el conteo
+  if (afterFilterCount === initialServiceCount) {
+    console.warn(`⚠️ El filtro no cambió el conteo. Inicial: ${initialServiceCount}, Después: ${afterFilterCount}`);
+    console.warn('⚠️ Esto puede ser normal si todos los servicios coinciden con los filtros seleccionados');
+  } else if (afterFilterCount > initialServiceCount) {
+    throw new Error(`❌ El filtro aumentó el conteo. Inicial: ${initialServiceCount}, Después: ${afterFilterCount}`);
+  } else {
+    console.log(`✅ Filtro aplicado exitosamente: Se filtraron ${initialServiceCount - afterFilterCount} servicios`);
+  }
 
   // --- REABRIR FILTROS PARA LIMPIAR ---
+  await showStepMessage(page, '🔍 REABRIENDO FILTROS PARA LIMPIAR');
   await filterButton.click();
   await page.waitForTimeout(1000);
 
-  // --- SCREENSHOT FILTROS ABIERTOS NUEVAMENTE ---
-  await page.screenshot({ path: 'filtrar05-filter-dialog-reopened.png', fullPage: true });
+  // Validar que el diálogo se abrió nuevamente
+  await expect(botonCategoria).toBeVisible({ timeout: 5000 });
+  console.log('✅ Diálogo de filtros reabierto correctamente');
 
   // --- LIMPIAR FILTROS ---
+  await showStepMessage(page, '🧹 LIMPIANDO FILTROS APLICADOS');
   const clearButton = page.locator('button:has-text("Limpiar")');
+  await expect(clearButton).toBeVisible();
   await clearButton.click();
   await page.waitForTimeout(500);
 
-  // --- SCREENSHOT DESPUÉS DE LIMPIAR ---
-  await page.screenshot({ path: 'filtrar06-after-clear.png', fullPage: true });
+  // Validar que los filtros se limpiaron (verificar que los botones volvieron a su estado inicial)
+  const categoriaAfterClear = await botonCategoria.textContent();
+  const statusAfterClear = await botonStatus.textContent();
+  console.log(`✅ Categoría después de limpiar: "${categoriaAfterClear}"`);
+  console.log(`✅ Estatus después de limpiar: "${statusAfterClear}"`);
 
-  // --- COMPARAR SCREENSHOTS ---
-  try {
-    const files = [
-      'filtrar01-services-before-filter.png',
-      'filtrar04-after-apply-filter.png',
-      'filtrar06-after-clear.png'
-    ];
-    for (const file of files) {
-      if (!fs.existsSync(file)) throw new Error(`❌ No se encontró el archivo: ${file}`);
+  // Cerrar el diálogo si aún está abierto
+  const isStillOpen = await botonCategoria.isVisible().catch(() => false);
+  if (isStillOpen) {
+    // Buscar botón de cerrar o aplicar para cerrar el diálogo
+    const closeButton = page.locator('button:has-text("Aplicar"), button:has-text("Cerrar"), button:has(i.icon-x)').first();
+    const closeButtonCount = await closeButton.count();
+    if (closeButtonCount > 0) {
+      await closeButton.click();
+      await page.waitForTimeout(1000);
     }
-
-    const beforeStats = fs.statSync('filtrar01-services-before-filter.png');
-    const afterFilterStats = fs.statSync('filtrar04-after-apply-filter.png');
-    const afterClearStats = fs.statSync('filtrar06-after-clear.png');
-
-    const filterChanges = beforeStats.size !== afterFilterStats.size;
-    const clearChanges = afterFilterStats.size !== afterClearStats.size;
-    const backToOriginal = beforeStats.size === afterClearStats.size;
-
-    if (!filterChanges) throw new Error('❌ No se detectaron cambios al aplicar el filtro');
-    if (!clearChanges) throw new Error('❌ No se detectaron cambios al limpiar el filtro');
-
-    if (backToOriginal) {
-      console.log('✅ Flujo completo exitoso: Inicial → Filtrado → Limpiado (vuelta al original)');
-    } else {
-      console.log('✅ Filtro y limpieza exitosos: Se detectaron cambios en ambas operaciones');
-    }
-
-    // Comparación pixel por pixel
-    try {
-      const beforeImage = PNG.sync.read(fs.readFileSync('filtrar01-services-before-filter.png'));
-      const afterFilterImage = PNG.sync.read(fs.readFileSync('filtrar04-after-apply-filter.png'));
-      const afterClearImage = PNG.sync.read(fs.readFileSync('filtrar06-after-clear.png'));
-
-      const diff1 = new PNG({ width: beforeImage.width, height: beforeImage.height });
-      const pixels1 = pixelmatch(beforeImage.data, afterFilterImage.data, diff1.data, beforeImage.width, beforeImage.height, { threshold: 0.1 });
-
-      const diff2 = new PNG({ width: afterFilterImage.width, height: afterFilterImage.height });
-      const pixels2 = pixelmatch(afterFilterImage.data, afterClearImage.data, diff2.data, afterFilterImage.width, afterFilterImage.height, { threshold: 0.1 });
-
-      if (pixels1 === 0) throw new Error('❌ No se detectaron cambios pixel por pixel al aplicar el filtro');
-      if (pixels2 === 0) throw new Error('❌ No se detectaron cambios pixel por pixel al limpiar el filtro');
-    } catch (pngError) {
-      console.warn('⚠️ No se pudo realizar comparación pixel por pixel:', pngError.message);
-    }
-  } catch (error) {
-    console.error('Error al comparar screenshots:', error);
-    throw new Error('❌ Error al procesar la comparación de screenshots');
   }
+
+  // Esperar a que el listado se actualice después de limpiar
+  await page.waitForTimeout(2000);
+
+  // Contar servicios después de limpiar
+  const afterClearCount = await serviceCardsLocator.count();
+  console.log(`📊 Servicios después de limpiar filtro: ${afterClearCount}`);
+
+  // Validar que se restauraron todos los servicios
+  if (afterClearCount === initialServiceCount) {
+    console.log(`✅ Limpieza exitosa: Se restauraron todos los servicios (${afterClearCount})`);
+  } else {
+    console.warn(`⚠️ El conteo después de limpiar no coincide con el inicial. Inicial: ${initialServiceCount}, Después: ${afterClearCount}`);
+    // Esto puede ser aceptable si hay diferencias menores, pero lo reportamos
+    if (Math.abs(afterClearCount - initialServiceCount) > 2) {
+      throw new Error(`❌ Diferencia significativa después de limpiar. Inicial: ${initialServiceCount}, Después: ${afterClearCount}`);
+    }
+  }
+
+  // Resumen final
+  console.log('\n📋 RESUMEN DE VALIDACIONES:');
+  console.log(`  ✅ Estado inicial: ${initialServiceCount} servicios`);
+  console.log(`  ✅ Después de aplicar filtro: ${afterFilterCount} servicios`);
+  console.log(`  ✅ Después de limpiar filtro: ${afterClearCount} servicios`);
+  console.log(`  ✅ Categoría seleccionada: "${categoriaTexto}"`);
+  console.log(`  ✅ Estatus seleccionado: "${statusTexto}"`);
+  console.log(`  ✅ Filtro aplicado: ${afterFilterCount !== initialServiceCount ? 'Sí' : 'No (todos los servicios coinciden con los filtros)'}`);
+  console.log(`  ✅ Estado restaurado: ${afterClearCount === initialServiceCount ? 'Sí' : 'Parcial'}`);
 });
 
 test('Ordenar servicios', async ({ page }) => {

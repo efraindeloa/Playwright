@@ -7,7 +7,8 @@
 **Ambiente de Pruebas:** Staging (https://staging.fiestamas.com)  
 **Framework de Pruebas:** Playwright  
 **Fecha de Generación:** 2025  
-**Versión del Reporte:** 1.0
+**Versión del Reporte:** 1.1  
+**Última Actualización:** Refactorización de validaciones y constantes
 
 ---
 
@@ -17,11 +18,12 @@ Este documento describe el conjunto completo de pruebas automatizadas implementa
 
 ### Estadísticas Generales
 
-- **Total de Pruebas:** 10 casos de prueba
+- **Total de Pruebas:** 9 casos de prueba
 - **Cobertura Funcional:** 100% de las funcionalidades principales
 - **Timeout Global:** 60 segundos por prueba
 - **Timeout Específico:** 90 segundos para pruebas de edición y eliminación
 - **Resolución de Pantalla:** 1280x720 píxeles
+- **Login:** Se ejecuta automáticamente en `beforeEach` usando función centralizada de `utils.ts`
 
 ---
 
@@ -47,44 +49,35 @@ Este documento describe el conjunto completo de pruebas automatizadas implementa
 
 El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
-1. **`login(page)`**: Realiza el proceso de autenticación automática
+1. **`login(page, email, password)`**: Función centralizada en `utils.ts` que realiza el proceso completo de autenticación (navegación, apertura de formulario, llenado de campos y validación)
 2. **`showStepMessage(page, message)`**: Muestra mensajes informativos durante la ejecución
 3. **`pickDateSmart(page, selector, date)`**: Selección inteligente de fechas usando flatpickr
 4. **`hideDynamicElements(page)`**: Oculta elementos dinámicos para comparaciones visuales
 5. **`showDynamicElements(page)`**: Restaura elementos dinámicos
 
+### Constantes de Configuración
+
+El archivo utiliza constantes centralizadas al inicio para facilitar el mantenimiento:
+
+- **Credenciales:** `LOGIN_EMAIL`, `LOGIN_PASSWORD`
+- **URLs:** `BASE_URL`, `PROMOTIONS_URL`, `CHATS_URL`, `PROFILE_URL`
+- **Rutas de archivos:** `IMAGE_TRANSPARENT_PATH`, `IMAGE_JPEG_PATH`
+- **Textos:** `PROMO_TITLE_PREFIX`, `PROMO_EDITED_PREFIX`
+- **Términos de búsqueda:** `SEARCH_TERM`, `NON_EXISTENT_SEARCH_TERM`
+- **Fechas:** `FILTER_START_DATE`, `FILTER_END_DATE`
+- **Timeouts:** `DEFAULT_TIMEOUT`, `EXTENDED_TIMEOUT`, `WAIT_FOR_PROMO_TIMEOUT`, etc.
+
 ---
 
 ## Casos de Prueba Detallados
 
-### 1. Login
-
-**ID:** TC-PROM-001  
-**Prioridad:** Crítica  
-**Descripción:** Verifica que el proceso de autenticación se ejecute correctamente antes de cada prueba.
-
-**Precondiciones:**
-- Usuario válido registrado en el sistema
-- Credenciales correctas disponibles
-
-**Pasos de Ejecución:**
-1. Navegar a la página principal
-2. Hacer clic en el botón de login
-3. Ingresar credenciales
-4. Verificar redirección al dashboard
-
-**Resultado Esperado:**
-- Login exitoso
-- Redirección a `/provider/dashboard`
-- Sesión activa para pruebas subsiguientes
-
-**Nota:** Esta prueba se ejecuta automáticamente en `beforeEach`, por lo que todas las demás pruebas parten de un estado autenticado.
+**Nota sobre Login:** El proceso de autenticación se ejecuta automáticamente en `beforeEach` usando la función `login()` centralizada de `utils.ts`. Esta función realiza la navegación inicial, apertura del formulario de login, llenado de credenciales y validación de redirección al dashboard. Todas las pruebas parten de un estado autenticado.
 
 ---
 
-### 2. Crear Promoción
+### 1. Crear Promoción
 
-**ID:** TC-PROM-002  
+**ID:** TC-PROM-001  
 **Prioridad:** Crítica  
 **Timeout:** 60 segundos  
 **Descripción:** Valida la funcionalidad de creación de nuevas promociones.
@@ -118,9 +111,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 3. Ordenar Promociones
+### 2. Ordenar Promociones
 
-**ID:** TC-PROM-003  
+**ID:** TC-PROM-002  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la funcionalidad de ordenamiento de promociones en el listado.
@@ -157,9 +150,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 4. Filtrar Promociones
+### 3. Filtrar Promociones
 
-**ID:** TC-PROM-004  
+**ID:** TC-PROM-003  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Valida la funcionalidad de filtrado de promociones por rango de fechas.
@@ -170,44 +163,44 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 **Pasos de Ejecución:**
 1. Navegar a "Administrar promociones"
-2. Capturar screenshot del estado inicial
+2. Obtener conteo inicial de promociones
 3. Hacer clic en el botón "Filtrar"
-4. Configurar fechas:
-   - Fecha inicio: 01-01-2025
+4. Validar que el diálogo se abre correctamente
+5. Configurar fechas:
+   - Fecha inicio: 01-11-2025
    - Fecha fin: 31-12-2025
-5. Hacer clic en "Aplicar"
-6. Capturar screenshot después de aplicar filtro
-7. Reabrir el diálogo de filtros
-8. Hacer clic en "Limpiar"
-9. Capturar screenshot después de limpiar filtros
-10. Comparar screenshots
+6. Validar que las fechas se configuraron correctamente
+7. Hacer clic en "Aplicar"
+8. Validar que el diálogo se cierra
+9. Contar promociones después de aplicar filtro
+10. Reabrir el diálogo de filtros
+11. Hacer clic en "Limpiar"
+12. Validar que las fechas se limpiaron
+13. Contar promociones después de limpiar
+14. Validar que se restauraron todas las promociones
 
 **Validaciones:**
-- ✅ Diálogo de filtros se abre correctamente
+- ✅ Diálogo de filtros se abre correctamente (campos visibles)
 - ✅ Campos de fecha aceptan valores
-- ✅ Filtro se aplica correctamente
+- ✅ Filtro se aplica correctamente (conteo cambia o todas están en el rango)
 - ✅ Listado se actualiza según filtro
 - ✅ Botón "Limpiar" restaura el estado original
-- ✅ Comparación visual detecta cambios
+- ✅ Validación basada en conteo de elementos DOM
+- ✅ Validación de valores de campos de fecha
 
 **Técnicas de Validación:**
-- Comparación de tamaño de archivos
-- Comparación pixel por pixel
-- Validación de vuelta al estado original
+- Conteo de tarjetas de promociones antes y después
+- Validación de valores de campos de fecha
+- Comparación de conteos para detectar cambios
+- Validación de restauración al estado original
 
-**Archivos Generados:**
-- `filtrar01-promotions-before-filter.png`
-- `filtrar02-filter-dialog-open.png`
-- `filtrar03-dates-configured.png`
-- `filtrar04-after-apply-filter.png`
-- `filtrar05-filter-dialog-reopened.png`
-- `filtrar06-after-clear.png`
+**Nota:** Este test ya no utiliza comparación de screenshots. Las validaciones se realizan mediante conteo de elementos DOM y verificación de valores de campos.
 
 ---
 
-### 5. Buscar Promociones
+### 4. Buscar Promociones
 
-**ID:** TC-PROM-005  
+**ID:** TC-PROM-004  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la funcionalidad de búsqueda de promociones por texto.
@@ -218,25 +211,32 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 **Pasos de Ejecución:**
 1. Navegar a "Administrar promociones"
-2. Capturar screenshot del estado inicial
+2. Obtener conteo inicial de promociones
 3. Ingresar texto "Promo de prueba" en el campo de búsqueda
-4. Esperar a que se procese la búsqueda
-5. Capturar screenshot después de la búsqueda
-6. Limpiar el campo de búsqueda
-7. Capturar screenshot después de limpiar
-8. Ingresar texto "Término que no existe"
-9. Capturar screenshot con búsqueda sin resultados
-10. Limpiar nuevamente el campo
-11. Capturar screenshot final
-12. Comparar todos los screenshots
+4. Validar que el campo contiene el texto ingresado
+5. Esperar a que se procese la búsqueda
+6. Contar promociones después de la búsqueda
+7. Validar que las promociones visibles contienen el término de búsqueda
+8. Limpiar el campo de búsqueda
+9. Validar que el campo está vacío
+10. Contar promociones después de limpiar
+11. Validar que se restauraron todas las promociones
+12. Ingresar texto "Término que no existe"
+13. Validar que el campo contiene el término
+14. Contar promociones (debe ser 0)
+15. Validar mensaje de "sin resultados" si existe
+16. Limpiar nuevamente el campo
+17. Validar que se volvió al estado original
 
 **Validaciones:**
 - ✅ Campo de búsqueda acepta texto
-- ✅ Búsqueda filtra resultados correctamente
+- ✅ Campo contiene el valor esperado
+- ✅ Búsqueda filtra resultados correctamente (conteo cambia)
+- ✅ Promociones visibles contienen el término de búsqueda
 - ✅ Limpieza restaura el listado completo
-- ✅ Búsqueda sin resultados muestra estado apropiado
-- ✅ Vuelta al estado original es exitosa
-- ✅ Comparación pixel por pixel valida cambios
+- ✅ Campo se limpia correctamente
+- ✅ Búsqueda sin resultados muestra 0 promociones
+- ✅ Vuelta al estado original es exitosa (conteo coincide)
 
 **Casos de Prueba Incluidos:**
 - Búsqueda con resultados
@@ -244,18 +244,19 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 - Limpieza de búsqueda
 - Restauración al estado original
 
-**Archivos Generados:**
-- `buscar01-promotions-before-search.png`
-- `buscar02-promotions-after-search.png`
-- `buscar03-promotions-after-clear-search.png`
-- `buscar04-promotions-no-results.png`
-- `buscar05-promotions-final-clear.png`
+**Técnicas de Validación:**
+- Conteo de tarjetas de promociones
+- Validación de valores del campo de búsqueda
+- Verificación de contenido de texto en promociones visibles
+- Comparación de conteos para detectar cambios
+
+**Nota:** Este test ya no utiliza comparación de screenshots. Las validaciones se realizan mediante conteo de elementos DOM, verificación de valores de campos y análisis de contenido de texto.
 
 ---
 
-### 6. Editar Promoción
+### 5. Editar Promoción
 
-**ID:** TC-PROM-006  
+**ID:** TC-PROM-005  
 **Prioridad:** Crítica  
 **Timeout:** 90 segundos  
 **Descripción:** Valida la funcionalidad de edición de promociones existentes.
@@ -296,9 +297,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 7. Eliminar Promoción
+### 6. Eliminar Promoción
 
-**ID:** TC-PROM-007  
+**ID:** TC-PROM-006  
 **Prioridad:** Crítica  
 **Timeout:** 90 segundos  
 **Descripción:** Verifica la funcionalidad de eliminación de promociones con validación explícita.
@@ -341,9 +342,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 8. Navegar a Chats desde Promociones
+### 7. Navegar a Chats desde Promociones
 
-**ID:** TC-PROM-008  
+**ID:** TC-PROM-007  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el módulo de chats.
@@ -378,9 +379,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 9. Navegar a Perfil desde Promociones
+### 8. Navegar a Perfil desde Promociones
 
-**ID:** TC-PROM-009  
+**ID:** TC-PROM-008  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el perfil del usuario.
@@ -415,9 +416,9 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ---
 
-### 10. Navegar a Dashboard desde Promociones
+### 9. Navegar a Dashboard desde Promociones
 
-**ID:** TC-PROM-010  
+**ID:** TC-PROM-009  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el dashboard principal del proveedor.
@@ -463,9 +464,28 @@ El conjunto de pruebas utiliza las siguientes funciones auxiliares:
 
 ## Técnicas y Herramientas Utilizadas
 
-### Comparación Visual
+### Validación Basada en DOM
 
-Las pruebas utilizan técnicas avanzadas de comparación visual:
+Las pruebas utilizan principalmente técnicas de validación basadas en el DOM:
+
+1. **Conteo de Elementos:**
+   - Análisis de cantidad de elementos visibles
+   - Comparación de conteos antes y después de operaciones
+   - Detección de cambios en el listado
+
+2. **Validación de Valores:**
+   - Verificación de valores de campos de entrada
+   - Validación de contenido de texto
+   - Comparación de estados esperados vs actuales
+
+3. **Análisis de Contenido:**
+   - Verificación de texto en elementos
+   - Búsqueda de términos específicos
+   - Validación de presencia/ausencia de elementos
+
+### Comparación Visual (Solo para Ordenar)
+
+La prueba de "Ordenar Promociones" aún utiliza comparación visual:
 
 1. **Comparación de Tamaño de Archivo:**
    - Análisis de cambios en el tamaño de archivos PNG
@@ -513,14 +533,14 @@ Sistema de mensajes visuales durante la ejecución:
 
 | Funcionalidad | Estado | Casos de Prueba |
 |--------------|--------|-----------------|
-| Crear Promoción | ✅ Cubierto | TC-PROM-002 |
-| Editar Promoción | ✅ Cubierto | TC-PROM-006 |
-| Eliminar Promoción | ✅ Cubierto | TC-PROM-007 |
-| Listar Promociones | ✅ Cubierto | TC-PROM-002, TC-PROM-006, TC-PROM-007 |
-| Buscar Promociones | ✅ Cubierto | TC-PROM-005 |
-| Filtrar Promociones | ✅ Cubierto | TC-PROM-004 |
-| Ordenar Promociones | ✅ Cubierto | TC-PROM-003 |
-| Navegación | ✅ Cubierto | TC-PROM-008, TC-PROM-009, TC-PROM-010 |
+| Crear Promoción | ✅ Cubierto | TC-PROM-001 |
+| Editar Promoción | ✅ Cubierto | TC-PROM-005 |
+| Eliminar Promoción | ✅ Cubierto | TC-PROM-006 |
+| Listar Promociones | ✅ Cubierto | TC-PROM-001, TC-PROM-005, TC-PROM-006 |
+| Buscar Promociones | ✅ Cubierto | TC-PROM-004 |
+| Filtrar Promociones | ✅ Cubierto | TC-PROM-003 |
+| Ordenar Promociones | ✅ Cubierto | TC-PROM-002 |
+| Navegación | ✅ Cubierto | TC-PROM-007, TC-PROM-008, TC-PROM-009 |
 
 ### Validaciones Implementadas
 
@@ -529,8 +549,10 @@ Sistema de mensajes visuales durante la ejecución:
 - ✅ Validación de URLs
 - ✅ Validación de conteo de elementos
 - ✅ Validación de ausencia de elementos
-- ✅ Validación visual (screenshots)
-- ✅ Validación de cambios de estado
+- ✅ Validación de valores de campos
+- ✅ Validación de contenido de texto
+- ✅ Validación visual (screenshots) - Solo para ordenar
+- ✅ Validación de cambios de estado basada en DOM
 
 ---
 
@@ -589,7 +611,7 @@ npx playwright test tests/promotions.spec.ts -g "Crear promoción"
 
 Las pruebas están diseñadas para ejecutarse en el siguiente orden:
 
-1. Login (automático en beforeEach)
+1. Login (automático en `beforeEach` usando función de `utils.ts`)
 2. Crear promoción
 3. Ordenar promociones
 4. Filtrar promociones
@@ -604,10 +626,11 @@ Las pruebas están diseñadas para ejecutarse en el siguiente orden:
 
 ## Limitaciones Conocidas
 
-1. **Archivos de Imagen:** Las pruebas requieren archivos específicos en `C:/Temp/`
-2. **Ambiente:** Las pruebas están configuradas para el ambiente de staging
-3. **Credenciales:** Requiere credenciales válidas de proveedor
+1. **Archivos de Imagen:** Las pruebas requieren archivos específicos en `C:/Temp/` (configurados en constantes)
+2. **Ambiente:** Las pruebas están configuradas para el ambiente de staging (configurado en `BASE_URL`)
+3. **Credenciales:** Requiere credenciales válidas de proveedor (configuradas en constantes)
 4. **Dependencias:** Algunas pruebas dependen de la ejecución exitosa de pruebas anteriores
+5. **Constantes:** Todos los valores configurables están centralizados al inicio del archivo para facilitar cambios
 
 ---
 
@@ -635,11 +658,22 @@ Las pruebas están diseñadas para ejecutarse en el siguiente orden:
 El conjunto de pruebas implementado proporciona una cobertura completa de las funcionalidades principales del módulo de Promociones. Las pruebas están diseñadas para ser:
 
 - **Robustas:** Manejo adecuado de timeouts y esperas
-- **Mantenibles:** Código organizado con funciones reutilizables
-- **Confiables:** Validaciones explícitas y múltiples puntos de verificación
-- **Informativas:** Mensajes claros y screenshots para debugging
+- **Mantenibles:** Código organizado con funciones reutilizables y constantes centralizadas
+- **Confiables:** Validaciones explícitas basadas en DOM y múltiples puntos de verificación
+- **Informativas:** Mensajes claros y validaciones detalladas
+- **Eficientes:** Validaciones basadas en DOM en lugar de comparaciones visuales (excepto ordenar)
+- **Centralizadas:** Login y utilidades compartidas en `utils.ts`
+- **Configurables:** Todos los valores importantes están en constantes al inicio del archivo
 
 Las pruebas están listas para ser integradas en un pipeline de CI/CD y pueden ejecutarse de forma automatizada para validar la funcionalidad del módulo en cada despliegue.
+
+### Mejoras Recientes (v1.1)
+
+- ✅ Refactorización de validaciones: Búsqueda y Filtrado ahora usan validación basada en DOM
+- ✅ Eliminación de test "Login" redundante (se ejecuta en `beforeEach`)
+- ✅ Centralización de función `login` en `utils.ts`
+- ✅ Implementación de constantes de configuración para facilitar mantenimiento
+- ✅ Optimización de tiempo de ejecución al eliminar comparaciones de screenshots innecesarias
 
 ---
 

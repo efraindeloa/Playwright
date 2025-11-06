@@ -3,34 +3,60 @@ import fs from 'fs';
 import path from 'path';
 import PNG from 'png-js';
 import pixelmatch from 'pixelmatch';
+import { login } from './utils';
+
+// ============================================================================
+// CONSTANTES DE CONFIGURACIÓN
+// ============================================================================
+
+// Credenciales de login
+const LOGIN_EMAIL = 'fiestamasqaprv@gmail.com';
+const LOGIN_PASSWORD = 'Fiesta2025$';
+
+// URLs
+const BASE_URL = 'https://staging.fiestamas.com';
+const PROMOTIONS_URL = `${BASE_URL}/provider/promotions`;
+const CHATS_URL = `${BASE_URL}/provider/chats`;
+const PROFILE_URL = `${BASE_URL}/provider/profile`;
+
+// Rutas de archivos
+const IMAGE_TRANSPARENT_PATH = 'C:/Temp/transparent.png';
+const IMAGE_JPEG_PATH = 'C:/Temp/images.jpeg';
+const SCREENSHOT_LOGIN_PATH = 'login02-login.png';
+
+// Textos de promociones
+const PROMO_TITLE_PREFIX = 'Promo de prueba';
+const PROMO_EDITED_PREFIX = 'Promo Editada';
+
+// Términos de búsqueda
+const SEARCH_TERM = 'Promo de prueba';
+const NON_EXISTENT_SEARCH_TERM = 'Término que no existe';
+
+// Fechas para filtros
+const FILTER_START_DATE = '01-11-2025';
+const FILTER_END_DATE = '31-12-2025';
+
+// Días para cálculos de fechas
+const DAYS_TO_ADD_FOR_END_DATE = 30; // Para crear promoción
+const DAYS_TO_ADD_FOR_EDITED_END_DATE = 15; // Para editar promoción
+
+// Timeouts (en milisegundos)
+const DEFAULT_TIMEOUT = 60000; // 60 segundos
+const EXTENDED_TIMEOUT = 90000; // 90 segundos
+const WAIT_FOR_ELEMENT_TIMEOUT = 5000;
+const WAIT_FOR_PROMO_TIMEOUT = 20000;
+const WAIT_FOR_PAGE_LOAD = 2000;
+const WAIT_FOR_SEARCH_PROCESS = 2000;
+
+// ============================================================================
 
 test.use({ 
   viewport: { width: 1280, height: 720 }
 });
 
 // Configuración global de timeout
-test.setTimeout(60000); // 60 segundos de timeout para cada test
+test.setTimeout(DEFAULT_TIMEOUT);
 
-// Función común para login
-async function login(page: Page) {
-  // --- HOME ---
-  await page.goto('https://staging.fiestamas.com');
-  await page.waitForTimeout(2000);
-
-  // --- LOGIN ---
-  const loginButton = page.locator('button:has(i.icon-user)');
-  await loginButton.click();
-  
-  // Screenshot de la página de login
-  await page.waitForTimeout(1000);
-  await page.screenshot({ path: 'login02-login.png', fullPage: true });
-  
-  await page.locator('input[id="Email"]').fill('fiestamasqaprv@gmail.com');
-  await page.locator('input[id="Password"]').fill('Fiesta2025$');
-  await page.locator('button[type="submit"]').click();
-  await expect(page).toHaveURL(/.*dashboard/);
-  await page.waitForTimeout(2000);
-}
 
 async function showStepMessage(page, message) {
   await page.evaluate((msg) => {
@@ -174,12 +200,7 @@ async function showDynamicElements(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await login(page);
-});
-
-test('Login', async ({ page }) => {
-  // El login ya se ejecutó en beforeEach
-  console.log('✅ Login completado automáticamente');
+  await login(page, LOGIN_EMAIL, LOGIN_PASSWORD);
 });
 
 test('Crear promoción', async ({ page }) => {
@@ -201,7 +222,7 @@ test('Crear promoción', async ({ page }) => {
   // Generar nombre dinámico con fecha y hora actual
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const promoTitle = `Promo de prueba ${timestamp}`;
+  const promoTitle = `${PROMO_TITLE_PREFIX} ${timestamp}`;
   
   await showStepMessage(page, '📝 LLENANDO FORMULARIO: Título, fechas e imagen');
   await page.waitForTimeout(1000);
@@ -210,14 +231,14 @@ test('Crear promoción', async ({ page }) => {
   // Fecha de inicio: día actual
   const startDate = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
   
-  // Fecha de fin: 30 días después del día actual
+  // Fecha de fin: días después del día actual
   const endDateObj = new Date(now);
-  endDateObj.setDate(endDateObj.getDate() + 30);
+  endDateObj.setDate(endDateObj.getDate() + DAYS_TO_ADD_FOR_END_DATE);
   const endDate = `${String(endDateObj.getDate()).padStart(2,'0')}-${String(endDateObj.getMonth()+1).padStart(2,'0')}-${endDateObj.getFullYear()}`;
   
   await pickDateSmart(page, 'input#StartDate', startDate);
   await pickDateSmart(page, 'input#EndDate', endDate);
-  await page.locator('input[type="file"]').setInputFiles('C:/Temp/transparent.png');
+  await page.locator('input[type="file"]').setInputFiles(IMAGE_TRANSPARENT_PATH);
   
   await showStepMessage(page, '💾 GUARDANDO PROMOCIÓN');
   await page.waitForTimeout(1000);
@@ -387,19 +408,17 @@ test('Filtrar promociones', async ({ page }) => {
   // --- CONFIGURAR FECHAS INICIALES ---
   await showStepMessage(page, '📅 CONFIGURANDO FECHAS DE FILTRO');
   await page.waitForTimeout(1000);
-  const startDate = '01-11-2025';
-  const endDate = '31-12-2025';
   
-  await pickDateSmart(page, 'input#StartDate', startDate);
+  await pickDateSmart(page, 'input#StartDate', FILTER_START_DATE);
   await page.waitForTimeout(500);
-  await pickDateSmart(page, 'input#EndDate', endDate);
+  await pickDateSmart(page, 'input#EndDate', FILTER_END_DATE);
   await page.waitForTimeout(500);
 
   // Validar que las fechas se configuraron correctamente
   const startDateValue = await startDateInput.inputValue();
   const endDateValue = await endDateInput.inputValue();
-  console.log(`✅ Fecha inicio configurada: ${startDateValue}`);
-  console.log(`✅ Fecha fin configurada: ${endDateValue}`);
+  console.log(`✅ Fecha inicio configurada: ${startDateValue} (esperada: ${FILTER_START_DATE})`);
+  console.log(`✅ Fecha fin configurada: ${endDateValue} (esperada: ${FILTER_END_DATE})`);
 
   // --- APLICAR FILTRO ---
   await showStepMessage(page, '✅ APLICANDO FILTRO DE FECHAS');
@@ -474,7 +493,7 @@ test('Filtrar promociones', async ({ page }) => {
   console.log(`  ✅ Estado inicial: ${initialPromoCount} promociones`);
   console.log(`  ✅ Después de aplicar filtro: ${afterFilterCount} promociones`);
   console.log(`  ✅ Después de limpiar filtro: ${afterClearCount} promociones`);
-  console.log(`  ✅ Rango de fechas: ${startDate} - ${endDate}`);
+  console.log(`  ✅ Rango de fechas: ${FILTER_START_DATE} - ${FILTER_END_DATE}`);
   console.log(`  ✅ Filtro aplicado: ${afterFilterCount !== initialPromoCount ? 'Sí' : 'No (todas las promociones están en el rango)'}`);
   console.log(`  ✅ Estado restaurado: ${afterClearCount === initialPromoCount ? 'Sí' : 'Parcial'}`);
 });
@@ -504,16 +523,15 @@ test('Buscar promociones', async ({ page }) => {
   await page.waitForTimeout(1000);
   
   const searchInput = page.locator('input#Search');
-  const searchTerm = 'Promo de prueba';
-  await searchInput.fill(searchTerm);
+  await searchInput.fill(SEARCH_TERM);
   
   // Esperar a que se procese la búsqueda (esperar a que el listado se actualice)
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(WAIT_FOR_SEARCH_PROCESS);
   
   // Verificar que el campo de búsqueda tiene el valor correcto
   const searchValue = await searchInput.inputValue();
-  if (searchValue !== searchTerm) {
-    throw new Error(`❌ El campo de búsqueda no tiene el valor esperado. Esperado: "${searchTerm}", Obtenido: "${searchValue}"`);
+  if (searchValue !== SEARCH_TERM) {
+    throw new Error(`❌ El campo de búsqueda no tiene el valor esperado. Esperado: "${SEARCH_TERM}", Obtenido: "${searchValue}"`);
   }
   console.log(`✅ Campo de búsqueda contiene: "${searchValue}"`);
 
@@ -534,11 +552,11 @@ test('Buscar promociones', async ({ page }) => {
     let matchingPromos = 0;
     for (let i = 0; i < afterSearchCount; i++) {
       const promoText = await visiblePromos.nth(i).textContent();
-      if (promoText && promoText.toLowerCase().includes(searchTerm.toLowerCase())) {
+      if (promoText && promoText.toLowerCase().includes(SEARCH_TERM.toLowerCase())) {
         matchingPromos++;
       }
     }
-    console.log(`✅ Promociones que coinciden con "${searchTerm}": ${matchingPromos}/${afterSearchCount}`);
+    console.log(`✅ Promociones que coinciden con "${SEARCH_TERM}": ${matchingPromos}/${afterSearchCount}`);
     
     if (matchingPromos === 0 && afterSearchCount > 0) {
       console.warn('⚠️ Ninguna promoción visible contiene el término de búsqueda');
@@ -574,14 +592,13 @@ test('Buscar promociones', async ({ page }) => {
   await showStepMessage(page, '❌ BUSCANDO TÉRMINO NO EXISTENTE');
   await page.waitForTimeout(1000);
   
-  const nonExistentTerm = 'Término que no existe';
-  await searchInput.fill(nonExistentTerm);
-  await page.waitForTimeout(2000);
+  await searchInput.fill(NON_EXISTENT_SEARCH_TERM);
+  await page.waitForTimeout(WAIT_FOR_SEARCH_PROCESS);
 
   // Verificar que el campo tiene el término
   const noResultsSearchValue = await searchInput.inputValue();
-  if (noResultsSearchValue !== nonExistentTerm) {
-    throw new Error(`❌ El campo de búsqueda no tiene el término esperado. Esperado: "${nonExistentTerm}", Obtenido: "${noResultsSearchValue}"`);
+  if (noResultsSearchValue !== NON_EXISTENT_SEARCH_TERM) {
+    throw new Error(`❌ El campo de búsqueda no tiene el término esperado. Esperado: "${NON_EXISTENT_SEARCH_TERM}", Obtenido: "${noResultsSearchValue}"`);
   }
 
   // Contar promociones con búsqueda sin resultados
@@ -637,7 +654,7 @@ test('Buscar promociones', async ({ page }) => {
 });
 
 test('Editar promoción', async ({ page }) => {
-  test.setTimeout(90000); // 90 segundos para este test específico
+  test.setTimeout(EXTENDED_TIMEOUT);
   // Ya está logueado por beforeEach
 
   // --- ADMINISTRAR PROMOCIONES ---
@@ -647,8 +664,8 @@ test('Editar promoción', async ({ page }) => {
   await page.waitForTimeout(1000);
 
   // --- LOCALIZAR Y EDITAR PROMOCIÓN ---
-  // Buscar cualquier promoción que contenga "Promo de prueba" (puede ser la creada anteriormente)
-  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo de prueba")').first();
+  // Buscar cualquier promoción que contenga el prefijo de prueba (puede ser la creada anteriormente)
+  const promoName = page.locator(`p.text-medium.font-bold:has-text("${PROMO_TITLE_PREFIX}")`).first();
   await expect(promoName).toBeVisible();
   const promoNameText = await promoName.textContent();
   
@@ -671,14 +688,14 @@ test('Editar promoción', async ({ page }) => {
   await page.waitForTimeout(1000);
     const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const editedPromoTitle = `Promo Editada ${timestamp}`;
+  const editedPromoTitle = `${PROMO_EDITED_PREFIX} ${timestamp}`;
   
   // Fecha de inicio: día actual
     const startDate = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
   
-  // Fecha de fin: 15 días después del día actual
+  // Fecha de fin: días después del día actual
     const end = new Date(now);
-  end.setDate(end.getDate() + 15);
+  end.setDate(end.getDate() + DAYS_TO_ADD_FOR_EDITED_END_DATE);
     const endDate = `${String(end.getDate()).padStart(2,'0')}-${String(end.getMonth()+1).padStart(2,'0')}-${end.getFullYear()}`;
 
   await page.locator('input[id="Title"]').fill(editedPromoTitle);
@@ -695,7 +712,7 @@ test('Editar promoción', async ({ page }) => {
   await showStepMessage(page, '📷 SUBIENDO NUEVA IMAGEN');
   await page.waitForTimeout(1000);
     const fileInput = await page.locator('input[type="file"]');
-    await fileInput.setInputFiles('C:/Temp/images.jpeg');
+    await fileInput.setInputFiles(IMAGE_JPEG_PATH);
 
   // --- GUARDAR CAMBIOS ---
   await showStepMessage(page, '💾 GUARDANDO CAMBIOS DE EDICIÓN');
@@ -706,13 +723,13 @@ test('Editar promoción', async ({ page }) => {
   await showStepMessage(page, '🔄 RECARGANDO PARA VER CAMBIOS GUARDADOS');
   await page.waitForTimeout(1000);
   const updatedPromo = page.locator('div.w-full.flex.shadow-4', { hasText: editedPromoTitle });
-  await expect(updatedPromo).toBeVisible({ timeout: 20000 });
+  await expect(updatedPromo).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
     await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 });
 
 test('Eliminar promoción', async ({ page }) => {
-  test.setTimeout(90000); // 90 segundos para este test específico
+  test.setTimeout(EXTENDED_TIMEOUT);
   // Ya está logueado por beforeEach
 
   // --- ADMINISTRAR PROMOCIONES ---
@@ -725,9 +742,9 @@ test('Eliminar promoción', async ({ page }) => {
   // Esperar un momento adicional para que las promociones se carguen completamente
   await page.waitForTimeout(5000);
   
-  // Buscar cualquier promoción que contenga "Promo Editada" (la que se editó anteriormente)
-  const promoName = page.locator('p.text-medium.font-bold:has-text("Promo Editada")').first();
-  await expect(promoName).toBeVisible({ timeout: 20000 }); // Aumentado a 20 segundos
+  // Buscar cualquier promoción que contenga el prefijo de promoción editada (la que se editó anteriormente)
+  const promoName = page.locator(`p.text-medium.font-bold:has-text("${PROMO_EDITED_PREFIX}")`).first();
+  await expect(promoName).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
   const promoNameText = await promoName.textContent();
   
   if (!promoNameText) {
@@ -785,7 +802,7 @@ test('Navegar a chats desde promociones', async ({ page }) => {
   await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
@@ -825,7 +842,7 @@ test('Navegar a chats desde promociones', async ({ page }) => {
   await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- VERIFICAR QUE REGRESÓ A PROMOCIONES ---
@@ -852,7 +869,7 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
   await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
@@ -890,7 +907,7 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
   await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- VERIFICAR QUE REGRESÓ A PROMOCIONES ---
@@ -917,7 +934,7 @@ test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
@@ -996,7 +1013,7 @@ test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE PROMOCIONES');
   await page.waitForTimeout(1000);
   
-  await page.goto('https://staging.fiestamas.com/provider/promotions');
+  await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
   // --- VERIFICAR QUE REGRESÓ A PROMOCIONES ---
