@@ -4,17 +4,18 @@ import path from 'path';
 import PNG from 'png-js';
 import pixelmatch from 'pixelmatch';
 import { login } from './utils';
+import { DEFAULT_BASE_URL, PROVIDER_EMAIL, PROVIDER_PASSWORD } from './config';
 
 // ============================================================================
 // CONSTANTES DE CONFIGURACIÓN
 // ============================================================================
 
 // Credenciales de login
-const LOGIN_EMAIL = 'fiestamasqaprv@gmail.com';
-const LOGIN_PASSWORD = 'Fiesta2025$';
+const LOGIN_EMAIL = PROVIDER_EMAIL;
+const LOGIN_PASSWORD = PROVIDER_PASSWORD;
 
 // URLs
-const BASE_URL = 'https://staging.fiestamas.com';
+const BASE_URL = DEFAULT_BASE_URL;
 const PROMOTIONS_URL = `${BASE_URL}/provider/promotions`;
 const CHATS_URL = `${BASE_URL}/provider/chats`;
 const PROFILE_URL = `${BASE_URL}/provider/profile`;

@@ -1,4 +1,16 @@
 import { test, Page, expect } from '@playwright/test';
+import {
+  DEFAULT_BASE_URL,
+  DEFAULT_ACCOUNT_PASSWORD,
+  REGISTRATION_EMAIL_STEP,
+  REGISTRATION_EMAIL_LOG,
+  REGISTRATION_EMAIL_DEFAULT
+} from './config';
+
+// Configurar viewport para que la página se muestre correctamente
+test.use({
+  viewport: { width: 1280, height: 720 }
+});
 
 // Aumentar timeout general del test para flujos con retos de seguridad
 test.setTimeout(90000);
@@ -70,8 +82,8 @@ export async function register(page: Page) {
   // Paso 4: Ingresar el email
   const emailInput = page.locator('input[id="Email"]');
   await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-  await emailInput.fill('fiestamasqa+11@gmail.com');
-  console.log('✓ Email ingresado: fiestamasqa+10@gmail.com');
+  await emailInput.fill(REGISTRATION_EMAIL_STEP);
+  console.log(`✓ Email ingresado: ${REGISTRATION_EMAIL_LOG}`);
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
@@ -91,7 +103,7 @@ export async function register(page: Page) {
   // Paso 6: Ingresar la contraseña
   const passwordInput = page.locator('input[id="Password"]');
   await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
-  await passwordInput.fill('Fiesta2025$');
+  await passwordInput.fill(DEFAULT_ACCOUNT_PASSWORD);
   console.log('✓ Contraseña ingresada');
   
   // Esperar un momento para que el formulario se actualice
@@ -100,7 +112,7 @@ export async function register(page: Page) {
   // Paso 7: Confirmar la contraseña
   const repeatPasswordInput = page.locator('input[id="RepeatPassword"]');
   await repeatPasswordInput.waitFor({ state: 'visible', timeout: 10000 });
-  await repeatPasswordInput.fill('Fiesta2025$');
+  await repeatPasswordInput.fill(DEFAULT_ACCOUNT_PASSWORD);
   console.log('✓ Contraseña confirmada');
   
   // Esperar un momento para que se validen los requisitos de contraseña
@@ -144,6 +156,28 @@ export async function register(page: Page) {
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(1000);
+  
+  // Asegurar que la página esté completamente visible y centrada
+  // Hacer scroll al inicio de la página para asegurar que se muestre correctamente
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  
+  // Ajustar el tamaño de la ventana si es necesario
+  await page.setViewportSize({ width: 1280, height: 720 });
+  
+  // Esperar a que la página se renderice completamente
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  
+  // PAUSA MANUAL: Esperar a que el usuario complete el checkbox de Cloudflare Turnstile
+  console.log('\n⏸️  PAUSA MANUAL: Por favor completa el checkbox de Cloudflare Turnstile');
+  console.log('   Una vez que hayas completado la verificación, la prueba continuará automáticamente...\n');
+  
+  // Pausar la ejecución para que el usuario pueda completar el checkbox de Cloudflare
+  await page.pause();
+  
+  console.log('\n⏳ Continuando después de la pausa manual...\n');
   
   // Paso 11.1: Esperar a que se complete la verificación de Cloudflare Turnstile
   console.log('⏳ Esperando a que se complete la verificación de Cloudflare Turnstile...');
@@ -208,7 +242,7 @@ export async function register(page: Page) {
 /**
  * Función para hacer clic en el botón de registro, seleccionar "Proveedor" y continuar.
  */
-export async function registerProvider(page: Page, email: string = 'fiestamasqa+12@gmail.com') {
+export async function registerProvider(page: Page, email: string = REGISTRATION_EMAIL_DEFAULT) {
   // Paso 1: Hacer clic en el botón "Regístrate"
   const registerButton = page.locator('button[type="button"].font-bold.underline.text-primary-neutral').filter({
     hasText: 'Regístrate'
@@ -266,13 +300,24 @@ export async function registerProvider(page: Page, email: string = 'fiestamasqa+
   await siguienteButton.click();
   console.log('✓ Botón "Siguiente" presionado');
   
-  // Esperar a que aparezca el formulario de contraseña
+  // Esperar a que aparezca la página de código de verificación
   await page.waitForTimeout(2000);
+  
+  // PAUSA MANUAL: Detener el flujo para que el usuario ingrese el código de verificación
+  console.log('\n⏸️  PAUSA MANUAL: Por favor ingresa el código de verificación');
+  console.log('   Cuando termines de ingresar el código, presiona "Resume" en Playwright para continuar.\n');
+  
+  await page.pause();
+  
+  console.log('\n✓ Reanudando después de la pausa manual...\n');
+  
+  // Esperar a que aparezca el formulario de contraseña
+  await page.waitForTimeout(8000);
   
   // Paso 6: Ingresar la contraseña
   const passwordInput = page.locator('input[id="Password"]');
   await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
-  await passwordInput.fill('Fiesta2025$');
+  await passwordInput.fill(DEFAULT_ACCOUNT_PASSWORD);
   console.log('✓ Contraseña ingresada');
   
   // Esperar un momento para que el formulario se actualice
@@ -281,7 +326,7 @@ export async function registerProvider(page: Page, email: string = 'fiestamasqa+
   // Paso 7: Confirmar la contraseña
   const repeatPasswordInput = page.locator('input[id="RepeatPassword"]');
   await repeatPasswordInput.waitFor({ state: 'visible', timeout: 10000 });
-  await repeatPasswordInput.fill('Fiesta2025$');
+  await repeatPasswordInput.fill(DEFAULT_ACCOUNT_PASSWORD);
   console.log('✓ Contraseña confirmada');
   
   // Esperar un momento para que se validen los requisitos de contraseña
@@ -324,7 +369,7 @@ export async function registerProvider(page: Page, email: string = 'fiestamasqa+
   console.log('✓ Teléfono ingresado: 5559876543');
   
   // Esperar un momento para que el formulario se actualice
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(500);
   
   // Paso 11.1: Esperar a que se complete la verificación de Cloudflare Turnstile
   console.log('⏳ Esperando a que se complete la verificación de Cloudflare Turnstile...');
@@ -390,7 +435,7 @@ export async function registerProvider(page: Page, email: string = 'fiestamasqa+
  */
 test('Registrar nuevo Cliente', async ({ page }) => {
   // Navegar a la página principal
-  await page.goto('https://staging.fiestamas.com/login');
+  await page.goto(`${DEFAULT_BASE_URL}/login`);
   
   // Ejecutar el flujo de registro
   await register(page);
@@ -404,7 +449,7 @@ test('Registrar nuevo Cliente', async ({ page }) => {
  */
 test('Registrar nuevo Proveedor', async ({ page }) => {
   // Navegar a la página de registro
-  await page.goto('https://staging.fiestamas.com/login');
+  await page.goto(`${DEFAULT_BASE_URL}/login`);
   
   // Ejecutar el flujo de registro como proveedor
   await registerProvider(page);

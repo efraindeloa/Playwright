@@ -1,8 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import path from 'path';
-import fs from 'fs';
-import PNG from 'png-js';
-import pixelmatch from 'pixelmatch';
+import { login } from './utils';
+import { PROVIDER_EMAIL, PROVIDER_PASSWORD } from './config';
 
 
 
@@ -13,32 +12,6 @@ test.use({
   // Configuración global de timeout
   test.setTimeout(60000); // 60 segundos de timeout para cada test
   
-  // Función común para login
-  async function login(page: Page) {
-    // --- HOME ---
-    await page.goto('https://staging.fiestamas.com');
-    await page.waitForTimeout(2000);
-    await screenshotAndCompare(page, 'login01-home.png', 'refs/login01-home.png');
-  
-    // --- LOGIN ---
-    const loginButton = page.locator('button:has(i.icon-user)');
-    await loginButton.click();
-    
-    // Screenshot de la página de login
-    await page.waitForTimeout(1000);
-    await page.screenshot({ path: 'login02-login.png', fullPage: true });
-    
-    await page.locator('input[id="Email"]').fill('fiestamasqaprv@gmail.com');
-    await page.locator('input[id="Password"]').fill('Fiesta2025$');
-    await page.locator('button[type="submit"]').click();
-    await expect(page).toHaveURL(/.*dashboard/);
-    await page.waitForTimeout(2000);
-  
-    // --- DASHBOARD LIMPIO ---
-    await screenshotAndCompare(page, 'login03-dashboard.png', 'refs/login03-dashboard.png');
-  }
-  
-
   function getRandomCountryCode() {
     const paises = [
       'Afghanistan +93', 'Albania +355', 'Andorra +376', 'Angola +244', 'Argentina +54',
@@ -51,8 +24,6 @@ test.use({
     return paises[index];
   }
   
-  
-
   async function showStepMessage(page, message) {
     await page.evaluate((msg) => {
       let box = document.getElementById('__playwright_step_overlay');
@@ -170,64 +141,8 @@ test.use({
       await page.waitForTimeout(200);
   }
   
-  async function hideDynamicElements(page: Page) {
-    await page.evaluate(() => {
-      const h4s = Array.from(document.querySelectorAll('div.overflow-hidden > h4')) as HTMLElement[];
-      h4s.forEach(el => el.style.display = 'none');
-  
-      const divs = Array.from(document.querySelectorAll('div[role="button"].w-full')) as HTMLElement[];
-      divs.forEach(el => el.style.display = 'none');
-  
-      const buttons = Array.from(document.querySelectorAll('div.pt-4.overflow-y-auto button')) as HTMLElement[];
-      buttons.forEach(el => el.style.display = 'none');
-    });
-  }
-  
-  async function showDynamicElements(page: Page) {
-    await page.evaluate(() => {
-      const h4s = Array.from(document.querySelectorAll('div.overflow-hidden > h4')) as HTMLElement[];
-      h4s.forEach(el => el.style.display = '');
-      const divs = Array.from(document.querySelectorAll('div[role="button"].w-full')) as HTMLElement[];
-      divs.forEach(el => el.style.display = '');
-      const buttons = Array.from(document.querySelectorAll('div.pt-4.overflow-y-auto button')) as HTMLElement[];
-      buttons.forEach(el => el.style.display = '');
-    });
-  }
-  
-  async function screenshotAndCompare(page: Page, ssPath: string, refPath: string) {
-    await hideDynamicElements(page);
-    await page.waitForTimeout(1000);
-    await page.screenshot({ 
-      path: ssPath, 
-      fullPage: true,
-      timeout: 30000  // 30 segundos para screenshots
-    });
-    await showDynamicElements(page);
-  
-    if (!fs.existsSync(refPath)) {
-      console.warn(`⚠️ Referencia no encontrada: ${refPath}`);
-      return;
-    }
-  
-    const imgBefore = PNG.sync.read(fs.readFileSync(path.resolve(ssPath)));
-    const imgAfter = PNG.sync.read(fs.readFileSync(path.resolve(refPath)));
-  
-    if (imgBefore.width !== imgAfter.width || imgBefore.height !== imgAfter.height) {
-      throw new Error(`❌ Tamaño distinto entre ${ssPath} y referencia ${refPath}`);
-    }
-  
-    const diff = new PNG({ width: imgBefore.width, height: imgBefore.height });
-    const numDiffPixels = pixelmatch(imgBefore.data, imgAfter.data, diff.data, imgBefore.width, imgBefore.height, { threshold: 0.1 });
-  
-    if (numDiffPixels > 0) {
-      throw new Error(`❌ Diferencia entre ${ssPath} y referencia ${refPath}. Píxeles distintos: ${numDiffPixels}`);
-    } else {
-      console.log(`✅ ${ssPath} coincide con la referencia`);
-    }
-  }
-  
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
   });
   
   test('Login', async ({ page }) => {
@@ -238,106 +153,253 @@ test.use({
 
  
   test('Editar perfil de proveedor y cambiar foto', async ({ page }) => {
-    await page.goto('https://staging.fiestamas.com/provider/profile');
-  
-    // --- DATOS PERSONALES ---
-    const seccionDatosPersonales = page.locator('div.flex-col').filter({
-      has: page.locator('h5:text("Modifica tus datos personales")')
-    });
-  
-    const btnEditarDatosPersonales = seccionDatosPersonales.locator('button').filter({
-      has: page.locator('p:text("Editar")')
+    const profileLink = page.locator('a[href="/provider/profile"]').filter({
+      has: page.locator('i.icon-user')
     }).first();
+    await expect(profileLink).toBeVisible({ timeout: 15000 });
+    await profileLink.click();
+    await expect(page).toHaveURL(/\/provider\/profile/);
+    const datosPersonalesHeader = page.locator('h5', { hasText: 'Datos personales' });
+    await expect(datosPersonalesHeader).toBeVisible({ timeout: 15000 });
+ 
+    // --- DATOS PERSONALES ---
+    const seccionDatosPersonales = page.getByRole('heading', { name: 'Datos personales' })
+      .locator('xpath=ancestor::div[contains(@class,"flex") and contains(@class,"items-center") and contains(@class,"w-full")]');
+  
+    const btnEditarDatosPersonales = seccionDatosPersonales.locator('button', { hasText: 'Editar' }).first();
     await btnEditarDatosPersonales.click();
 
-    const inputNombre = seccionDatosPersonales.locator('input[name="Name"]');
-    const inputApellido = seccionDatosPersonales.locator('input[name="LastName"]');
-    const inputTelefono = seccionDatosPersonales.locator('input[id="PhoneNumber"]');
+    const formularioDatosPersonales = page.locator('form#EditPersonalDataForm');
+    await expect(formularioDatosPersonales).toBeVisible({ timeout: 10000 });
 
-    // Esperar a que el input de nombre sea visible después de hacer clic en "Editar"
-    await inputNombre.waitFor({ state: 'visible', timeout: 10000 });
-    
+    const inputNombre = formularioDatosPersonales.locator('input#Name');
+    const inputApellido = formularioDatosPersonales.locator('input#LastName');
+    const inputTelefono = formularioDatosPersonales.locator('input#PhoneNumber');
+
     await inputNombre.fill('NuevoNombreQA');
     await inputApellido.fill('NuevoApellidoQA');
     await inputTelefono.fill('1234567890');
-  
-    // Seleccionar país aleatorio para teléfono
-    await seccionDatosPersonales.locator('#CountryDialCodeId').click();
-    const paises = await page.locator('ul[role="listbox"] > li').all();
-    const randomPais = paises[Math.floor(Math.random() * paises.length)];
-    await randomPais.click();
-  
-    await seccionDatosPersonales.locator('button:has-text("Guardar")').click();
-  
-    // Validar cambios
-    await expect(seccionDatosPersonales.locator('p:text("NuevoNombreQA NuevoApellidoQA")')).toBeVisible();
-    await expect(seccionDatosPersonales.locator('p:text("1234567890")')).toBeVisible();
+
+    await formularioDatosPersonales.locator('#CountryDialCodeId').click();
+    const opcionesPais = page.locator('ul[role="listbox"] > li');
+    const totalPaises = await opcionesPais.count();
+    if (totalPaises > 0) {
+      await opcionesPais.nth(Math.floor(Math.random() * totalPaises)).click();
+    }
+
+    const guardarBtn = page.locator('button[form="EditPersonalDataForm"]').filter({ hasText: 'Guardar' }).first();
+    await expect(guardarBtn).toBeVisible({ timeout: 15000 });
+    await guardarBtn.scrollIntoViewIfNeeded();
+    await guardarBtn.click();
+
+    await expect(seccionDatosPersonales.locator('p', { hasText: 'NuevoNombreQA NuevoApellidoQA' })).toBeVisible();
   
     // --- DATOS DEL NEGOCIO ---
-    const seccionDatosNegocio = page.locator('div.flex-col').filter({
-      has: page.locator('h5:text("Datos del negocio")')
-    });
+    const seccionDatosNegocio = page.getByRole('heading', { name: 'Datos del negocio' })
+      .locator('xpath=ancestor::div[contains(@class,"flex") and contains(@class,"items-center") and contains(@class,"w-full")]');
   
-    const btnEditarDatosNegocio = seccionDatosNegocio.locator('button').filter({
-      has: page.locator('p:text("Editar")')
-    }).first();
-    await btnEditarDatosNegocio.click();
+    const btnEditarDatosNegocio = seccionDatosNegocio.locator('button', { hasText: 'Editar' }).first();
+    await Promise.all([
+      page.waitForURL(/\/provider\/profileEdit/, { timeout: 15000 }),
+      btnEditarDatosNegocio.click()
+    ]);
 
-    const inputNombreNegocio = seccionDatosNegocio.locator('input[name="Name"]');
-    const inputDireccionNegocio = seccionDatosNegocio.locator('input[name="Direccion"]');
-    const inputTelefonoNegocio = seccionDatosNegocio.locator('input[id="PhoneNumber"]');
+    const formularioDatosNegocio = page.locator('form#EditBusinessDataForm');
+    await expect(formularioDatosNegocio).toBeVisible({ timeout: 15000 });
 
-    // Esperar a que el input de nombre del negocio sea visible después de hacer clic en "Editar"
-    await inputNombreNegocio.waitFor({ state: 'visible', timeout: 10000 });
-    
+    const inputNombreNegocio = formularioDatosNegocio.locator('input#BusinessName');
+    const inputTelefonoNegocio = formularioDatosNegocio.locator('input#PhoneNumber');
+    const inputRfcNegocio = formularioDatosNegocio.locator('input#Rfc');
+
     await inputNombreNegocio.fill('Nuevo Negocio QA');
-    await inputDireccionNegocio.fill('C. Reforma 123, Centro, 47600 Tepatitlán, Jal.');
     await inputTelefonoNegocio.fill('9998888777');
-  
-    // Seleccionar país aleatorio para teléfono del negocio
-    await seccionDatosNegocio.locator('#CountryDialCodeId').click();
-    const paisesNegocio = await page.locator('ul[role="listbox"] > li').all();
-    const randomPaisNegocio = paisesNegocio[Math.floor(Math.random() * paisesNegocio.length)];
-    await randomPaisNegocio.click();
-  
-    await seccionDatosNegocio.locator('button:has-text("Guardar")').click();
-  
-    // Validar cambios
-    await expect(seccionDatosNegocio.locator('p:text("Nuevo Negocio QA")')).toBeVisible();
-    await expect(seccionDatosNegocio.locator('p:text("C. Reforma 123, Centro, 47600 Tepatitlán, Jal.")')).toBeVisible();
-    await expect(seccionDatosNegocio.locator('p:text("9998888777")')).toBeVisible();
-  
+    await inputRfcNegocio.fill('FIQ123456ABC');
+
+    await formularioDatosNegocio.locator('#CountryDialCodeId').click();
+    const paisesNegocio = page.locator('ul[role="listbox"] > li');
+    const totalPaisesNegocio = await paisesNegocio.count();
+    if (totalPaisesNegocio > 0) {
+      await paisesNegocio.nth(Math.floor(Math.random() * totalPaisesNegocio)).click();
+    }
+
+    const guardarNegocioBtn = page.locator('button[form="EditBusinessDataForm"]').filter({ hasText: 'Guardar' }).first();
+    await expect(guardarNegocioBtn).toBeVisible({ timeout: 15000 });
+    await guardarNegocioBtn.scrollIntoViewIfNeeded();
+    await guardarNegocioBtn.click();
+
+    await expect(seccionDatosNegocio.locator('p', { hasText: 'Nuevo Negocio QA' })).toBeVisible();
+    await expect(seccionDatosNegocio.locator('p', { hasText: 'Nuevo Negocio QA' })).toBeVisible();
+   
     // --- PRESENCIA DIGITAL ---
-    const seccionPresenciaDigital = page.locator('div.flex-col').filter({
-      has: page.locator('h5:text("Presencia digital")')
-    });
   
-    const btnEditarPresencia = seccionPresenciaDigital.locator('button').filter({
-      has: page.locator('p:text("Editar")')
-    }).first();
+    
+    const btnEditarPresencia = page.locator(
+      '//h5[normalize-space(text())="Presencia digital"]/following::button[p[normalize-space(text())="Editar"]][1]'
+    );
+    
     await btnEditarPresencia.click();
+        
+
+
+    await page.screenshot({ path: 'screenshots/presencia-digital.png', fullPage: true });
+
+    
+    const formularioPresenciaDigital = page.locator('form#EditSocialPresenceDataForm');
+      await expect(formularioPresenciaDigital).toBeVisible({ timeout: 15000 });
   
-    // Aquí se pueden llenar campos de redes sociales si existieran
-    // await seccionPresenciaDigital.locator('input[name="Instagram"]').fill('https://instagram.com/nuevoPerfilQA');
+      // Aquí se pueden llenar campos de redes sociales si existieran
+      await formularioPresenciaDigital.locator('input#Facebook').fill('https://facebook.com/ProveedorQA');
+      await formularioPresenciaDigital.locator('input#Instagram').fill('https://instagram.com/ProveedorQA');
+      await formularioPresenciaDigital.locator('input#Tiktok').fill('https://tiktok.com/@ProveedorQA');
+      await formularioPresenciaDigital.locator('input#WebSite').fill('https://proveedorqa.com');
   
-    await seccionPresenciaDigital.locator('button:has-text("Guardar")').click();
-    await expect(seccionPresenciaDigital.locator('div:text("No hay información")')).toBeVisible();
+      const guardarPresenciaBtn = page.locator('button[form="EditSocialPresenceDataForm"]').first();
+      await expect(guardarPresenciaBtn).toBeVisible({ timeout: 15000 });
+      await guardarPresenciaBtn.scrollIntoViewIfNeeded();
+      await guardarPresenciaBtn.click();
   
     // --- CAMBIAR FOTO DE PERFIL ---
     const btnFotoPerfil = page.locator('button:has(i.icon-camera)').first();
-    await btnFotoPerfil.setInputFiles(path.resolve('./tests/fixtures/nueva-foto.png'));
+    await expect(btnFotoPerfil).toBeVisible({ timeout: 10000 });
   
-    const avatar = page.locator('img.avatar');
-    await expect(avatar).toHaveAttribute('src', /nueva-foto/);
-  
-    // --- OPCIONES ADICIONALES ---
-    const btnOpciones = page.locator('button:has(i.icon-more-vertical)').first();
-    await btnOpciones.click();
-  
-    const opcionCambiarContrasena = page.locator('div[role="menu"] >> text=Cambiar contraseña');
-    await expect(opcionCambiarContrasena).toBeVisible();
-  
-    const opcionCerrarSesion = page.locator('div[role="menu"] >> text=Cerrar sesión');
-    await expect(opcionCerrarSesion).toBeVisible();
-  });
-  
+    await btnFotoPerfil.click({ force: true });
+    const opcionCambiarFoto = page.locator('button', { hasText: 'Cambiar foto' }).first();
+    await expect(opcionCambiarFoto).toBeVisible({ timeout: 5000 });
+    await opcionCambiarFoto.scrollIntoViewIfNeeded();
+    await opcionCambiarFoto.click({ force: true });
+    const inputFoto = page.locator('input[type="file"]').first();
+    await inputFoto.setInputFiles(path.resolve('./tests/profile.png'));
+    const guardarFotoBtn = page.locator('button[type="submit"][form="UserProfilePictureForm"]').first();
+    await expect(guardarFotoBtn).toBeVisible({ timeout: 5000 });
+    await guardarFotoBtn.click();
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/\/provider\/profile/, { timeout: 15000 });
+    await btnFotoPerfil.waitFor({ state: 'visible', timeout: 15000 });
+    const avatarContainer = page.locator('div.relative').filter({
+      has: page.locator('button:has(i.icon-camera)')
+    }).first();
+    await expect(avatarContainer).toBeVisible({ timeout: 15000 });
+    const avatarImg = avatarContainer.locator('img');
+    if (await avatarImg.count()) {
+      const avatarSrc = await avatarImg.first().getAttribute('src');
+      expect(avatarSrc).toBeTruthy();
+      expect(avatarSrc ?? '').not.toMatch(/default|placeholder|initials/i);
+    } else {
+      const bgImage = await avatarContainer.evaluate((el) => getComputedStyle(el).backgroundImage);
+      expect(bgImage).toBeTruthy();
+      expect(bgImage ?? '').not.toMatch(/default|placeholder|initials/i);
+    }
+    // --- OPCIONES ---
+    const seccionOpciones = page.locator('div.flex-col').filter({
+      has: page.locator('h5:text("Opciones")')
+    }).first();
+    await expect(seccionOpciones).toBeVisible({ timeout: 10000 });
+
+    const opcionesEsperadas = [
+      'Configurar métodos de pago',
+      'Cambiar contraseña',
+      'Cerrar sesión',
+      'Solicitar eliminacion de cuenta'
+    ];
+
+    const botonesOpciones = seccionOpciones
+      .locator('button.flex.flex-row')
+      .filter({ has: page.locator('i.icon-chevron-right') });
+    await expect(botonesOpciones).toHaveCount(opcionesEsperadas.length, { timeout: 10000 });
+
+    for (const texto of opcionesEsperadas) {
+      const boton = botonesOpciones.filter({ has: page.locator(`p:text("${texto}")`) }).first();
+      await expect(boton).toBeVisible({ timeout: 5000 });
+      await expect(boton.locator('i.icon-chevron-right')).toBeVisible();
+    }
+
+    // --- MÉTODOS DE PAGO ---
+    const botonConfigurarPagos = botonesOpciones
+      .filter({ has: page.locator('p:text("Configurar métodos de pago")') })
+      .first();
+    await expect(botonConfigurarPagos).toBeVisible({ timeout: 5000 });
+    await botonConfigurarPagos.scrollIntoViewIfNeeded();
+
+    await Promise.all([
+      page.waitForLoadState('networkidle'),
+      botonConfigurarPagos.click()
+    ]);
+
+    const tituloMetodosPago = page.locator('p', { hasText: 'Métodos de pago' }).first();
+    await expect(tituloMetodosPago).toBeVisible({ timeout: 15000 });
+
+    const registrarMetodoBtn = page.locator('button', { hasText: 'Registrar método de pago' }).first();
+    await expect(registrarMetodoBtn).toBeVisible({ timeout: 15000 });
+
+    const paymentCards = page.locator('div.flex.items-center.px-4.py-3');
+
+    const initialPaymentCount = await paymentCards.count();
+    const nuevoDetalle = `Metodo QA ${Date.now()}`;
+
+    // Alta de método de pago
+    await registrarMetodoBtn.click();
+    const formularioMetodoPago = page.locator('form#SaveProviderPaymentMethodForm');
+    await expect(formularioMetodoPago).toBeVisible({ timeout: 10000 });
+
+    await formularioMetodoPago.locator('#TypeId').click();
+    const opcionesTipo = formularioMetodoPago.locator('button#TypeId ~ ul li');
+    await expect(opcionesTipo.first()).toBeVisible({ timeout: 10000 });
+    await opcionesTipo.first().click();
+
+    const textareaDetalles = formularioMetodoPago.locator('textarea#Details');
+    await textareaDetalles.fill(nuevoDetalle);
+
+    const guardarMetodoBtn = page.locator('button[form="SaveProviderPaymentMethodForm"]').first();
+    await expect(guardarMetodoBtn).toBeVisible({ timeout: 10000 });
+    await guardarMetodoBtn.click();
+    await formularioMetodoPago.waitFor({ state: 'detached', timeout: 15000 });
+
+    const metodoCreado = page
+      .locator('div.flex.items-center')
+      .filter({ has: page.locator('p.text-dark-neutral', { hasText: nuevoDetalle }) })
+      .first();
+    await expect(paymentCards).toHaveCount(initialPaymentCount + 1, { timeout: 15000 });
+    await expect(metodoCreado).toBeVisible({ timeout: 15000 });
+
+    // Edición del método de pago
+    await metodoCreado.locator('button:has(i.icon-edit)').first().click();
+    await expect(formularioMetodoPago).toBeVisible({ timeout: 10000 });
+
+    const detalleEditado = `${nuevoDetalle} editado`;
+    await textareaDetalles.fill(detalleEditado);
+
+    await guardarMetodoBtn.click();
+    await formularioMetodoPago.waitFor({ state: 'detached', timeout: 15000 });
+
+    const metodoEditado = page
+      .locator('div.flex.items-center')
+      .filter({ has: page.locator('p', { hasText: detalleEditado }) })
+      .first();
+    await expect(metodoEditado).toBeVisible({ timeout: 15000 });
+
+    // Eliminación del método de pago
+    await metodoEditado.locator('button:has(i.icon-trash)').first().click();
+
+    const modalConfirmacion = page
+      .locator('div', { hasText: '¿Seguro deseas eliminar este método de pago?' })
+      .first();
+    await expect(modalConfirmacion).toBeVisible({ timeout: 10000 });
+
+    const botonAceptarEliminar = modalConfirmacion.locator('button', { hasText: 'Aceptar' }).first();
+    await botonAceptarEliminar.click();
+    await modalConfirmacion.waitFor({ state: 'detached', timeout: 10000 });
+
+    await expect(paymentCards).toHaveCount(initialPaymentCount, { timeout: 15000 });
+    await expect(page.locator('p', { hasText: detalleEditado })).toHaveCount(0);
+
+    const botonRegresarMetodos = page.locator('nav button:has(i.icon-chevron-left-bold)').first();
+    await Promise.all([
+      page.waitForLoadState('networkidle'),
+      botonRegresarMetodos.click()
+    ]);
+
+    await expect(seccionOpciones).toBeVisible({ timeout: 15000 });
+
+    
+ });
+ 

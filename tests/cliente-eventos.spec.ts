@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { login } from './utils';
+import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD } from './config';
 
 test.use({
   viewport: { width: 1280, height: 720 }
@@ -10,20 +11,20 @@ test.setTimeout(180000); // 3 minutos
 
 test('Nueva fiesta', async ({ page }) => {
   // Navegar a la página de login
-  await page.goto('https://staging.fiestamas.com/login');
+  await page.goto(`${DEFAULT_BASE_URL}/login`);
   
   // Esperar un momento para que cargue la página
   await page.waitForTimeout(2000);
   
   // Hacer login con las credenciales del cliente
-  await login(page, 'fiestamasqacliente@gmail.com', 'Fiesta2025$');
+  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
   console.log('✓ Login exitoso como cliente');
   
   // Esperar a que se cargue el dashboard después del login
   await page.waitForTimeout(3000);
   
   // Verificar que estamos en el dashboard
-  await expect(page).toHaveURL('https://staging.fiestamas.com/client/dashboard', { timeout: 10000 });
+  await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
   console.log('✓ Navegación al dashboard confirmada');
   
   // Buscar y seleccionar el botón "Nueva fiesta"

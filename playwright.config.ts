@@ -38,6 +38,11 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], headless: true},
     },
+    
+    {
+      name: 'chromium-headed',
+      use: { ...devices['Desktop Chrome'], headless: false },
+    },
 
     {
       name: 'firefox',
@@ -47,6 +52,17 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'], headless: true },
+    },
+    
+    /* Usar Chrome/Edge real del sistema (navegador externo) */
+    {
+      name: 'chrome',
+      use: { ...devices['Desktop Chrome'], channel: 'chrome', headless: false },
+    },
+    
+    {
+      name: 'edge',
+      use: { ...devices['Desktop Edge'], channel: 'msedge', headless: false },
     },
 
     /* Test against mobile viewports. */

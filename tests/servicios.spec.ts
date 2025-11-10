@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { login as loginFromUtils } from './utils';
+import { login } from './utils';
+import { PROVIDER_EMAIL, PROVIDER_PASSWORD, DEFAULT_BASE_URL } from './config';
 
 test.use({
   viewport: { width: 1280, height: 720 }
@@ -7,6 +8,8 @@ test.use({
 
 // Configuración global de timeout
 test.setTimeout(90000); // 90 segundos de timeout para cada test
+
+const PROVIDER_SERVICES_URL = `${DEFAULT_BASE_URL}/provider/services`;
 
 // Función auxiliar para generar condiciones con límite de caracteres
 function generateConditions(serviceName: string, maxLength: number = 150): string {
@@ -49,24 +52,6 @@ function generateConditions(serviceName: string, maxLength: number = 150): strin
   }
 
   return conditions;
-}
-
-// Función común para login (usa la función centralizada de utils.ts)
-async function login(page: Page) {
-  await loginFromUtils(page, 'fiestamasqaprv@gmail.com', 'Fiesta2025$');
-  
-  // Esperar a que termine cualquier redirección automática
-  await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(2000);
-
-  // Verificar la URL final después del login
-  const finalUrl = page.url();
-  console.log(`🔍 TRACE: URL después del login: ${finalUrl}`);
-
-  // Si no estamos en dashboard, esperar un poco más por redirecciones
-  if (!finalUrl.includes('dashboard') && !finalUrl.includes('profile')) {
-    await page.waitForTimeout(3000);
-  }
 }
 
 // Función para mostrar mensajes explicativos
@@ -144,7 +129,17 @@ async function selectRandomCategory(page: Page, stepName: string) {
 
 // Hook para ejecutar login antes de cada test
 test.beforeEach(async ({ page }) => {
-  await login(page);
+  await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
+
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(2000);
+
+  const finalUrl = page.url();
+  console.log(`🔍 TRACE: URL después del login: ${finalUrl}`);
+
+  if (!finalUrl.includes('dashboard') && !finalUrl.includes('profile')) {
+    await page.waitForTimeout(3000);
+  }
 });
 
 
@@ -734,7 +729,7 @@ test('Editar servicio', async ({ page }) => {
     console.log('🔍 TRACE: Clic en "Administrar servicios" completado');
   } catch (error) {
     console.log('⚠️ TRACE: No se encontró el componente "Administrar servicios", navegando directamente...');
-    await page.goto('https://staging.fiestamas.com/provider/services');
+    await page.goto(PROVIDER_SERVICES_URL);
   }
 
   await page.waitForTimeout(3000);
@@ -1101,7 +1096,7 @@ test('Editar servicio', async ({ page }) => {
 
     // Estrategia 2: Navegación manual como respaldo
     console.log('🔍 TRACE: Iniciando navegación manual...');
-    await page.goto('https://staging.fiestamas.com/provider/services');
+    await page.goto(PROVIDER_SERVICES_URL);
     await page.waitForTimeout(3000);
 
     // Verificar que la navegación manual fue exitosa
@@ -1572,7 +1567,7 @@ test('Navegar a chats desde servicios', async ({ page }) => {
     await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE SERVICIOS');
     await page.waitForTimeout(1000);
 
-    await page.goto('https://staging.fiestamas.com/provider/services');
+    await page.goto(PROVIDER_SERVICES_URL);
     await page.waitForTimeout(2000);
 
     // --- VERIFICAR QUE REGRESÓ A SERVICIOS ---
@@ -1631,7 +1626,7 @@ test('Navegar a perfil desde servicios', async ({ page }) => {
     await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE SERVICIOS');
     await page.waitForTimeout(1000);
 
-    await page.goto('https://staging.fiestamas.com/provider/services');
+    await page.goto(PROVIDER_SERVICES_URL);
     await page.waitForTimeout(2000);
 
     // --- VERIFICAR QUE REGRESÓ A SERVICIOS ---
@@ -1696,7 +1691,7 @@ test('Navegar a home desde servicios', async ({ page }) => {
     await showStepMessage(page, '🔄 REGRESANDO A PÁGINA DE SERVICIOS');
     await page.waitForTimeout(1000);
 
-    await page.goto('https://staging.fiestamas.com/provider/services');
+    await page.goto(PROVIDER_SERVICES_URL);
     await page.waitForTimeout(2000);
 
     // --- VERIFICAR QUE REGRESÓ A SERVICIOS ---

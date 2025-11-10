@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { login, safeFill } from './utils';
+import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD } from './config';
 
 test.use({
   viewport: { width: 1280, height: 720 }
@@ -14,7 +15,7 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
   //await login(page);
   // Usando la función de login
 
-  await page.goto('https://staging.fiestamas.com');
+  await page.goto(DEFAULT_BASE_URL);
 
   await page.waitForTimeout(2000);
 
@@ -24,12 +25,12 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
 
   await page.waitForTimeout(1000);
 
-  await login(page, 'fiestamasqacliente@gmail.com', 'Fiesta2025$');
+  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
 
   console.log('✓ Login exitoso, navegando al dashboard...');
 
   // Verificar que estamos en el dashboard
-  await expect(page).toHaveURL('https://staging.fiestamas.com/client/dashboard');
+  await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`);
 
   // Buscar el botón "Nueva fiesta" visible en desktop
   // El botón de desktop tiene la clase "lg:flex" (visible en pantallas grandes)
@@ -829,7 +830,7 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
         } else {
           console.log(`⚠ No se regresó al dashboard. URL actual: ${currentUrl}`);
           // Intentar navegar manualmente al dashboard
-          await page.goto('https://staging.fiestamas.com/client/dashboard');
+          await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`);
           await page.waitForTimeout(2000);
           console.log(`✓ Navegación manual al dashboard completada`);
         }
@@ -1509,7 +1510,7 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
           
           // Estrategia alternativa: Navegar directamente a la página de selección de categorías
           try {
-            await page.goto('https://staging.fiestamas.com/client/dashboard');
+            await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`);
             await page.waitForTimeout(2000);
             
             // Buscar el botón "Nueva fiesta" y navegar al flujo de creación

@@ -7,7 +7,14 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:chrome": "playwright test --project=chrome",
+    "test:edge": "playwright test --project=edge",
+    "test:chromium-headed": "playwright test --project=chromium-headed",
+    "test:registro-proveedor": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\"",
+    "test:registro-proveedor:headed": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --headed",
+    "test:registro-proveedor:chrome": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --project=chrome",
+    "test:registro-proveedor:ui": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --ui"
   },
   "keywords": [],
   "author": "",

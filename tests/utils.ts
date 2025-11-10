@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { DEFAULT_BASE_URL } from './config';
 
 /**
  * Llenar un input de forma segura, esperando que esté visible y editable.
@@ -26,7 +27,7 @@ export async function safeFill(page: Page, label: string, value: string, timeout
  */
 export async function login(page: Page, email: string, password: string) {
   // --- HOME ---
-  await page.goto('https://staging.fiestamas.com');
+  await page.goto(DEFAULT_BASE_URL);
   await page.waitForTimeout(2000);
 
   // --- LOGIN ---
