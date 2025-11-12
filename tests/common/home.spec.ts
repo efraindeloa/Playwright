@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { DEFAULT_BASE_URL } from './config';
+import { DEFAULT_BASE_URL } from '../config';
 
 test('Validar hero banner, slider y categorías en home', async ({ page }) => {
   test.setTimeout(120000);

@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { login } from './utils';
-import { PROVIDER_EMAIL, PROVIDER_PASSWORD, DEFAULT_BASE_URL } from './config';
+import { login } from '../utils';
+import { PROVIDER_EMAIL, PROVIDER_PASSWORD, DEFAULT_BASE_URL } from '../config';
 
 test.use({
   viewport: { width: 1280, height: 720 }

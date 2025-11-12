@@ -5,7 +5,7 @@ import {
   REGISTRATION_EMAIL_STEP,
   REGISTRATION_EMAIL_LOG,
   REGISTRATION_EMAIL_DEFAULT
-} from './config';
+} from '../config';
 
 // Configurar viewport para que la página se muestre correctamente
 test.use({

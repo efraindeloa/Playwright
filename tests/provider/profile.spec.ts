@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import path from 'path';
-import { login } from './utils';
-import { PROVIDER_EMAIL, PROVIDER_PASSWORD } from './config';
+import { login } from '../utils';
+import { PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 
 

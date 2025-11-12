@@ -1,5 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
-import { DEFAULT_BASE_URL } from './config';
+import { DEFAULT_BASE_URL } from '../config';
 
 // Configuración Desktop
 test.use({ viewport: { width: 1280, height: 720 } });

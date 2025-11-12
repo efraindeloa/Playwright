@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import PNG from 'png-js';
 import pixelmatch from 'pixelmatch';
-import { login } from './utils';
-import { DEFAULT_BASE_URL, PROVIDER_EMAIL, PROVIDER_PASSWORD } from './config';
+import { login } from '../utils';
+import { DEFAULT_BASE_URL, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 // ============================================================================
 // CONSTANTES DE CONFIGURACIÓN
