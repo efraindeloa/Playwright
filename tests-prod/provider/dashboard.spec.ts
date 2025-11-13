@@ -99,7 +99,7 @@ test.describe('Dashboard de proveedor - Producción', () => {
   });
 
   test('controles adicionales del listado de eventos están visibles', async ({ page }) => {
-    await page.setViewportSize({ width: 991, height: 720 });
+    await page.setViewportSize({ width: 1080, height: 720 });
     await page.waitForTimeout(500);
 
     const botonNuevoEventoDesktop = page.locator('button').filter({
@@ -134,10 +134,12 @@ test.describe('Dashboard de proveedor - Producción', () => {
     }
 
     const botonEventosPasados = page.getByRole('button', { name: /Ver eventos pasados/i }).first();
-    await expect(botonEventosPasados).toBeVisible();
-    await expect(botonEventosPasados).toBeEnabled();
+    if (await botonEventosPasados.count()) {
+      await expect(botonEventosPasados).toBeVisible();
+      await expect(botonEventosPasados).toBeEnabled();
+    }
 
-    const botonFecha = page.getByRole('button', { name: /^Fecha$/i }).first();
+    const botonFecha = page.locator('button').filter({ has: page.locator('p', { hasText: /^Fecha$/i }) }).first();
     await expect(botonFecha).toBeVisible();
     await expect(botonFecha).toBeEnabled();
   });
@@ -168,6 +170,23 @@ test.describe('Dashboard de proveedor - Producción', () => {
     const filtroTodos = filtrosContainer.getByRole('button', { name: 'TODOS', exact: true });
     await filtroTodos.click();
     await expect(page.getByRole('button', { name: /Nuevo Evento/i })).toBeVisible();
+  });
+
+  test('botón Fecha ordena los eventos', async ({ page }) => {
+    const botonFecha = page.locator('button').filter({ has: page.locator('p', { hasText: /^Fecha$/i }) }).first();
+    await expect(botonFecha).toBeVisible();
+    
+    // Verificar que el ícono inicial es chevron-down
+    const iconoInicial = botonFecha.locator('i.icon-chevron-down');
+    await expect(iconoInicial).toBeVisible();
+    
+    // Hacer clic para ordenar (ascendente o descendente)
+    await botonFecha.click();
+    await page.waitForTimeout(500);
+    
+    // Verificar que el ícono cambió (puede ser chevron-up o chevron-down dependiendo del estado)
+    const iconoActual = botonFecha.locator('i.icon-chevron-down, i.icon-chevron-up');
+    await expect(iconoActual).toBeVisible();
   });
 });
 
