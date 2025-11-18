@@ -767,9 +767,5 @@ test('Nueva fiesta', async ({ page }) => {
   if (!foundServices) {
     console.log('⚠ No se encontraron servicios después de todos los intentos');
   }
-  
-  // Tomar screenshot del resultado
-  await page.screenshot({ path: 'cliente-servicio-seleccionado.png', fullPage: true });
-  console.log('📸 Screenshot guardado: cliente-servicio-seleccionado.png');
 });
 

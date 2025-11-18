@@ -2,7 +2,8 @@ import { test, Page } from '@playwright/test';
 import {
   DEFAULT_BASE_URL,
   DEFAULT_ACCOUNT_PASSWORD,
-  REGISTRATION_EMAIL_DEFAULT
+  REGISTRATION_EMAIL_STEP,
+  REGISTRATION_EMAIL_LOG
 } from '../config';
 
 // Configurar viewport para que la página se muestre correctamente
@@ -35,9 +36,9 @@ export async function safeFill(page: Page, label: string, value: string, timeout
 }
 
 /**
- * Función para hacer clic en el botón de registro, seleccionar "Proveedor" y continuar.
+ * Función para hacer clic en el botón de registro, seleccionar "Cliente" y continuar.
  */
-export async function registerProvider(page: Page, email: string = REGISTRATION_EMAIL_DEFAULT) {
+export async function register(page: Page) {
   // Paso 1: Hacer clic en el botón "Regístrate"
   const registerButton = page.locator('button[type="button"].font-bold.underline.text-primary-neutral').filter({
     hasText: 'Regístrate'
@@ -48,17 +49,17 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar a que aparezca la página de selección de tipo de usuario
   await page.waitForTimeout(2000);
   
-  // Paso 2: Seleccionar "Proveedor"
-  // Buscar el botón que contiene el texto "Proveedor" y tiene el ícono icon-briefcase
-  const proveedorButton = page.locator('button[type="button"]').filter({
-    has: page.locator('p.text-medium.font-extrabold').filter({ hasText: 'Proveedor' })
+  // Paso 2: Seleccionar "Cliente"
+  // Buscar el botón que contiene el texto "Cliente" y tiene el ícono icon-smile
+  const clienteButton = page.locator('button[type="button"]').filter({
+    has: page.locator('p.text-medium.font-extrabold').filter({ hasText: 'Cliente' })
   }).filter({
-    has: page.locator('i.icon-briefcase')
+    has: page.locator('i.icon-smile')
   });
   
-  await proveedorButton.waitFor({ state: 'visible', timeout: 10000 });
-  await proveedorButton.click();
-  console.log('✓ Opción "Proveedor" seleccionada');
+  await clienteButton.waitFor({ state: 'visible', timeout: 10000 });
+  await clienteButton.click();
+  console.log('✓ Opción "Cliente" seleccionada');
   
   // Esperar un momento para que se actualice el estado
   await page.waitForTimeout(500);
@@ -80,8 +81,8 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Paso 4: Ingresar el email
   const emailInput = page.locator('input[id="Email"]');
   await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-  await emailInput.fill(email);
-  console.log(`✓ Email ingresado: ${email}`);
+  await emailInput.fill(REGISTRATION_EMAIL_STEP);
+  console.log(`✓ Email ingresado: ${REGISTRATION_EMAIL_LOG}`);
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
@@ -95,19 +96,8 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   await siguienteButton.click();
   console.log('✓ Botón "Siguiente" presionado');
   
-  // Esperar a que aparezca la página de código de verificación
-  await page.waitForTimeout(2000);
-  
-  // PAUSA MANUAL: Detener el flujo para que el usuario ingrese el código de verificación
-  console.log('\n⏸️  PAUSA MANUAL: Por favor ingresa el código de verificación');
-  console.log('   Cuando termines de ingresar el código, presiona "Resume" en Playwright para continuar.\n');
-  
-  await page.pause();
-  
-  console.log('\n✓ Reanudando después de la pausa manual...\n');
-  
   // Esperar a que aparezca el formulario de contraseña
-  await page.waitForTimeout(8000);
+  await page.waitForTimeout(2000);
   
   // Paso 6: Ingresar la contraseña
   const passwordInput = page.locator('input[id="Password"]');
@@ -142,8 +132,8 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Paso 9: Ingresar el nombre
   const nameInput = page.locator('input[id="Name"]');
   await nameInput.waitFor({ state: 'visible', timeout: 10000 });
-  await nameInput.fill('Carlos');
-  console.log('✓ Nombre ingresado: Carlos');
+  await nameInput.fill('Juan');
+  console.log('✓ Nombre ingresado: Juan');
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
@@ -151,8 +141,8 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Paso 10: Ingresar el apellido
   const lastNameInput = page.locator('input[id="LastName"]');
   await lastNameInput.waitFor({ state: 'visible', timeout: 10000 });
-  await lastNameInput.fill('González');
-  console.log('✓ Apellido ingresado: González');
+  await lastNameInput.fill('Pérez');
+  console.log('✓ Apellido ingresado: Pérez');
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
@@ -160,11 +150,33 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Paso 11: Ingresar el número de teléfono
   const phoneInput = page.locator('input[id="PhoneNumber"]');
   await phoneInput.waitFor({ state: 'visible', timeout: 10000 });
-  await phoneInput.fill('5559876543');
-  console.log('✓ Teléfono ingresado: 5559876543');
+  await phoneInput.fill('5551234567');
+  console.log('✓ Teléfono ingresado: 5551234567');
   
   // Esperar un momento para que el formulario se actualice
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1000);
+  
+  // Asegurar que la página esté completamente visible y centrada
+  // Hacer scroll al inicio de la página para asegurar que se muestre correctamente
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  
+  // Ajustar el tamaño de la ventana si es necesario
+  await page.setViewportSize({ width: 1280, height: 720 });
+  
+  // Esperar a que la página se renderice completamente
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  
+  // PAUSA MANUAL: Esperar a que el usuario complete el checkbox de Cloudflare Turnstile
+  console.log('\n⏸️  PAUSA MANUAL: Por favor completa el checkbox de Cloudflare Turnstile');
+  console.log('   Una vez que hayas completado la verificación, la prueba continuará automáticamente...\n');
+  
+  // Pausar la ejecución para que el usuario pueda completar el checkbox de Cloudflare
+  await page.pause();
+  
+  console.log('\n⏳ Continuando después de la pausa manual...\n');
   
   // Paso 11.1: Esperar a que se complete la verificación de Cloudflare Turnstile
   console.log('⏳ Esperando a que se complete la verificación de Cloudflare Turnstile...');
@@ -178,11 +190,12 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
       console.log('⚠ Mensaje de verificación humana detectado, esperando a que se complete...');
       
       // Esperar a que el mensaje desaparezca o que aparezca "Success!" del Turnstile
+      // Opción 1: Esperar a que desaparezca el mensaje de verificación
       await humanCheckMsg.waitFor({ state: 'hidden', timeout: 60000 }).catch(() => {
         console.log('⚠ El mensaje de verificación no desapareció en 60 segundos');
       });
       
-      // Esperar a que aparezca "Success!" en el widget Turnstile
+      // Opción 2: Esperar a que aparezca "Success!" en el widget Turnstile
       const successText = page.locator('#success-text');
       const successVisible = await successText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => false);
       
@@ -221,15 +234,16 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
 }
 
 /**
- * Test de registro de nuevo usuario como Proveedor
+ * Test de registro de nuevo usuario como Cliente
  */
-test('Registrar nuevo Proveedor', async ({ page }) => {
-  // Navegar a la página de registro
+test('Registrar nuevo Cliente', async ({ page }) => {
+  // Navegar a la página principal
   await page.goto(`${DEFAULT_BASE_URL}/login`);
   
-  // Ejecutar el flujo de registro como proveedor
-  await registerProvider(page);
+  // Ejecutar el flujo de registro
+  await register(page);
   
   // Aquí puedes agregar más validaciones según sea necesario
-  // Por ejemplo, verificar que se haya completado el registro exitosamente
+  // Por ejemplo, verificar que se haya avanzado al siguiente paso
 });
+

@@ -1,4 +1,4 @@
-export const DEFAULT_BASE_URL = process.env.FIESTAMAS_BASE_URL ?? 'https://staging.fiestamas.com';
+export const DEFAULT_BASE_URL = process.env.FIESTAMAS_BASE_URL ?? 'https://fiestamas.com';
 
 export const PROVIDER_EMAIL = process.env.FIESTAMAS_PROVIDER_EMAIL ?? 'fiestamasqaprv@gmail.com';
 export const PROVIDER_PASSWORD = process.env.FIESTAMAS_PROVIDER_PASSWORD ?? 'Fiesta2025$';

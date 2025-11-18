@@ -1003,10 +1003,6 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
           console.log(`⚠ Contenedor de eventos no visible en el dashboard`);
         }
 
-        // Tomar screenshot del dashboard con el evento en la lista general
-        await page.screenshot({ path: 'eventos-01-dashboard-evento-en-lista.png', fullPage: true });
-        console.log(`📸 Screenshot guardado: eventos-01-dashboard-evento-en-lista.png`);
-
         // Seleccionar el día del evento en el calendario del dashboard
         console.log(`\n🔍 Buscando calendario en el dashboard...`);
 
@@ -1089,10 +1085,6 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
               await page.waitForTimeout(2000);
               console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
 
-              // Tomar screenshot después de seleccionar el día
-              await page.screenshot({ path: 'eventos-02-calendario-dia-seleccionado.png', fullPage: true });
-              console.log(`📸 Screenshot guardado: eventos-02-calendario-dia-seleccionado.png`);
-
               eventDayFound = true;
               break;
             }
@@ -1132,10 +1124,6 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
                 await dayButton.click();
                 await page.waitForTimeout(2000);
                 console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
-
-                // Tomar screenshot después de seleccionar el día (versión alternativa)
-                await page.screenshot({ path: 'eventos-02-calendario-dia-seleccionado.png', fullPage: true });
-                console.log(`📸 Screenshot guardado: eventos-02-calendario-dia-seleccionado.png`);
 
                 break;
               }
@@ -1242,10 +1230,6 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
           console.log(`⚠ Sección de eventos no visible en el dashboard`);
         }
 
-        // Tomar screenshot de los eventos filtrados por día
-        await page.screenshot({ path: 'eventos-03-eventos-filtrados-por-dia.png', fullPage: true });
-        console.log(`📸 Screenshot guardado: eventos-03-eventos-filtrados-por-dia.png`);
-
         // Hacer clic en el evento para abrirlo y validar sus datos
         console.log(`\n🔍 Abriendo el evento creado para validar datos...`);
 
@@ -1282,10 +1266,6 @@ test('Validar que se puede crear un evento desde el dashboard', async ({ page })
                 } else {
                   console.log(`⚠ URL inesperada al abrir evento: ${currentUrl}`);
                 }
-
-                // Tomar screenshot de la página de detalles del evento
-                await page.screenshot({ path: 'eventos-04-detalles-del-evento.png', fullPage: true });
-                console.log(`📸 Screenshot guardado: eventos-04-detalles-del-evento.png`);
 
                 // Validar los datos mostrados en la card del evento
                 console.log(`\n🔍 Validando datos del evento en la página...`);

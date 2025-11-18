@@ -43,4 +43,47 @@ export function uniqueSuffix(prefix: string) {
   return `${prefix}-${timestamp}-${random}`;
 }
 
+// Función para mostrar mensajes explicativos durante la ejecución de pruebas
+export async function showStepMessage(page: Page, message: string) {
+  await page.evaluate((msg) => {
+    let box = document.getElementById('__playwright_step_overlay');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = '__playwright_step_overlay';
+      box.style.position = 'fixed';
+      box.style.top = '50%';
+      box.style.left = '50%';
+      box.style.transform = 'translate(-50%, -50%)';
+      box.style.zIndex = '999999';
+      box.style.padding = '15px 25px';
+      box.style.background = 'rgba(243, 130, 246, 0.9)';
+      box.style.color = 'white';
+      box.style.fontSize = '24px';
+      box.style.borderRadius = '12px';
+      box.style.fontFamily = 'monospace';
+      box.style.fontWeight = 'bold';
+      box.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+      box.style.textAlign = 'center';
+      document.body.appendChild(box);
+    }
+    box.textContent = msg;
+    
+    // Auto-eliminar después de 2 segundos
+    setTimeout(() => {
+      if (box && box.parentNode) {
+        box.parentNode.removeChild(box);
+      }
+    }, 2000);
+  }, message);
+}
+
+// Función para limpiar el mensaje de paso
+export async function clearStepMessage(page: Page) {
+  await page.evaluate(() => {
+    const box = document.getElementById('__playwright_step_overlay');
+    if (box && box.parentNode) {
+      box.parentNode.removeChild(box);
+    }
+  });
+}
 

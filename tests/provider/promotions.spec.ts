@@ -23,7 +23,6 @@ const PROFILE_URL = `${BASE_URL}/provider/profile`;
 // Rutas de archivos
 const IMAGE_TRANSPARENT_PATH = 'C:/Temp/transparent.png';
 const IMAGE_JPEG_PATH = 'C:/Temp/images.jpeg';
-const SCREENSHOT_LOGIN_PATH = 'login02-login.png';
 
 // Textos de promociones
 const PROMO_TITLE_PREFIX = 'Promo de prueba';
@@ -806,9 +805,6 @@ test('Navegar a chats desde promociones', async ({ page }) => {
   await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
 
-  // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
-  await page.screenshot({ path: 'chats01-promotions-page.png', fullPage: true });
-
   // --- NAVEGAR A CHATS DESDE PROMOCIONES ---
   await showStepMessage(page, '💬 NAVEGANDO AL DASHBOARD DE CHATS DESDE PROMOCIONES');
   await page.waitForTimeout(1000);
@@ -819,9 +815,6 @@ test('Navegar a chats desde promociones', async ({ page }) => {
 
   // --- VERIFICAR QUE LLEGÓ A LA PÁGINA CORRECTA ---
   await expect(page.locator('p.text-\\[20px\\].text-neutral-800:has-text("Fiestachat")')).toBeVisible({ timeout: 10000 });
-
-  // --- SCREENSHOT PÁGINA DE CONVERSACIONES ---
-  await page.screenshot({ path: 'chats02-conversations-page.png', fullPage: true });
 
   // --- VALIDAR ELEMENTOS DE LA PÁGINA ---
   await showStepMessage(page, '✅ VALIDANDO ELEMENTOS DE LA PÁGINA DE CHATS');
@@ -857,9 +850,6 @@ test('Navegar a chats desde promociones', async ({ page }) => {
     throw new Error(`❌ URL incorrecta. Esperaba /provider/promotions, obtuvo: ${finalUrl}`);
   }
 
-  // --- SCREENSHOT FINAL DE REGRESO ---
-  await page.screenshot({ path: 'chats03-back-to-promotions.png', fullPage: true });
-
   console.log('✅ Navegación completa: Promociones → Chats → Promociones');
 });
 
@@ -872,9 +862,6 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
   
   await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
-
-  // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
-  await page.screenshot({ path: 'perfil01-promotions-page.png', fullPage: true });
 
   // --- NAVEGAR A PERFIL DESDE PROMOCIONES ---
   await showStepMessage(page, '👤 NAVEGANDO AL PERFIL DESDE PROMOCIONES');
@@ -891,9 +878,6 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
   } else {
     throw new Error(`❌ URL incorrecta. Esperaba /provider/profile, obtuvo: ${currentUrl}`);
   }
-
-  // --- SCREENSHOT PÁGINA DE PERFIL ---
-  await page.screenshot({ path: 'perfil02-profile-page.png', fullPage: true });
 
   // --- VALIDAR ELEMENTOS DE LA PÁGINA ---
   await showStepMessage(page, '✅ VALIDANDO ELEMENTOS DE LA PÁGINA DE PERFIL');
@@ -922,9 +906,6 @@ test('Navegar a perfil desde promociones', async ({ page }) => {
     throw new Error(`❌ URL incorrecta. Esperaba /provider/promotions, obtuvo: ${finalUrl}`);
   }
 
-  // --- SCREENSHOT FINAL DE REGRESO ---
-  await page.screenshot({ path: 'perfil03-back-to-promotions.png', fullPage: true });
-
   console.log('✅ Navegación completa: Promociones → Perfil → Promociones');
 });
 
@@ -937,9 +918,6 @@ test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   
   await page.goto(PROMOTIONS_URL);
   await page.waitForTimeout(2000); // Esperar a que cargue la página
-
-  // --- SCREENSHOT PÁGINA DE PROMOCIONES ---
-  await page.screenshot({ path: 'home01-promotions-page.png', fullPage: true });
 
   // --- NAVEGAR A HOME DESDE PROMOCIONES ---
   await showStepMessage(page, '🏠 NAVEGANDO AL HOME DESDE PROMOCIONES');
@@ -956,9 +934,6 @@ test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   } else {
     throw new Error(`❌ URL incorrecta. Esperaba dashboard principal, obtuvo: ${currentUrl}`);
   }
-
-  // --- SCREENSHOT PÁGINA DE HOME ---
-  await page.screenshot({ path: 'home02-home-page.png', fullPage: true });
 
   // --- VALIDAR ELEMENTOS DE LA PÁGINA ---
   await showStepMessage(page, '✅ VALIDANDO ELEMENTOS DE LA PÁGINA DE HOME');
@@ -1027,9 +1002,6 @@ test('Navegar a dashboard de proveedor desde promociones', async ({ page }) => {
   } else {
     throw new Error(`❌ URL incorrecta. Esperaba /provider/promotions, obtuvo: ${finalUrl}`);
   }
-
-  // --- SCREENSHOT FINAL DE REGRESO ---
-  await page.screenshot({ path: 'home03-back-to-promotions.png', fullPage: true });
 
   console.log('✅ Navegación completa: Promociones → Home → Promociones');
 });

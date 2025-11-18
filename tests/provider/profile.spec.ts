@@ -238,11 +238,6 @@ test.use({
     );
     
     await btnEditarPresencia.click();
-        
-
-
-    await page.screenshot({ path: 'screenshots/presencia-digital.png', fullPage: true });
-
     
     const formularioPresenciaDigital = page.locator('form#EditSocialPresenceDataForm');
       await expect(formularioPresenciaDigital).toBeVisible({ timeout: 15000 });
