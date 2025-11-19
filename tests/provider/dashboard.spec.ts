@@ -1,5 +1,6 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 import { login, showStepMessage } from '../utils';
+import { crearEventoCompleto } from './event-helpers';
 import {
   DEFAULT_BASE_URL,
   PROVIDER_EMAIL,
@@ -14,6 +15,7 @@ const PROFILE_URL = `${DEFAULT_BASE_URL}/provider/profile`;
 const STATS_VIEWS_URL = `${DEFAULT_BASE_URL}/provider/stats/views`;
 const STATS_APPLICATIONS_URL = `${DEFAULT_BASE_URL}/provider/stats/applications`;
 const STATS_HIRINGS_URL = `${DEFAULT_BASE_URL}/provider/stats/hirings`;
+const EVENT_URL = `${DEFAULT_BASE_URL}/provider/event`;
 
 test.use({
   viewport: { width: 1400, height: 720 }
@@ -850,6 +852,119 @@ test.describe('Dashboard de proveedor', () => {
     }
     
     console.log('✅ Prueba de día sin eventos completada exitosamente');
+  });
+
+  test('botón Nuevo evento navega a la página de creación de evento', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos (la creación de evento puede tardar)
+    await showStepMessage(page, '🔘 BUSCANDO BOTÓN NUEVO EVENTO');
+    await page.waitForTimeout(1000);
+    
+    // Buscar el botón "Nuevo evento" (puede ser desktop o mobile)
+    const botonNuevoEventoDesktop = page.locator('button').filter({
+      has: page.locator('i.icon-calendar')
+    }).filter({
+      has: page.locator('h5', { hasText: /Nuevo Evento/i })
+    });
+    const botonNuevoEventoDesktopVisible = botonNuevoEventoDesktop.filter({
+      has: page.locator(':visible')
+    });
+    const botonNuevoEventoMobile = page.locator('button').filter({
+      has: page.locator('p', { hasText: /Nuevo evento/i })
+    });
+    
+    let botonNuevoEvento: Locator;
+    
+    if (await botonNuevoEventoDesktopVisible.count() > 0) {
+      botonNuevoEvento = botonNuevoEventoDesktopVisible.first();
+      console.log('✅ Botón "Nuevo evento" encontrado (versión desktop)');
+    } else if (await botonNuevoEventoMobile.count() > 0) {
+      botonNuevoEvento = botonNuevoEventoMobile.first();
+      console.log('✅ Botón "Nuevo evento" encontrado (versión mobile)');
+    } else {
+      // Intentar con el selector más simple
+      botonNuevoEvento = page.getByRole('button', { name: /Nuevo Evento/i }).first();
+      console.log('✅ Botón "Nuevo evento" encontrado (selector simple)');
+    }
+    
+    await expect(botonNuevoEvento).toBeVisible({ timeout: 10000 });
+    await expect(botonNuevoEvento).toBeEnabled();
+    
+    // Guardar la URL actual antes de hacer clic
+    const urlInicial = page.url();
+    console.log(`📍 URL inicial: ${urlInicial}`);
+    
+    // Hacer clic en el botón
+    await showStepMessage(page, '🖱️ HACIENDO CLIC EN BOTÓN NUEVO EVENTO');
+    await page.waitForTimeout(1000);
+    await botonNuevoEvento.click();
+    await page.waitForTimeout(2000); // Esperar a que se cargue la nueva página
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    
+    // Validar que se navegó a la página de creación de evento
+    await showStepMessage(page, '✅ VALIDANDO NAVEGACIÓN A PÁGINA DE CREACIÓN DE EVENTO');
+    await page.waitForTimeout(1000);
+    
+    const urlActual = page.url();
+    console.log(`📍 URL actual: ${urlActual}`);
+    
+    // Validar que la URL contiene /provider/event
+    if (!urlActual.includes('/provider/event')) {
+      throw new Error(`❌ La URL no corresponde a la página de creación de evento. URL actual: ${urlActual}`);
+    }
+    
+    console.log('✅ Redirección a página de creación de evento exitosa');
+    
+    // Validar que se muestra el título "Nuevo evento"
+    await showStepMessage(page, '✅ VALIDANDO TÍTULO "NUEVO EVENTO"');
+    await page.waitForTimeout(1000);
+    
+    const tituloNuevoEvento = page.locator('p.text-\\[20px\\].text-dark-neutral:has-text("Nuevo evento"), h1:has-text("Nuevo evento"), h2:has-text("Nuevo evento"), h3:has-text("Nuevo evento"), h4:has-text("Nuevo evento"), h5:has-text("Nuevo evento"), p:has-text("Nuevo evento")').first();
+    await expect(tituloNuevoEvento).toBeVisible({ timeout: 10000 });
+    console.log('✅ Título "Nuevo evento" encontrado');
+    
+    // Validar que se muestra el formulario de selección de tipo de evento
+    await showStepMessage(page, '✅ VALIDANDO FORMULARIO DE SELECCIÓN DE TIPO DE EVENTO');
+    await page.waitForTimeout(1000);
+    
+    const formularioTipoEvento = page.locator('form[id="EventTypeForm"]');
+    await expect(formularioTipoEvento).toBeVisible({ timeout: 10000 });
+    console.log('✅ Formulario de selección de tipo de evento visible');
+    
+    // Validar que se muestra el título del formulario
+    const tituloFormulario = page.locator('h5:has-text("Selecciona el tipo de tu evento"), h4:has-text("Selecciona el tipo de tu evento"), h3:has-text("Selecciona el tipo de tu evento")').first();
+    const tituloVisible = await tituloFormulario.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (tituloVisible) {
+      console.log('✅ Título del formulario "Selecciona el tipo de tu evento" encontrado');
+    } else {
+      console.log('⚠️ No se encontró el título del formulario, pero el formulario está visible');
+    }
+    
+    // Validar que hay categorías de eventos disponibles
+    await showStepMessage(page, '✅ VALIDANDO CATEGORÍAS DE EVENTOS');
+    await page.waitForTimeout(1000);
+    
+    const categoriasEventos = page.locator('form[id="EventTypeForm"] button[type="submit"]');
+    const cantidadCategorias = await categoriasEventos.count();
+    
+    if (cantidadCategorias > 0) {
+      console.log(`✅ Se encontraron ${cantidadCategorias} categorías de eventos disponibles`);
+      
+      // Validar que al menos una categoría está visible
+      const primeraCategoria = categoriasEventos.first();
+      await expect(primeraCategoria).toBeVisible({ timeout: 5000 });
+      console.log('✅ Al menos una categoría de evento está visible');
+    } else {
+      console.log('⚠️ No se encontraron categorías de eventos');
+    }
+    
+    // --- CREAR EVENTO COMPLETO ---
+    await showStepMessage(page, '🎯 CREANDO EVENTO COMPLETO');
+    await page.waitForTimeout(1000);
+    
+    await crearEventoCompleto(page);
+    
+    console.log('✅ Prueba de navegación a página de creación de evento y creación de evento completada exitosamente');
   });
 });
 

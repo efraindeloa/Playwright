@@ -614,22 +614,39 @@ test.describe('Gestión de promociones', () => {
     await page.waitForTimeout(2000);
 
     // --- LOCALIZAR Y ELIMINAR PROMOCIÓN ---
-    // Esperar un momento adicional para que las promociones se carguen completamente
-    await page.waitForTimeout(5000);
+    await showStepMessage(page, '🔍 BUSCANDO PROMOCIÓN PARA ELIMINAR');
+    await page.waitForTimeout(1000);
     
-    // Buscar cualquier promoción que contenga el prefijo de promoción editada
-    const promoName = page.locator(`p.text-medium.font-bold:has-text("${PROMO_EDITED_PREFIX}")`).first();
-    await expect(promoName).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+    // Esperar a que aparezcan las cards de promociones
+    const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+    const totalPromos = await promoCardsLocator.count();
+    console.log(`🔍 TRACE: Total de promociones disponibles: ${totalPromos}`);
+    
+    if (totalPromos === 0) {
+      throw new Error('❌ No se encontraron promociones disponibles para eliminar');
+    }
+    
+    // Seleccionar un índice aleatorio
+    const randomIndex = Math.floor(Math.random() * totalPromos);
+    console.log(`🔍 TRACE: Seleccionando promoción aleatoria (índice ${randomIndex} de ${totalPromos})`);
+    
+    // Obtener la promoción seleccionada aleatoriamente
+    const selectedPromoCard = promoCardsLocator.nth(randomIndex);
+    await expect(selectedPromoCard).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+    
+    // Obtener el nombre de la promoción seleccionada
+    const promoName = selectedPromoCard.locator('p.text-medium.font-bold').first();
     const promoNameText = await promoName.textContent();
     
     if (!promoNameText) {
       throw new Error('❌ No se pudo obtener el texto de la promoción');
     }
+    
+    console.log(`🔍 TRACE: Promoción seleccionada para eliminar: "${promoNameText}"`);
 
     await showStepMessage(page, '🔍 LOCALIZANDO PROMOCIÓN PARA ELIMINAR');
     await page.waitForTimeout(1000);
-    const promoCard = page.locator('div.w-full.flex.shadow-4', { hasText: promoNameText });
-    const menuButton = promoCard.locator('button:has(i.icon-more-vertical)');
+    const menuButton = selectedPromoCard.locator('button:has(i.icon-more-vertical)');
     await menuButton.click();
 
     // --- CONFIRMAR ELIMINACIÓN ---
