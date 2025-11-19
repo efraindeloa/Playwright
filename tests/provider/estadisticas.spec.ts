@@ -62,7 +62,7 @@ async function verificarSiTieneServicios(page: Page): Promise<boolean> {
   }
 }
 
-test.describe('Estadísticas de proveedor en producción', () => {
+test.describe('Estadísticas de proveedor', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle');

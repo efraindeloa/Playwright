@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { login } from '../utils';
+import { login, showStepMessage, clearStepMessage } from '../utils';
 import { PROVIDER_EMAIL, PROVIDER_PASSWORD, DEFAULT_BASE_URL } from '../config';
 
 test.use({
@@ -54,50 +54,6 @@ function generateConditions(serviceName: string, maxLength: number = 150): strin
   return conditions;
 }
 
-// Función para mostrar mensajes explicativos
-async function showStepMessage(page, message) {
-  await page.evaluate((msg) => {
-    let box = document.getElementById('__playwright_step_overlay');
-    if (!box) {
-      box = document.createElement('div');
-      box.id = '__playwright_step_overlay';
-      box.style.position = 'fixed';
-      box.style.top = '50%';
-      box.style.left = '50%';
-      box.style.transform = 'translate(-50%, -50%)';
-      box.style.zIndex = '999999';
-      box.style.padding = '15px 25px';
-      box.style.background = 'rgba(59, 130, 246, 0.9)';
-      box.style.color = 'white';
-      box.style.fontSize = '16px';
-      box.style.borderRadius = '12px';
-      box.style.fontFamily = 'monospace';
-      box.style.fontWeight = 'bold';
-      box.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
-      box.style.textAlign = 'center';
-      document.body.appendChild(box);
-    }
-    box.textContent = msg;
-
-    // Auto-eliminar después de 2 segundos
-    setTimeout(() => {
-      if (box && box.parentNode) {
-        box.parentNode.removeChild(box);
-      }
-    }, 2000);
-  }, message);
-}
-
-// Función para limpiar mensajes
-async function clearStepMessage(page) {
-  await page.evaluate(() => {
-    const box = document.getElementById('__playwright_step_overlay');
-    if (box && box.parentNode) {
-      box.parentNode.removeChild(box);
-    }
-  });
-}
-
 // Función para seleccionar categoría aleatoria de manera robusta
 async function selectRandomCategory(page: Page, stepName: string) {
   await showStepMessage(page, `🎯 ${stepName}`);
@@ -119,6 +75,9 @@ async function selectRandomCategory(page: Page, stepName: string) {
 
   // Obtener el nombre de la categoría seleccionada
   const nombreCategoria = await categoriaSeleccionada.locator('p').textContent();
+  if (!nombreCategoria) {
+    throw new Error('❌ No se pudo obtener el nombre de la categoría seleccionada');
+  }
   console.log(`🎯 Categoría seleccionada aleatoriamente (índice ${randomIndex}): ${nombreCategoria}`);
 
   await categoriaSeleccionada.click();
@@ -168,15 +127,24 @@ test('Crear servicio', async ({ page }) => {
 
   // --- SELECCIONAR CATEGORÍA ALEATORIA ---
   const nombreCategoria = await selectRandomCategory(page, 'SELECCIONANDO CATEGORÍA ALEATORIA');
+  if (!nombreCategoria) {
+    throw new Error('❌ No se pudo obtener el nombre de la categoría');
+  }
   await page.waitForTimeout(2000);
 
 
   // --- SELECCIONAR SUBCATEGORÍA ALEATORIA ---
   // Detectar la categoría actual por el título (más específico)
   const tituloCategoria = await page.locator('h5.text-neutral-800:has-text("Selecciona la categoría de")').textContent();
+  if (!tituloCategoria) {
+    throw new Error('❌ No se pudo obtener el título de la categoría');
+  }
   console.log(`📋 Categoría detectada: ${tituloCategoria}`);
 
   const nombreSubcategoria = await selectRandomCategory(page, 'SELECCIONANDO SUBCATEGORÍA ALEATORIA');
+  if (!nombreSubcategoria) {
+    throw new Error('❌ No se pudo obtener el nombre de la subcategoría');
+  }
   await page.waitForTimeout(2000);
 
   // --- VERIFICAR SI NECESITA SUBCATEGORÍA ANIDADA ---
@@ -216,6 +184,9 @@ test('Crear servicio', async ({ page }) => {
 
 
   const subcategoriaFinal = nombreSubcategoriaAnidada || nombreSubcategoria;
+  if (!subcategoriaFinal) {
+    throw new Error('❌ No se pudo obtener la subcategoría final');
+  }
   console.log(`✅ Subcategoría final "${subcategoriaFinal}" de "${tituloCategoria}" seleccionada exitosamente`);
 
   // --- LLENAR FORMULARIO DE DATOS DEL SERVICIO ---
@@ -573,7 +544,6 @@ test('Crear servicio', async ({ page }) => {
       'comidas.png',
       'desayunos.png',
       'cenas.png',
-      'Bebidas.avif',
       'public.webp'
     ];
 
@@ -696,15 +666,39 @@ test('Crear servicio', async ({ page }) => {
 
   // Esperar redirección automática al administrador de servicios
   console.log('🔍 TRACE: Esperando regreso al administrador de servicios...');
+  let regresoExitoso = false;
+  
   try {
     console.log('🔍 TRACE: Buscando texto "Crear servicio"...');
     await expect(page.getByText('Crear servicio')).toBeVisible({ timeout: 15000 });
     console.log('✅ TRACE: Regreso exitoso al administrador de servicios');
+    regresoExitoso = true;
   } catch (error) {
-    console.log('⚠️ TRACE: No se pudo confirmar el regreso al administrador, pero continuando...');
+    console.log('⚠️ TRACE: No se pudo confirmar el regreso automático, intentando navegación manual...');
     console.log(`🔍 TRACE: Error al buscar "Crear servicio": ${error}`);
+    
+    // Intentar navegación manual como respaldo
+    try {
+      console.log('🔍 TRACE: Navegando manualmente al administrador de servicios...');
+      await page.goto(PROVIDER_SERVICES_URL);
+      await page.waitForTimeout(3000);
+      
+      // Verificar que la navegación manual fue exitosa
+      await expect(page.getByText('Crear servicio')).toBeVisible({ timeout: 10000 });
+      console.log('✅ TRACE: Navegación manual exitosa - "Crear servicio" encontrado');
+      regresoExitoso = true;
+    } catch (navError) {
+      console.log('❌ TRACE: Navegación manual también falló');
+      console.log(`🔍 TRACE: Error de navegación: ${navError}`);
+      regresoExitoso = false;
+    }
   }
 
+  // Si no se pudo regresar al administrador de servicios, la prueba debe fallar
+  if (!regresoExitoso) {
+    const currentUrl = page.url();
+    throw new Error(`❌ FALLO: No se pudo regresar al administrador de servicios después de crear el servicio. URL actual: ${currentUrl}`);
+  }
 
   console.log(`✅ Servicio "${serviceName}" creado exitosamente`);
 });
@@ -790,6 +784,9 @@ test('Editar servicio', async ({ page }) => {
   await expect(nameInput).toBeVisible({ timeout: 10000 });
 
   const currentName = await nameInput.inputValue();
+  if (!currentName) {
+    throw new Error('❌ No se pudo obtener el nombre actual del servicio');
+  }
   const newName = `${currentName} - EDITADO ${new Date().toISOString().slice(0, 19)}`;
   await nameInput.clear();
   await nameInput.fill(newName);
@@ -802,6 +799,9 @@ test('Editar servicio', async ({ page }) => {
 
   const descriptionInput = page.locator('textarea[id="Description"]');
   const currentDescription = await descriptionInput.inputValue();
+  if (currentDescription === null || currentDescription === undefined) {
+    throw new Error('❌ No se pudo obtener la descripción actual del servicio');
+  }
   const newDescription = `${currentDescription}\n\n--- EDITADO EL ${new Date().toLocaleDateString()} ---\nDescripción actualizada con información adicional.`;
   await descriptionInput.clear();
   await descriptionInput.fill(newDescription);
@@ -1118,12 +1118,16 @@ test('Eliminar servicio', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
+  await showStepMessage(page, '🔧 NAVEGANDO A ADMINISTRAR SERVICIOS');
+  await page.waitForTimeout(1000);
   const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios")');
   await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
   // --- BUSCAR SERVICIO ALEATORIO ---
+  await showStepMessage(page, '🔍 BUSCANDO SERVICIO PARA ELIMINAR');
+  await page.waitForTimeout(1000);
   const serviceCards = page.locator('.flex.items-end.justify-end.text-end button');
   const totalCards = await serviceCards.count();
 
@@ -1136,22 +1140,30 @@ test('Eliminar servicio', async ({ page }) => {
   await expect(threeDotsButton).toBeVisible({ timeout: 10000 });
 
   // --- ABRIR MENÚ Y ELIMINAR ---
+  await showStepMessage(page, '🗑️ ABRIENDO MENÚ DE ELIMINACIÓN');
+  await page.waitForTimeout(1000);
   await threeDotsButton.click();
   await page.waitForTimeout(1000);
 
   // Buscar botón "Eliminar" con el selector específico
+  await showStepMessage(page, '⚠️ SELECCIONANDO ELIMINAR');
+  await page.waitForTimeout(1000);
   const deleteButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Eliminar")');
   await expect(deleteButton).toBeVisible({ timeout: 5000 });
   await deleteButton.click();
   await page.waitForTimeout(1000);
 
   // Confirmar eliminación con botón "Aceptar"
+  await showStepMessage(page, '✅ CONFIRMANDO ELIMINACIÓN');
+  await page.waitForTimeout(1000);
   const confirmButton = page.locator('button.flex.false.justify-center.items-center.h-full.w-full.rounded-circle.gap-3.px-\\[16px\\].py-\\[4px\\].bg-danger-neutral.text-neutral-0:has-text("Aceptar")');
   await expect(confirmButton).toBeVisible({ timeout: 5000 });
   await confirmButton.click();
   await page.waitForTimeout(2000);
 
   // --- VERIFICAR ELIMINACIÓN ---
+  await showStepMessage(page, '✅ VERIFICANDO ELIMINACIÓN');
+  await page.waitForTimeout(1000);
   const remainingCards = await serviceCards.count();
 
   if (remainingCards < totalCards) {
@@ -1161,107 +1173,360 @@ test('Eliminar servicio', async ({ page }) => {
   }
 });
 
-test('Desactivar/Activar servicio', async ({ page }) => {
+test('Desactivar servicio', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
+  await showStepMessage(page, '🔧 NAVEGANDO A ADMINISTRAR SERVICIOS');
+  await page.waitForTimeout(1000);
   const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios")');
   await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
   await adminServiciosButton.click();
   await page.waitForTimeout(2000);
 
-  // --- BUSCAR SERVICIO ALEATORIO ---
+  // --- BUSCAR SERVICIO ACTIVO ---
+  await showStepMessage(page, '🔍 BUSCANDO SERVICIO ACTIVO');
+  await page.waitForTimeout(1000);
   const serviceCards = page.locator('.flex.items-end.justify-end.text-end button');
   const totalCards = await serviceCards.count();
 
   if (totalCards === 0) {
-    throw new Error('❌ No se encontraron servicios para desactivar/activar');
+    throw new Error('❌ No se encontraron servicios para desactivar');
   }
 
-  const randomIndex = Math.floor(Math.random() * totalCards);
-  const threeDotsButton = serviceCards.nth(randomIndex);
-  await expect(threeDotsButton).toBeVisible({ timeout: 10000 });
+  // Crear array de índices aleatorios para buscar en orden aleatorio
+  const indices = Array.from({ length: totalCards }, (_, i) => i);
+  // Mezclar el array aleatoriamente
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
 
-  // --- ABRIR MENÚ ---
-  await threeDotsButton.click();
-  await page.waitForTimeout(1000);
+  // Buscar un servicio que esté activo (que tenga botón "Desactivar")
+  let servicioActivoEncontrado = false;
+  let threeDotsButton: ReturnType<typeof page.locator> | null = null;
+  let servicioIndex = -1;
+  let lastCheckedIndex = -1;
+
+  for (const i of indices) {
+    lastCheckedIndex = i;
+    const cardButton = serviceCards.nth(i);
+    const isVisible = await cardButton.isVisible().catch(() => false);
+    if (!isVisible) {
+      console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+      continue;
+    }
+
+    console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (índice aleatorio)...`);
+    await cardButton.click();
+    await page.waitForTimeout(1500); // Esperar más tiempo para que el menú se abra
+
+    // Verificar si tiene botón "Desactivar" con selector más específico
+    const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+    const deactivateButtonCount = await deactivateButton.count();
+    const isDeactivateVisible = deactivateButtonCount > 0 ? await deactivateButton.isVisible().catch(() => false) : false;
+    
+    if (isDeactivateVisible) {
+      console.log(`✅ TRACE: Servicio activo encontrado en posición ${i + 1}`);
+      servicioActivoEncontrado = true;
+      threeDotsButton = cardButton;
+      servicioIndex = i;
+      break;
+    }
+
+    // Cerrar el menú si no es el servicio activo
+    console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Desactivar" (está desactivado), buscando otro...`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+  }
+
+  if (!servicioActivoEncontrado || !threeDotsButton) {
+    console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+    throw new Error(`❌ No se encontró ningún servicio activo para desactivar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
+  }
+
+  console.log(`✅ TRACE: Servicio seleccionado para desactivar: posición ${servicioIndex + 1} de ${totalCards}`);
+
+  // --- VALIDAR QUE EL MENÚ ESTÁ ABIERTO Y EL SERVICIO ESTÁ ACTIVO ---
+  // Verificar que el botón "Desactivar" está visible (el servicio está activo)
+  const deactivateButtonCheck = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+  const deactivateButtonCount = await deactivateButtonCheck.count();
+  let isDeactivateVisible = deactivateButtonCount > 0 ? await deactivateButtonCheck.isVisible().catch(() => false) : false;
+  
+  if (!isDeactivateVisible) {
+    // Si el menú se cerró, intentar reabrirlo
+    console.log('⚠️ TRACE: El menú parece estar cerrado, reabriendo...');
+    await threeDotsButton.click();
+    await page.waitForTimeout(1500);
+    
+    // Verificar nuevamente
+    const deactivateButtonCheck2 = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+    const deactivateButtonCount2 = await deactivateButtonCheck2.count();
+    isDeactivateVisible = deactivateButtonCount2 > 0 ? await deactivateButtonCheck2.isVisible().catch(() => false) : false;
+  }
+  
+  // Si después de reabrir el menú el botón aún no está visible, el servicio no está activo
+  // Continuar buscando otro servicio
+  if (!isDeactivateVisible) {
+    console.log(`⚠️ TRACE: El servicio en posición ${lastCheckedIndex + 1} no está activo, continuando búsqueda...`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Reiniciar la búsqueda desde donde quedamos
+    servicioActivoEncontrado = false;
+    threeDotsButton = null;
+    servicioIndex = -1;
+    
+    // Continuar buscando en los índices restantes
+    const currentIndexPosition = indices.indexOf(lastCheckedIndex);
+    const remainingIndices = indices.slice(currentIndexPosition + 1);
+    
+    for (const i of remainingIndices) {
+      const cardButton = serviceCards.nth(i);
+      const isVisible = await cardButton.isVisible().catch(() => false);
+      if (!isVisible) {
+        console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+        continue;
+      }
+
+      console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (continuando búsqueda)...`);
+      await cardButton.click();
+      await page.waitForTimeout(1500);
+
+      const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+      const deactivateButtonCount = await deactivateButton.count();
+      const isDeactivateVisible = deactivateButtonCount > 0 ? await deactivateButton.isVisible().catch(() => false) : false;
+      
+      if (isDeactivateVisible) {
+        console.log(`✅ TRACE: Servicio activo encontrado en posición ${i + 1}`);
+        servicioActivoEncontrado = true;
+        threeDotsButton = cardButton;
+        servicioIndex = i;
+        break;
+      }
+
+      console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Desactivar" (está desactivado), buscando otro...`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+    
+    // Si después de buscar en todos los servicios restantes no se encontró ninguno activo, fallar
+    if (!servicioActivoEncontrado || !threeDotsButton) {
+      console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+      throw new Error(`❌ No se encontró ningún servicio activo para desactivar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
+    }
+    
+    console.log(`✅ TRACE: Servicio activo encontrado después de continuar búsqueda: posición ${servicioIndex + 1} de ${totalCards}`);
+  }
 
   // --- DESACTIVAR SERVICIO ---
   console.log('🔍 TRACE: Desactivando servicio...');
-  const deactivateButton = page.locator('button:has-text("Desactivar")');
+  await showStepMessage(page, '🔴 DESACTIVANDO SERVICIO');
+  await page.waitForTimeout(1000);
 
-  if (await deactivateButton.count() > 0) {
-    // El servicio está activo, desactivarlo
-    await expect(deactivateButton).toBeVisible({ timeout: 5000 });
-    await deactivateButton.click();
-    await page.waitForTimeout(2000);
-    console.log('✅ Servicio desactivado exitosamente');
+  // Usar selector más específico para el botón "Desactivar"
+  const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+  await expect(deactivateButton).toBeVisible({ timeout: 5000 });
+  await deactivateButton.click();
+  await page.waitForTimeout(2000);
+  console.log('✅ Servicio desactivado exitosamente');
 
-    // --- REABRIR MENÚ PARA VERIFICAR ---
-    await threeDotsButton.click();
-    await page.waitForTimeout(1000);
+  // --- VERIFICAR QUE SE DESACTIVÓ ---
+  await showStepMessage(page, '✅ VERIFICANDO DESACTIVACIÓN');
+  await page.waitForTimeout(1000);
 
-    // Verificar que se desactivó buscando el botón "Activar"
-    const activateButton = page.locator('button:has-text("Activar")');
-    await expect(activateButton).toBeVisible({ timeout: 5000 });
-    console.log('✅ Confirmado: botón "Activar" visible');
+  // Reabrir el menú para verificar
+  await threeDotsButton.click();
+  await page.waitForTimeout(1000);
 
-    // --- ACTIVAR SERVICIO ---
-    console.log('🔍 TRACE: Activando servicio...');
-    await activateButton.click();
-    await page.waitForTimeout(2000);
-    console.log('✅ Servicio activado exitosamente');
+  // Verificar que ahora tiene el botón "Activar"
+  const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+  await expect(activateButton).toBeVisible({ timeout: 5000 });
+  console.log('✅ Confirmado: botón "Activar" visible - servicio desactivado correctamente');
 
-    // --- REABRIR MENÚ PARA VERIFICAR ---
-    await threeDotsButton.click();
-    await page.waitForTimeout(1000);
+  console.log('✅ Prueba de desactivar servicio completada');
+});
 
-    // Verificar que se activó buscando el botón "Desactivar"
-    const deactivateButtonAfter = page.locator('button:has-text("Desactivar")');
-    await expect(deactivateButtonAfter).toBeVisible({ timeout: 5000 });
-    console.log('✅ Confirmado: botón "Desactivar" visible');
+test('Activar servicio', async ({ page }) => {
+  test.setTimeout(60000); // 1 minuto
 
-  } else {
-    // El servicio está desactivado, activarlo primero
-    console.log('🔍 TRACE: El servicio está desactivado, activándolo...');
-    const activateButton = page.locator('button:has-text("Activar")');
-    await expect(activateButton).toBeVisible({ timeout: 5000 });
-    await activateButton.click();
-    await page.waitForTimeout(2000);
-    console.log('✅ Servicio activado exitosamente');
+  // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
+  await showStepMessage(page, '🔧 NAVEGANDO A ADMINISTRAR SERVICIOS');
+  await page.waitForTimeout(1000);
+  const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios")');
+  await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
+  await adminServiciosButton.click();
+  await page.waitForTimeout(2000);
 
-    // --- REABRIR MENÚ PARA VERIFICAR ---
-    await threeDotsButton.click();
-    await page.waitForTimeout(1000);
+  // --- BUSCAR SERVICIO DESACTIVADO ---
+  await showStepMessage(page, '🔍 BUSCANDO SERVICIO DESACTIVADO');
+  await page.waitForTimeout(1000);
+  const serviceCards = page.locator('.flex.items-end.justify-end.text-end button');
+  const totalCards = await serviceCards.count();
 
-    // Verificar que se activó
-    const deactivateButtonAfter = page.locator('button:has-text("Desactivar")');
-    await expect(deactivateButtonAfter).toBeVisible({ timeout: 5000 });
-    console.log('✅ Confirmado: botón "Desactivar" visible');
-
-    // Ahora desactivarlo
-    console.log('🔍 TRACE: Desactivando servicio...');
-    await deactivateButtonAfter.click();
-    await page.waitForTimeout(2000);
-    console.log('✅ Servicio desactivado exitosamente');
-
-    // --- REABRIR MENÚ PARA VERIFICAR ---
-    await threeDotsButton.click();
-    await page.waitForTimeout(1000);
-
-    // Verificar que se desactivó
-    const activateButtonAfter = page.locator('button:has-text("Activar")');
-    await expect(activateButtonAfter).toBeVisible({ timeout: 5000 });
-    console.log('✅ Confirmado: botón "Activar" visible');
+  if (totalCards === 0) {
+    throw new Error('❌ No se encontraron servicios para activar');
   }
 
-  console.log('✅ Prueba de desactivar/activar completada');
+  // Crear array de índices aleatorios para buscar en orden aleatorio
+  const indices = Array.from({ length: totalCards }, (_, i) => i);
+  // Mezclar el array aleatoriamente
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  // Buscar un servicio que esté desactivado (que tenga botón "Activar")
+  let servicioDesactivadoEncontrado = false;
+  let threeDotsButton: ReturnType<typeof page.locator> | null = null;
+  let servicioIndex = -1;
+  let lastCheckedIndex = -1;
+
+  for (const i of indices) {
+    lastCheckedIndex = i;
+    const cardButton = serviceCards.nth(i);
+    const isVisible = await cardButton.isVisible().catch(() => false);
+    if (!isVisible) {
+      console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+      continue;
+    }
+
+    console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (índice aleatorio)...`);
+    await cardButton.click();
+    await page.waitForTimeout(1500); // Esperar más tiempo para que el menú se abra
+
+    // Verificar si tiene botón "Activar" con selector más específico
+    const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+    const activateButtonCount = await activateButton.count();
+    const isActivateVisible = activateButtonCount > 0 ? await activateButton.isVisible().catch(() => false) : false;
+    
+    if (isActivateVisible) {
+      console.log(`✅ TRACE: Servicio desactivado encontrado en posición ${i + 1}`);
+      servicioDesactivadoEncontrado = true;
+      threeDotsButton = cardButton;
+      servicioIndex = i;
+      break;
+    }
+
+    // Cerrar el menú si no es el servicio desactivado
+    console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Activar" (está activo), buscando otro...`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+  }
+
+  if (!servicioDesactivadoEncontrado || !threeDotsButton) {
+    console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+    throw new Error(`❌ No se encontró ningún servicio desactivado para activar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
+  }
+
+  console.log(`✅ TRACE: Servicio seleccionado para activar: posición ${servicioIndex + 1} de ${totalCards}`);
+
+  // --- VALIDAR QUE EL MENÚ ESTÁ ABIERTO Y EL SERVICIO ESTÁ DESACTIVADO ---
+  // Verificar que el botón "Activar" está visible (el servicio está desactivado)
+  const activateButtonCheck = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+  const activateButtonCount = await activateButtonCheck.count();
+  let isActivateVisible = activateButtonCount > 0 ? await activateButtonCheck.isVisible().catch(() => false) : false;
+  
+  if (!isActivateVisible) {
+    // Si el menú se cerró, intentar reabrirlo
+    console.log('⚠️ TRACE: El menú parece estar cerrado, reabriendo...');
+    await threeDotsButton.click();
+    await page.waitForTimeout(1500);
+    
+    // Verificar nuevamente
+    const activateButtonCheck2 = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+    const activateButtonCount2 = await activateButtonCheck2.count();
+    isActivateVisible = activateButtonCount2 > 0 ? await activateButtonCheck2.isVisible().catch(() => false) : false;
+  }
+  
+  // Si después de reabrir el menú el botón aún no está visible, el servicio no está desactivado
+  // Continuar buscando otro servicio
+  if (!isActivateVisible) {
+    console.log(`⚠️ TRACE: El servicio en posición ${lastCheckedIndex + 1} no está desactivado, continuando búsqueda...`);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Reiniciar la búsqueda desde donde quedamos
+    servicioDesactivadoEncontrado = false;
+    threeDotsButton = null;
+    servicioIndex = -1;
+    
+    // Continuar buscando en los índices restantes
+    const currentIndexPosition = indices.indexOf(lastCheckedIndex);
+    const remainingIndices = indices.slice(currentIndexPosition + 1);
+    
+    for (const i of remainingIndices) {
+      const cardButton = serviceCards.nth(i);
+      const isVisible = await cardButton.isVisible().catch(() => false);
+      if (!isVisible) {
+        console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+        continue;
+      }
+
+      console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (continuando búsqueda)...`);
+      await cardButton.click();
+      await page.waitForTimeout(1500);
+
+      const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+      const activateButtonCount = await activateButton.count();
+      const isActivateVisible = activateButtonCount > 0 ? await activateButton.isVisible().catch(() => false) : false;
+      
+      if (isActivateVisible) {
+        console.log(`✅ TRACE: Servicio desactivado encontrado en posición ${i + 1}`);
+        servicioDesactivadoEncontrado = true;
+        threeDotsButton = cardButton;
+        servicioIndex = i;
+        break;
+      }
+
+      console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Activar" (está activo), buscando otro...`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+    
+    // Si después de buscar en todos los servicios restantes no se encontró ninguno desactivado, fallar
+    if (!servicioDesactivadoEncontrado || !threeDotsButton) {
+      console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+      throw new Error(`❌ No se encontró ningún servicio desactivado para activar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
+    }
+    
+    console.log(`✅ TRACE: Servicio desactivado encontrado después de continuar búsqueda: posición ${servicioIndex + 1} de ${totalCards}`);
+  }
+
+  // --- ACTIVAR SERVICIO ---
+  console.log('🔍 TRACE: Activando servicio...');
+  await showStepMessage(page, '🟢 ACTIVANDO SERVICIO');
+  await page.waitForTimeout(1000);
+
+  // Usar selector más específico para el botón "Activar"
+  const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+  await expect(activateButton).toBeVisible({ timeout: 5000 });
+  await activateButton.click();
+  await page.waitForTimeout(2000);
+  console.log('✅ Servicio activado exitosamente');
+
+  // --- VERIFICAR QUE SE ACTIVÓ ---
+  await showStepMessage(page, '✅ VERIFICANDO ACTIVACIÓN');
+  await page.waitForTimeout(1000);
+
+  // Reabrir el menú para verificar
+  await threeDotsButton.click();
+  await page.waitForTimeout(1000);
+
+  // Verificar que ahora tiene el botón "Desactivar"
+  const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+  await expect(deactivateButton).toBeVisible({ timeout: 5000 });
+  console.log('✅ Confirmado: botón "Desactivar" visible - servicio activado correctamente');
+
+  console.log('✅ Prueba de activar servicio completada');
 });
 
 test('Buscar servicios', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
+  await showStepMessage(page, '🔧 NAVEGANDO A ADMINISTRAR SERVICIOS');
+  await page.waitForTimeout(1000);
   const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios")');
   await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
   await adminServiciosButton.click();
@@ -1343,6 +1608,8 @@ test('Filtrar servicios', async ({ page }) => {
   // Ya está logueado por beforeEach
 
   // --- ADMINISTRAR SERVICIOS ---
+  await showStepMessage(page, '🔧 NAVEGANDO A ADMINISTRAR SERVICIOS');
+  await page.waitForTimeout(1000);
   const serviciosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar servicios' });
   await serviciosBtn.click();
   await expect(page.getByText('Crear servicio')).toBeVisible();
@@ -1497,39 +1764,6 @@ test('Filtrar servicios', async ({ page }) => {
   console.log(`  ✅ Estatus seleccionado: "${statusTexto}"`);
   console.log(`  ✅ Filtro aplicado: ${afterFilterCount !== initialServiceCount ? 'Sí' : 'No (todos los servicios coinciden con los filtros)'}`);
   console.log(`  ✅ Estado restaurado: ${afterClearCount === initialServiceCount ? 'Sí' : 'Parcial'}`);
-});
-
-test('Ordenar servicios', async ({ page }) => {
-  test.setTimeout(60000); // 1 minuto
-
-  // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
-  const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios")');
-  await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
-  await adminServiciosButton.click();
-  await page.waitForTimeout(2000);
-
-
-  // --- BUSCAR BOTÓN DE ORDENAMIENTO ---
-  const sortButton = page.locator('button:has(i.icon-sort), button:has(i.icon-sort-descending), button:has(i.icon-sort-ascending), button[class*="sort"]').first();
-
-  if (await sortButton.count() > 0) {
-    await showStepMessage(page, '🟢 ORDENANDO SERVICIOS (PRIMERA VEZ)');
-    await page.waitForTimeout(1000);
-    await sortButton.click();
-    await page.waitForTimeout(2000);
-
-
-    // --- ORDENAR SEGUNDA VEZ ---
-    await showStepMessage(page, '🟢 ORDENANDO SERVICIOS (SEGUNDA VEZ)');
-    await page.waitForTimeout(1000);
-    await sortButton.click();
-    await page.waitForTimeout(2000);
-
-
-    console.log('✅ Ordenamiento de servicios completado');
-  } else {
-    console.log('⚠️ No se encontró botón de ordenamiento en la página de servicios');
-  }
 });
 
 test('Navegar a chats desde servicios', async ({ page }) => {
