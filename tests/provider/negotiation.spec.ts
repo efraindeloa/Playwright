@@ -568,13 +568,89 @@ async function navigateToNewNegotiation(page: Page): Promise<string> {
   throw new Error('❌ No se pudo navegar a una negociación con estado NUEVA');
 }
 
+/**
+ * Navega a una negociación con estado "ENVIADA"
+ */
+async function navigateToSentNegotiation(page: Page): Promise<string> {
+  // Intentar desde chats primero
+  try {
+    await page.goto(CHATS_URL);
+    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+    
+    // Buscar conversaciones
+    const conversationButtons = page.locator('button').filter({
+      hasText: /Cumpleaños|Baby Shower|Bautizo|Despedida|Corporativa|Fiestamas QA Cliente|cliente/i
+    });
+    
+    const conversationCount = await conversationButtons.count();
+    
+    if (conversationCount > 0) {
+      // Intentar con todas las conversaciones hasta encontrar una con estado ENVIADA
+      for (let i = 0; i < conversationCount; i++) {
+        await conversationButtons.nth(i).click();
+        await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+        
+        const currentUrl = page.url();
+        if (currentUrl.includes('/provider/negotiation/')) {
+          // Verificar si el estado es ENVIADA
+          const statusElement = page.locator('p:has-text("ENVIADA")');
+          const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          if (hasSentStatus) {
+            return currentUrl;
+          }
+        }
+        
+        // Volver a chats si no es el estado correcto
+        await page.goto(CHATS_URL);
+        await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+      }
+    }
+  } catch (error) {
+    console.log('ℹ️ No se pudo navegar desde chats, intentando desde dashboard...');
+  }
+  
+  // Intentar desde dashboard
+  try {
+    await page.goto(DASHBOARD_URL);
+    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+    
+    // Buscar eventos con estado ENVIADA (puede aparecer como "ENVIADO" o similar)
+    const eventButtons = page.locator('button').filter({
+      hasText: /ENVIAD/i
+    });
+    
+    const eventCount = await eventButtons.count();
+    
+    if (eventCount > 0) {
+      await eventButtons.first().click();
+      await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+      
+      const currentUrl = page.url();
+      if (currentUrl.includes('/provider/negotiation/')) {
+        // Verificar que realmente es ENVIADA
+        const statusElement = page.locator('p:has-text("ENVIADA")');
+        const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (hasSentStatus) {
+          return currentUrl;
+        }
+      }
+    }
+  } catch (error) {
+    console.log('ℹ️ No se pudo navegar desde dashboard');
+  }
+  
+  throw new Error('❌ No se pudo navegar a una negociación con estado ENVIADA');
+}
+
 test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle');
   });
 
-  test('validar estado NUEVA y elementos principales', async ({ page }) => {
+  test('validación completa de elementos interactivos en estado NUEVA', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN CON ESTADO NUEVA ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
     await page.waitForTimeout(1000);
@@ -589,9 +665,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     const statusElement = page.locator('p:has-text("NUEVA")');
     await expect(statusElement).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     console.log('✅ Estado "NUEVA" encontrado');
-  });
 
-  test('validar y probar botón de regreso', async ({ page }) => {
+    // --- VALIDAR BOTÓN DE REGRESO ---
     // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
     await page.waitForTimeout(1000);
@@ -608,25 +683,16 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     console.log('✅ Botón de regreso encontrado');
     
     // Probar hacer clic (pero no navegar realmente para no interrumpir otras pruebas)
-    const isClickable = await backButton.isEnabled();
+    let isClickable = await backButton.isEnabled();
     if (isClickable) {
       console.log('✅ Botón de regreso es clickeable');
     }
-  });
-
-  test('validar y probar campo de Detalles', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
 
     // --- VALIDAR CAMPO DE DETALLES ---
     await showStepMessage(page, '📝 VALIDANDO CAMPO DE DETALLES');
     await page.waitForTimeout(1000);
     
-    const detailsTextarea = page.locator('textarea[id="Description"]');
+    let detailsTextarea = page.locator('textarea[id="Description"]');
     await expect(detailsTextarea).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     console.log('✅ Campo de detalles encontrado');
     
@@ -644,7 +710,7 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await page.waitForTimeout(1000);
     
     const clearButton = page.locator('button:has-text("Borrar todo")');
-    const hasClearButton = await clearButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+    let hasClearButton = await clearButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
     
     if (hasClearButton) {
       console.log('✅ Botón "Borrar todo" encontrado');
@@ -656,21 +722,14 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
         console.log('✅ Botón "Borrar todo" funciona correctamente');
       }
     }
-  });
 
-  test('validar y probar dropdown de Unidad', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR DROPDOWN DE UNIDAD ---
 
     // --- VALIDAR DROPDOWN DE UNIDAD ---
     await showStepMessage(page, '📦 VALIDANDO DROPDOWN DE UNIDAD');
     await page.waitForTimeout(1000);
     
-    const unitButton = page.locator('button[id="UnitId"]');
+    let unitButton = page.locator('button[id="UnitId"]');
     await expect(unitButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     console.log('✅ Dropdown de unidad encontrado');
     
@@ -679,11 +738,11 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await page.waitForTimeout(1000);
     
     // Buscar opciones en el dropdown
-    const unitOptions = page.locator('ul li, div[role="option"], div[role="listbox"] li').filter({
+    let unitOptions = page.locator('ul li, div[role="option"], div[role="listbox"] li').filter({
       hasText: /Evento|Hora|Día|Servicio/i
     });
     
-    const optionCount = await unitOptions.count();
+    let optionCount = await unitOptions.count();
     if (optionCount > 0) {
       console.log(`✅ Se encontraron ${optionCount} opciones en el dropdown de unidad`);
       
@@ -697,21 +756,14 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     } else {
       console.log('ℹ️ No se encontraron opciones visibles en el dropdown');
     }
-  });
 
-  test('validar y probar campo de Total', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR CAMPO DE TOTAL ---
 
     // --- VALIDAR CAMPO DE TOTAL ---
     await showStepMessage(page, '💵 VALIDANDO CAMPO DE TOTAL');
     await page.waitForTimeout(1000);
     
-    const totalInput = page.locator('input[id="Total"]');
+    let totalInput = page.locator('input[id="Total"]');
     await expect(totalInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     console.log('✅ Campo de total encontrado');
     
@@ -724,15 +776,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     if (totalValue.includes('5000') || totalValue.includes('5')) {
       console.log('✅ Campo de total acepta valores');
     }
-  });
 
-  test('validar y probar campo de Condiciones', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR CAMPO DE CONDICIONES ---
 
     // --- VALIDAR CAMPO DE CONDICIONES ---
     await showStepMessage(page, '📋 VALIDANDO CAMPO DE CONDICIONES');
@@ -756,22 +801,15 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await page.waitForTimeout(1000);
     
     const clearConditionsButton = conditionsInput.locator('..').locator('button[aria-label*="Clear"], button:has(i.icon-x)').first();
-    const hasClearButton = await clearConditionsButton.isVisible({ timeout: 2000 }).catch(() => false);
+    hasClearButton = await clearConditionsButton.isVisible({ timeout: 2000 }).catch(() => false);
     
     if (hasClearButton) {
       console.log('✅ Botón de limpiar condiciones encontrado');
       await clearConditionsButton.click();
       await page.waitForTimeout(500);
     }
-  });
 
-  test('validar botón Enviar cotización - deshabilitado por defecto y habilitado solo con Detalles, Unidad y Total', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR BOTÓN ENVIAR COTIZACIÓN ---
 
     // --- VALIDAR BOTÓN ENVIAR COTIZACIÓN ---
     await showStepMessage(page, '📤 VALIDANDO BOTÓN ENVIAR COTIZACIÓN');
@@ -795,7 +833,7 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await showStepMessage(page, '📝 PROBANDO CON SOLO DETALLES');
     await page.waitForTimeout(1000);
     
-    const detailsTextarea = page.locator('textarea[id="Description"]');
+    detailsTextarea = page.locator('textarea[id="Description"]');
     await detailsTextarea.fill('Detalles de prueba');
     await page.waitForTimeout(1000);
     
@@ -809,7 +847,7 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await showStepMessage(page, '💵 PROBANDO CON DETALLES + TOTAL');
     await page.waitForTimeout(1000);
     
-    const totalInput = page.locator('input[id="Total"]');
+    totalInput = page.locator('input[id="Total"]');
     await totalInput.click();
     await totalInput.fill('5000');
     await page.waitForTimeout(1000);
@@ -825,16 +863,16 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await page.waitForTimeout(1000);
     
     // Seleccionar Unidad
-    const unitButton = page.locator('button[id="UnitId"]');
+    unitButton = page.locator('button[id="UnitId"]');
     await unitButton.click();
     await page.waitForTimeout(1000);
     
     // Buscar y seleccionar una opción de unidad
-    const unitOptions = page.locator('ul li, div[role="option"], div[role="listbox"] li').filter({
+    unitOptions = page.locator('ul li, div[role="option"], div[role="listbox"] li').filter({
       hasText: /Evento|Hora|Día|Servicio/i
     });
     
-    const optionCount = await unitOptions.count();
+    optionCount = await unitOptions.count();
     if (optionCount > 0) {
       const firstOption = unitOptions.first();
       const optionText = await firstOption.textContent();
@@ -883,15 +921,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     // Restaurar el valor para dejar el estado limpio
     await totalInput.fill('5000');
     await page.waitForTimeout(500);
-  });
 
-  test('validar y probar botón Cancelar negociación', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR BOTÓN CANCELAR NEGOCIACIÓN ---
 
     // --- VALIDAR BOTÓN CANCELAR NEGOCIACIÓN ---
     await showStepMessage(page, '❌ VALIDANDO BOTÓN CANCELAR NEGOCIACIÓN');
@@ -902,21 +933,14 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     console.log('✅ Botón "Cancelar negociación" encontrado');
     
     // Verificar que es clickeable
-    const isClickable = await cancelButton.isEnabled();
+    isClickable = await cancelButton.isEnabled();
     if (isClickable) {
       console.log('✅ Botón "Cancelar negociación" es clickeable');
     }
     
     // No hacer clic para no cancelar la negociación en pruebas reales
-  });
 
-  test('validar y probar campo de Notas personales', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR TÍTULO DE NOTAS PERSONALES ---
 
     // --- VALIDAR TÍTULO DE NOTAS PERSONALES ---
     await showStepMessage(page, '📝 VALIDANDO NOTAS PERSONALES');
@@ -939,15 +963,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     if (notesValue.includes('Nota personal')) {
       console.log('✅ Campo de notas personales acepta texto');
     }
-  });
 
-  test('validar y probar elementos del chat', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR CAMPO DE MENSAJE ---
 
     // --- VALIDAR CAMPO DE MENSAJE ---
     await showStepMessage(page, '💬 VALIDANDO ELEMENTOS DEL CHAT');
@@ -995,15 +1012,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
         console.log('✅ Botón de cámara es clickeable');
       }
     }
-  });
 
-  test('validar mensaje informativo y botón de regreso al dashboard', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR MENSAJE INFORMATIVO ---
 
     // --- VALIDAR MENSAJE INFORMATIVO ---
     await showStepMessage(page, 'ℹ️ VALIDANDO MENSAJE INFORMATIVO');
@@ -1029,15 +1039,8 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     if (hasDashboardLink) {
       console.log('✅ Enlace al dashboard en el mensaje informativo encontrado');
     }
-  });
 
-  test('validar historial de mensajes en estado NUEVA', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN NUEVA ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
-    await page.waitForTimeout(1000);
-    
-    await navigateToNewNegotiation(page);
-    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+    // --- VALIDAR HISTORIAL DE MENSAJES ---
 
     // --- VALIDAR HISTORIAL DE MENSAJES ---
     await showStepMessage(page, '📜 VALIDANDO HISTORIAL DE MENSAJES');
@@ -1062,6 +1065,650 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     } else {
       console.log('ℹ️ No se encontraron mensajes en el historial');
     }
+  });
+
+  test('validación completa: tipo de evento, estado de cotización y elementos según contexto', async ({ page }) => {
+    // --- NAVEGAR A NEGOCIACIÓN ---
+    await showStepMessage(page, '🔍 NAVEGANDO A NEGOCIACIÓN');
+    await page.waitForTimeout(1000);
+    
+    const negotiationUrl = await navigateToNegotiation(page);
+    await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+
+    // --- DETECTAR TIPO DE EVENTO ---
+    await showStepMessage(page, '🔍 DETECTANDO TIPO DE EVENTO');
+    await page.waitForTimeout(1000);
+
+    // Buscar botón "Invitar a Fiestamas" (evento creado por proveedor)
+    const inviteButton = page.locator('button:has-text("Invitar a Fiestamas")');
+    const hasInviteButton = await inviteButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+
+    // Buscar contenedor de chat (evento creado por cliente)
+    const chatContainer = page.locator('div#chat-scroll-container');
+    const hasChatContainer = await chatContainer.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+
+    let eventType: 'provider' | 'client' | 'unknown' = 'unknown';
+
+    if (hasInviteButton) {
+      eventType = 'provider';
+      console.log('✅ Evento creado por PROVEEDOR detectado (tiene botón "Invitar a Fiestamas")');
+    } else if (hasChatContainer) {
+      eventType = 'client';
+      console.log('✅ Evento creado por CLIENTE detectado (tiene contenedor de chat)');
+    } else {
+      throw new Error('❌ No se pudo determinar el tipo de evento (no se encontró botón "Invitar a Fiestamas" ni contenedor de chat)');
+    }
+
+    // --- VALIDAR ESTADO DE COTIZACIÓN ---
+    await showStepMessage(page, '📊 DETECTANDO ESTADO DE COTIZACIÓN');
+    await page.waitForTimeout(1000);
+
+    // Buscar badge de estado
+    const statusBadge = page.locator('p.text-light-light.text-small.font-medium, p.text-dark-neutral.text-small.font-medium').filter({
+      hasText: /NUEVA|PENDIENTE|ENVIADA|ACEPTADA/i
+    });
+
+    let quotationStatus: 'NUEVA' | 'PENDIENTE' | 'ENVIADA' | 'ACEPTADA' | 'unknown' = 'unknown';
+    const statusText = await statusBadge.textContent().catch(() => null);
+
+    if (statusText) {
+      if (statusText.includes('NUEVA')) {
+        quotationStatus = 'NUEVA';
+      } else if (statusText.includes('PENDIENTE')) {
+        quotationStatus = 'PENDIENTE';
+      } else if (statusText.includes('ENVIADA')) {
+        quotationStatus = 'ENVIADA';
+      } else if (statusText.includes('ACEPTADA')) {
+        quotationStatus = 'ACEPTADA';
+      }
+      console.log(`✅ Estado de cotización detectado: ${quotationStatus}`);
+    } else {
+      throw new Error('❌ No se pudo detectar el estado de la cotización');
+    }
+
+    // --- VALIDAR ELEMENTOS SEGÚN TIPO DE EVENTO ---
+    if (eventType === 'provider') {
+      await showStepMessage(page, '✅ VALIDANDO ELEMENTOS DE EVENTO CREADO POR PROVEEDOR');
+      await page.waitForTimeout(1000);
+
+      // Validar botón "Invitar a Fiestamas"
+      await expect(inviteButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Botón "Invitar a Fiestamas" visible');
+
+      // Validar icono de invitación
+      const invitationIcon = page.locator('i.icon-invitation');
+      const hasInvitationIcon = await invitationIcon.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasInvitationIcon) {
+        console.log('✅ Icono de invitación visible');
+      }
+
+      // Validar texto de invitación
+      const inviteText = page.locator('h6:has-text("¡Invita a"), p:has-text("Cuando tu cliente se registra")');
+      const inviteTextCount = await inviteText.count();
+      if (inviteTextCount > 0) {
+        console.log('✅ Texto de invitación visible');
+      }
+
+      // NO debe tener chat
+      if (hasChatContainer) {
+        throw new Error('❌ Un evento creado por proveedor NO debe tener contenedor de chat');
+      }
+      console.log('✅ Confirmado: No hay contenedor de chat (correcto para evento de proveedor)');
+
+    } else if (eventType === 'client') {
+      await showStepMessage(page, '✅ VALIDANDO ELEMENTOS DE EVENTO CREADO POR CLIENTE');
+      await page.waitForTimeout(1000);
+
+      // Validar contenedor de chat
+      await expect(chatContainer).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Contenedor de chat visible');
+
+      // Validar campo de mensaje
+      const messageInput = page.locator('textarea#Message');
+      const hasMessageInput = await messageInput.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasMessageInput) {
+        console.log('✅ Campo de mensaje del chat visible');
+      }
+
+      // Validar botón de adjuntar archivo
+      const paperclipButton = page.locator('button:has(i.icon-paperclip)');
+      const hasPaperclipButton = await paperclipButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasPaperclipButton) {
+        console.log('✅ Botón de adjuntar archivo visible');
+      }
+
+      // Validar botón de cámara
+      const cameraButton = page.locator('button:has(i.icon-camera)');
+      const hasCameraButton = await cameraButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasCameraButton) {
+        console.log('✅ Botón de cámara visible');
+      }
+
+      // Validar historial de mensajes
+      const chatMessages = page.locator('div#chat-scroll-container div.flex.w-full');
+      const messageCount = await chatMessages.count();
+      if (messageCount > 0) {
+        console.log(`✅ Se encontraron ${messageCount} mensaje(s) en el historial del chat`);
+      }
+
+      // NO debe tener botón "Invitar a Fiestamas"
+      if (hasInviteButton) {
+        throw new Error('❌ Un evento creado por cliente NO debe tener botón "Invitar a Fiestamas"');
+      }
+      console.log('✅ Confirmado: No hay botón "Invitar a Fiestamas" (correcto para evento de cliente)');
+    }
+
+    // --- VALIDAR ELEMENTOS COMUNES INDEPENDIENTES DEL TIPO ---
+    await showStepMessage(page, '✅ VALIDANDO ELEMENTOS COMUNES');
+    await page.waitForTimeout(1000);
+
+    // Validar información del evento
+    const eventInfo = page.locator('div.flex.flex-col.lg\\:flex-row.gap-2.pl-4.py-\\[20px\\]');
+    await expect(eventInfo).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    console.log('✅ Información del evento visible');
+
+    // Validar información del servicio
+    const serviceInfo = page.locator('div.w-full.grow.flex.flex-col.items-center.p-4.gap-4.bg-light-neutral');
+    await expect(serviceInfo).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    console.log('✅ Información del servicio visible');
+
+    // Validar sección de cotización
+    const quotationSection = page.locator('div.w-full.grow.border.border-light-dark.bg-light-light.rounded-4');
+    await expect(quotationSection).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    console.log('✅ Sección de cotización visible');
+
+    // Validar badge de estado
+    await expect(statusBadge).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    console.log(`✅ Badge de estado "${quotationStatus}" visible`);
+
+    // --- VALIDAR BOTÓN "VER COTIZACIÓN ANTERIOR" (SI EXISTE) ---
+    await showStepMessage(page, '🔍 BUSCANDO BOTÓN "VER COTIZACIÓN ANTERIOR"');
+    await page.waitForTimeout(1000);
+
+    // Buscar el botón en el DOM (puede estar oculto por clases responsive como "hidden lg:block")
+    // Primero verificar si existe en el DOM usando count()
+    let viewPreviousQuotationButton = page.locator('button:has(i.icon-notes):has-text("Ver cotización anterior")');
+    let buttonCount = await viewPreviousQuotationButton.count();
+    
+    // Si no se encuentra con el selector específico, buscar solo por texto
+    if (buttonCount === 0) {
+      viewPreviousQuotationButton = page.locator('button:has-text("Ver cotización anterior")');
+      buttonCount = await viewPreviousQuotationButton.count();
+    }
+    
+    // Verificar si el botón existe en el DOM
+    const hasPreviousQuotationButton = buttonCount > 0;
+    
+    // Si existe, verificar si está visible o intentar hacerlo visible
+    let isVisible = false;
+    if (hasPreviousQuotationButton) {
+      // Intentar verificar visibilidad
+      isVisible = await viewPreviousQuotationButton.first().isVisible({ timeout: 2000 }).catch(() => false);
+      
+      // Si no está visible, puede estar oculto por clases responsive
+      // Intentar hacer scroll al elemento o forzar visibilidad
+      if (!isVisible) {
+        console.log('⚠️ Botón encontrado en el DOM pero no visible, intentando hacer scroll...');
+        try {
+          await viewPreviousQuotationButton.first().scrollIntoViewIfNeeded();
+          await page.waitForTimeout(500);
+          isVisible = await viewPreviousQuotationButton.first().isVisible({ timeout: 2000 }).catch(() => false);
+        } catch (e) {
+          console.log('⚠️ No se pudo hacer scroll al botón, intentando hacer clic directamente...');
+        }
+      }
+    }
+
+    if (hasPreviousQuotationButton) {
+      console.log(`✅ Botón "Ver cotización anterior" encontrado en el DOM (visible: ${isVisible})`);
+      
+      // Hacer clic en el botón
+      await showStepMessage(page, '👆 ABRIENDO COTIZACIÓN ANTERIOR');
+      await page.waitForTimeout(1000);
+      
+      // Si no está visible, usar force: true para hacer clic de todas formas
+      if (isVisible) {
+        await viewPreviousQuotationButton.first().click();
+      } else {
+        console.log('⚠️ Botón no visible, haciendo clic forzado...');
+        await viewPreviousQuotationButton.first().click({ force: true });
+      }
+      
+      // Esperar más tiempo para que el modal aparezca (puede tener animaciones)
+      await page.waitForTimeout(2000);
+
+      // --- VALIDAR MODAL DE COTIZACIÓN ANTERIOR ---
+      await showStepMessage(page, '📋 VALIDANDO MODAL DE COTIZACIÓN ANTERIOR');
+      await page.waitForTimeout(1000);
+
+      // Usar un timeout más largo para el modal (puede tardar en aparecer)
+      const MODAL_TIMEOUT = 15000; // 15 segundos
+
+      // Validar que el modal se muestra (buscar por múltiples selectores con timeout extendido)
+      // Primero verificar si existe en el DOM usando count(), luego verificar visibilidad
+      let modalContainer: ReturnType<typeof page.locator> | null = null;
+      let isModalVisible = false;
+      
+      // Estrategia 1: Buscar por la clase MuiModal-root (Material-UI modal)
+      console.log('🔍 Estrategia 1: Buscando modal por MuiModal-root...');
+      const muiModalLocator = page.locator('div.MuiModal-root');
+      const muiModalCount = await muiModalLocator.count();
+      console.log(`📊 MuiModal-root encontrado en DOM: ${muiModalCount} elemento(s)`);
+      
+      if (muiModalCount > 0) {
+        modalContainer = muiModalLocator.first();
+        isModalVisible = await modalContainer.isVisible({ timeout: 5000 }).catch(() => false);
+        console.log(`👁️ MuiModal-root visible: ${isModalVisible}`);
+      }
+      
+      // Estrategia 2: Si no se encuentra, buscar por el contenedor del contenido del modal
+      if (!isModalVisible) {
+        console.log('🔍 Estrategia 2: Buscando modal por contenedor de contenido...');
+        const contentContainer = page.locator('div.absolute.top-1\\/2.left-1\\/2.transform.-translate-x-1\\/2.-translate-y-1\\/2.bg-neutral-0.rounded-6.shadow-2xl');
+        const contentCount = await contentContainer.count();
+        console.log(`📊 Contenedor de contenido encontrado en DOM: ${contentCount} elemento(s)`);
+        
+        if (contentCount > 0) {
+          modalContainer = contentContainer.first();
+          isModalVisible = await modalContainer.isVisible({ timeout: 5000 }).catch(() => false);
+          console.log(`👁️ Contenedor de contenido visible: ${isModalVisible}`);
+        }
+      }
+      
+      // Estrategia 3: Buscar por el texto "Cotización anterior" (más confiable)
+      if (!isModalVisible) {
+        console.log('🔍 Estrategia 3: Buscando modal por texto "Cotización anterior"...');
+        const titleElement = page.locator('text="Cotización anterior"');
+        const titleCount = await titleElement.count();
+        console.log(`📊 Título "Cotización anterior" encontrado en DOM: ${titleCount} elemento(s)`);
+        
+        if (titleCount > 0) {
+          const titleVisible = await titleElement.first().isVisible({ timeout: 5000 }).catch(() => false);
+          console.log(`👁️ Título visible: ${titleVisible}`);
+          
+          if (titleVisible) {
+            // Si encontramos el título visible, buscar el contenedor del modal
+            // Primero intentar buscar el MuiModal-root
+            modalContainer = titleElement.first().locator('xpath=ancestor::div[contains(@class, "MuiModal-root")]').first();
+            const modalCount = await modalContainer.count();
+            console.log(`📊 MuiModal-root desde título: ${modalCount} elemento(s)`);
+            
+            if (modalCount > 0) {
+              isModalVisible = await modalContainer.isVisible({ timeout: 2000 }).catch(() => false);
+              console.log(`👁️ MuiModal-root desde título visible: ${isModalVisible}`);
+            }
+            
+            // Si no funciona, buscar el contenedor con shadow-2xl
+            if (!isModalVisible) {
+              modalContainer = titleElement.first().locator('xpath=ancestor::div[contains(@class, "shadow-2xl")]').first();
+              const shadowCount = await modalContainer.count();
+              console.log(`📊 Contenedor shadow-2xl desde título: ${shadowCount} elemento(s)`);
+              
+              if (shadowCount > 0) {
+                isModalVisible = await modalContainer.isVisible({ timeout: 2000 }).catch(() => false);
+                console.log(`👁️ Contenedor shadow-2xl visible: ${isModalVisible}`);
+              }
+            }
+            
+            // Si encontramos el título pero no el contenedor, usar el MuiModal-root directamente
+            if (!isModalVisible && muiModalCount > 0) {
+              modalContainer = muiModalLocator.first();
+              isModalVisible = true; // Si el título es visible, asumimos que el modal está visible
+              console.log('✅ Usando MuiModal-root como contenedor (título visible)');
+            }
+          }
+        }
+      }
+      
+      // Estrategia 4: Buscar por shadow-2xl y texto "Cotización anterior"
+      if (!isModalVisible) {
+        console.log('🔍 Estrategia 4: Buscando modal por shadow-2xl con texto...');
+        const shadowModal = page.locator('div.shadow-2xl:has-text("Cotización anterior")');
+        const shadowCount = await shadowModal.count();
+        console.log(`📊 Shadow-2xl con texto encontrado: ${shadowCount} elemento(s)`);
+        
+        if (shadowCount > 0) {
+          modalContainer = shadowModal.first();
+          isModalVisible = await modalContainer.isVisible({ timeout: 5000 }).catch(() => false);
+          console.log(`👁️ Shadow-2xl con texto visible: ${isModalVisible}`);
+        }
+      }
+
+      if (!isModalVisible || !modalContainer) {
+        throw new Error('❌ El modal de cotización anterior no se mostró después de hacer clic en el botón (timeout: 15s)');
+      }
+      console.log('✅ Modal de cotización anterior visible');
+
+      // Validar título del modal (usar timeout extendido ya que el modal puede estar cargando)
+      // Buscar el título dentro del modal de Material-UI para evitar ambigüedad
+      let modalTitle = modalContainer.locator('div.text-large.text-center:has-text("Cotización anterior")');
+      let titleCount = await modalTitle.count();
+      
+      // Si no se encuentra dentro del modalContainer, buscar dentro del MuiModal-root
+      if (titleCount === 0) {
+        modalTitle = page.locator('div.MuiModal-root div.text-large.text-center:has-text("Cotización anterior")');
+        titleCount = await modalTitle.count();
+      }
+      
+      // Si aún no se encuentra, buscar por el div con clases específicas del título
+      if (titleCount === 0) {
+        modalTitle = page.locator('div.MuiModal-root div.flex.flex-col.lg\\:flex-row.items-center:has-text("Cotización anterior")');
+        titleCount = await modalTitle.count();
+      }
+      
+      // Si aún no se encuentra, buscar cualquier div dentro del modal que contenga exactamente el texto
+      if (titleCount === 0) {
+        modalTitle = page.locator('div.MuiModal-root').locator('div, p').filter({ hasText: /^Cotización anterior$/ });
+        titleCount = await modalTitle.count();
+      }
+      
+      if (titleCount === 0) {
+        throw new Error('❌ No se encontró el título "Cotización anterior" dentro del modal');
+      }
+      
+      await expect(modalTitle.first()).toBeVisible({ timeout: 10000 }); // 10 segundos para el título
+      console.log('✅ Título "Cotización anterior" visible');
+
+      // Validar texto informativo (puede variar: "Negocio QA envió esta cotización el 19/11/2025")
+      const infoText = page.locator('p:has-text("envió esta cotización el")');
+      const hasInfoText = await infoText.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasInfoText) {
+        const infoTextContent = await infoText.textContent();
+        if (infoTextContent) {
+          console.log(`✅ Texto informativo visible: "${infoTextContent.trim()}"`);
+        } else {
+          console.warn('⚠️ No se pudo obtener el contenido del texto informativo');
+        }
+      } else {
+        console.warn('⚠️ No se encontró el texto informativo de la cotización anterior');
+      }
+
+      // Validar encabezados de la tabla
+      const tableHeaders = page.locator('div.border-b-\\[1px\\].border-gray-light.flex.gap-2.py-3, div.flex.gap-2.py-3:has-text("Detalles")');
+      const headersCount = await tableHeaders.count();
+      if (headersCount > 0) {
+        const headersText = await tableHeaders.first().textContent();
+        if (headersText) {
+          console.log(`✅ Encabezados de tabla encontrados: "${headersText.trim()}"`);
+          
+          // Validar que contiene los encabezados esperados
+          if (headersText.includes('Detalles') && headersText.includes('Unidad') && headersText.includes('Total')) {
+            console.log('✅ Encabezados correctos: Detalles, Unidad, Total');
+          } else {
+            console.warn('⚠️ Los encabezados no contienen todos los campos esperados');
+          }
+        }
+      } else {
+        console.warn('⚠️ No se encontraron los encabezados de la tabla');
+      }
+
+      // Validar fila de datos de la cotización anterior
+      const dataRow = page.locator('div.flex.flex-col.py-3.text-dark-neutral.gap-1, div.flex.gap-2:has-text("Persona")');
+      const dataRowCount = await dataRow.count();
+      if (dataRowCount > 0) {
+        const dataRowText = await dataRow.first().textContent();
+        if (dataRowText) {
+          const trimmedText = dataRowText.trim();
+          console.log(`✅ Fila de datos encontrada: "${trimmedText.slice(0, 100)}${trimmedText.length > 100 ? '...' : ''}"`);
+          
+          // Validar que la fila contiene datos
+          if (trimmedText.length > 0) {
+            console.log('✅ La fila de datos contiene información');
+          }
+        }
+      } else {
+        console.warn('⚠️ No se encontró la fila de datos de la cotización anterior');
+      }
+
+      // Validar botón de cerrar (icon-x)
+      // Buscar el botón dentro del modal o en toda la página si el modalContainer es MuiModal-root
+      let closeButton = modalContainer.locator('button:has(i.icon-x)').first();
+      let hasCloseButton = await closeButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      
+      // Si no se encuentra dentro del modalContainer, buscar en toda la página dentro del modal
+      if (!hasCloseButton) {
+        console.log('⚠️ Botón de cerrar no encontrado en modalContainer, buscando en toda la página...');
+        closeButton = page.locator('div.MuiModal-root button:has(i.icon-x)').first();
+        hasCloseButton = await closeButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      }
+      
+      // Estrategia alternativa: buscar el botón por su posición en el header del modal
+      if (!hasCloseButton) {
+        console.log('⚠️ Botón de cerrar no encontrado con selector de icono, buscando por posición en header...');
+        // Buscar el header del modal y luego el último botón (que debería ser el de cerrar)
+        const modalHeader = page.locator('div.MuiModal-root div.flex.items-center.px-\\[16px\\].py-\\[12px\\]').first();
+        const headerExists = await modalHeader.count() > 0;
+        if (headerExists) {
+          closeButton = modalHeader.locator('button').last();
+          hasCloseButton = await closeButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+        }
+      }
+      
+      if (hasCloseButton) {
+        console.log('✅ Botón de cerrar (X) visible');
+        
+        // Cerrar el modal
+        await showStepMessage(page, '❌ CERRANDO MODAL');
+        await page.waitForTimeout(500);
+        
+        // Intentar hacer clic usando JavaScript directamente para evitar problemas con elementos que interceptan
+        // Esto es más confiable cuando hay elementos superpuestos
+        try {
+          console.log('🖱️ Intentando cerrar modal con JavaScript...');
+          await closeButton.evaluate((button: HTMLElement) => {
+            // Disparar evento click directamente en el botón
+            const clickEvent = new MouseEvent('click', {
+              bubbles: true,
+              cancelable: true,
+              view: window
+            });
+            button.dispatchEvent(clickEvent);
+            // También intentar el método click nativo
+            if (button instanceof HTMLButtonElement) {
+              button.click();
+            }
+          });
+          console.log('✅ Clic ejecutado con JavaScript');
+        } catch (e) {
+          console.log('⚠️ Clic con JavaScript falló, intentando con Playwright click...');
+          // Si falla JavaScript, intentar con Playwright
+          try {
+            await closeButton.click({ force: true, timeout: 5000 });
+          } catch (e2) {
+            console.log('⚠️ Clic con Playwright falló, intentando clic normal...');
+            await closeButton.click({ timeout: 5000 });
+          }
+        }
+        
+        await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+        
+        // Verificar que el modal se cerró (buscar el MuiModal-root)
+        const muiModal = page.locator('div.MuiModal-root');
+        const isModalStillVisible = await muiModal.isVisible({ timeout: 2000 }).catch(() => false);
+        if (!isModalStillVisible) {
+          console.log('✅ Modal cerrado correctamente');
+        } else {
+          console.warn('⚠️ El modal puede no haberse cerrado completamente');
+        }
+      } else {
+        console.warn('⚠️ No se encontró el botón de cerrar en el modal');
+      }
+    } else {
+      console.log('ℹ️ No se encontró el botón "Ver cotización anterior" (esto es normal si no hay cotizaciones anteriores)');
+    }
+
+    // --- VALIDAR ELEMENTOS SEGÚN ESTADO DE COTIZACIÓN ---
+    await showStepMessage(page, `📊 VALIDANDO ELEMENTOS PARA ESTADO "${quotationStatus}"`);
+    await page.waitForTimeout(1000);
+
+    if (quotationStatus === 'NUEVA') {
+      // En estado NUEVA, debe haber botón "Enviar cotización"
+      const sendButton = page.locator('button:has-text("Enviar cotización")');
+      const hasSendButton = await sendButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasSendButton) {
+        console.log('✅ Botón "Enviar cotización" visible en estado NUEVA');
+      }
+
+      // Debe haber botón "Cancelar negociación"
+      const cancelButton = page.locator('button:has-text("Cancelar negociación")');
+      const hasCancelButton = await cancelButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasCancelButton) {
+        console.log('✅ Botón "Cancelar negociación" visible en estado NUEVA');
+      }
+
+      // Validar que los campos de cotización son editables
+      const detailsTextarea = page.locator('textarea#Description');
+      const isDetailsDisabled = await detailsTextarea.isDisabled();
+      if (isDetailsDisabled) {
+        throw new Error('❌ El campo "Detalles" debería estar habilitado en estado NUEVA');
+      }
+      console.log('✅ Campo "Detalles" está habilitado en estado NUEVA');
+
+      const unitButton = page.locator('button#UnitId');
+      const isUnitDisabled = await unitButton.isDisabled();
+      if (isUnitDisabled) {
+        throw new Error('❌ El campo "Unidad" debería estar habilitado en estado NUEVA');
+      }
+      console.log('✅ Campo "Unidad" está habilitado en estado NUEVA');
+
+      const totalInput = page.locator('input#Total');
+      const isTotalDisabled = await totalInput.isDisabled();
+      if (isTotalDisabled) {
+        throw new Error('❌ El campo "Total" debería estar habilitado en estado NUEVA');
+      }
+      console.log('✅ Campo "Total" está habilitado en estado NUEVA');
+
+    } else if (quotationStatus === 'PENDIENTE') {
+      // En estado PENDIENTE, puede haber botón "Enviar cotización" si aún no se ha enviado
+      const sendButton = page.locator('button:has-text("Enviar cotización")');
+      const hasSendButton = await sendButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasSendButton) {
+        console.log('✅ Botón "Enviar cotización" visible en estado PENDIENTE');
+      }
+
+    } else if (quotationStatus === 'ENVIADA') {
+      // En estado ENVIADA, los campos de cotización deben estar deshabilitados (solo lectura)
+      await showStepMessage(page, '🔒 VALIDANDO CAMPOS DE SOLO LECTURA EN ESTADO ENVIADA');
+      await page.waitForTimeout(1000);
+
+      // 1. Campo Detalles (textarea#Description)
+      const detailsTextarea = page.locator('textarea#Description');
+      await expect(detailsTextarea).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      const isDetailsDisabled = await detailsTextarea.isDisabled();
+      if (!isDetailsDisabled) {
+        throw new Error('❌ El campo "Detalles" debería estar deshabilitado en estado ENVIADA');
+      }
+      console.log('✅ Campo "Detalles" está deshabilitado (solo lectura)');
+      
+      // Verificar que no es editable
+      await expect(detailsTextarea).toBeDisabled({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Campo "Detalles" confirmado como no editable (correcto)');
+
+      // 2. Campo Unidad (button#UnitId)
+      const unitButton = page.locator('button#UnitId');
+      await expect(unitButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      const isUnitDisabled = await unitButton.isDisabled();
+      if (!isUnitDisabled) {
+        throw new Error('❌ El campo "Unidad" debería estar deshabilitado en estado ENVIADA');
+      }
+      console.log('✅ Campo "Unidad" está deshabilitado (solo lectura)');
+
+      // Verificar que tiene la clase cursor-not-allowed
+      const unitButtonClasses = await unitButton.getAttribute('class');
+      if (unitButtonClasses && unitButtonClasses.includes('cursor-not-allowed')) {
+        console.log('✅ Campo "Unidad" tiene cursor-not-allowed (correcto)');
+      }
+
+      // Intentar hacer clic (no debería abrir el dropdown)
+      await unitButton.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(1000);
+      // Verificar que no se abrió ningún dropdown
+      const dropdownOptions = page.locator('ul.absolute.mt-3.top-full li.cursor-pointer');
+      const optionsCount = await dropdownOptions.count();
+      if (optionsCount > 0) {
+        throw new Error('❌ El dropdown de "Unidad" no debería abrirse en estado ENVIADA');
+      }
+      console.log('✅ Campo "Unidad" no permite abrir dropdown (correcto)');
+
+      // 3. Campo Total (input#Total)
+      const totalInput = page.locator('input#Total');
+      await expect(totalInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      const isTotalDisabled = await totalInput.isDisabled();
+      if (!isTotalDisabled) {
+        throw new Error('❌ El campo "Total" debería estar deshabilitado en estado ENVIADA');
+      }
+      console.log('✅ Campo "Total" está deshabilitado (solo lectura)');
+      
+      // Verificar que no es editable
+      await expect(totalInput).toBeDisabled({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Campo "Total" confirmado como no editable (correcto)');
+
+      // 4. Campo Condiciones (input#Conditions)
+      const conditionsInput = page.locator('input#Conditions');
+      await expect(conditionsInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      const isConditionsDisabled = await conditionsInput.isDisabled();
+      if (!isConditionsDisabled) {
+        throw new Error('❌ El campo "Condiciones" debería estar deshabilitado en estado ENVIADA');
+      }
+      console.log('✅ Campo "Condiciones" está deshabilitado (solo lectura)');
+      
+      // Verificar que no es editable
+      await expect(conditionsInput).toBeDisabled({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Campo "Condiciones" confirmado como no editable (correcto)');
+
+      // --- VALIDAR QUE EL CAMPO DE NOTAS PERSONALES ES EDITABLE EN ESTADO ENVIADA ---
+      await showStepMessage(page, '✏️ VALIDANDO CAMPO DE NOTAS PERSONALES EDITABLE');
+      await page.waitForTimeout(1000);
+
+      const notesTextarea = page.locator('textarea#Notes');
+      await expect(notesTextarea).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      const isNotesDisabled = await notesTextarea.isDisabled();
+      if (isNotesDisabled) {
+        throw new Error('❌ El campo "Notas personales" debería estar habilitado (editable) en estado ENVIADA');
+      }
+      console.log('✅ Campo "Notas personales" está habilitado (editable)');
+
+      // Verificar que es editable
+      await expect(notesTextarea).toBeEditable({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      console.log('✅ Campo "Notas personales" es editable');
+
+      // --- AGREGAR UNA NOTA ---
+      await showStepMessage(page, '📝 AGREGANDO NOTA PERSONAL');
+      await page.waitForTimeout(1000);
+
+      const testNote = `Nota de prueba agregada el ${new Date().toLocaleString('es-MX')} - Estado ENVIADA`;
+      await notesTextarea.fill(testNote);
+      await page.waitForTimeout(1000);
+
+      // Verificar que la nota se guardó
+      const notesValue = await notesTextarea.inputValue();
+      if (!notesValue.includes('Nota de prueba')) {
+        throw new Error('❌ No se pudo agregar la nota en el campo "Notas personales"');
+      }
+      console.log('✅ Nota agregada correctamente en "Notas personales"');
+      console.log(`📝 Contenido de la nota: "${notesValue}"`);
+
+      // Verificar que se puede modificar la nota
+      const modifiedNote = `${testNote} - Modificada`;
+      await notesTextarea.fill(modifiedNote);
+      await page.waitForTimeout(500);
+      const modifiedNotesValue = await notesTextarea.inputValue();
+      if (!modifiedNotesValue.includes('Modificada')) {
+        throw new Error('❌ No se pudo modificar la nota en el campo "Notas personales"');
+      }
+      console.log('✅ Nota modificada correctamente');
+
+    } else if (quotationStatus === 'ACEPTADA') {
+      // En estado ACEPTADA, debe haber botón "Ver cotización"
+      const viewQuotationButton = page.locator('button:has-text("Ver cotización")');
+      const hasViewButton = await viewQuotationButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      if (hasViewButton) {
+        console.log('✅ Botón "Ver cotización" visible en estado ACEPTADA');
+      }
+    }
+
+    await showStepMessage(page, `✅ VALIDACIÓN COMPLETA - Tipo: ${eventType}, Estado: ${quotationStatus}`);
+    await page.waitForTimeout(2000);
   });
 });
 
