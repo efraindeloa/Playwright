@@ -135,6 +135,7 @@ test.describe('Gestión de promociones', () => {
 
   test('crear promoción', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();
@@ -173,15 +174,17 @@ test.describe('Gestión de promociones', () => {
     await page.getByRole('button', { name: 'Finalizar' }).click();
 
     // --- VALIDAR QUE LA PROMOCIÓN SE CREÓ ---
-    await showStepMessage(page, '🔄 RECARGANDO PÁGINA PARA VER CAMBIOS');
+    await showStepMessage(page, '✅ VALIDANDO QUE LA PROMOCIÓN SE CREÓ CORRECTAMENTE');
     await page.waitForTimeout(1000);
     await expect(page.getByText(promoTitle)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+    await showStepMessage(page, '🔄 RECARGANDO PÁGINA PARA VER CAMBIOS');
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
   });
 
   test('ordenar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();
@@ -220,6 +223,7 @@ test.describe('Gestión de promociones', () => {
 
   test('filtrar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();
@@ -348,6 +352,7 @@ test.describe('Gestión de promociones', () => {
 
   test('buscar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();
@@ -514,6 +519,7 @@ test.describe('Gestión de promociones', () => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();
@@ -608,6 +614,7 @@ test.describe('Gestión de promociones', () => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
     await expect(page.getByText('Crear promoción')).toBeVisible();

@@ -98,20 +98,141 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar a que aparezca la página de código de verificación
   await page.waitForTimeout(2000);
   
-  // PAUSA MANUAL: Detener el flujo para que el usuario ingrese el código de verificación
-  console.log('\n⏸️  PAUSA MANUAL: Por favor ingresa el código de verificación');
-  console.log('   Cuando termines de ingresar el código, presiona "Resume" en Playwright para continuar.\n');
+  // Verificar si estamos en la página de código de verificación
+  // Verificamos si el primer input de código está presente y visible
+  const firstCodeInput = page.locator('input[id="VerificationCode_0"]');
+  const isOnVerificationPage = await firstCodeInput.isVisible({ timeout: 2000 }).catch(() => false);
   
-  await page.pause();
+  if (isOnVerificationPage) {
+    // Esperar a que el usuario ingrese el código de verificación
+    console.log('\n⏸️  Por favor ingresa el código de verificación');
+    console.log('   El test esperará hasta que detecte que el último dígito del código fue ingresado.\n');
+    
+    // Localizar el último input de código de verificación (VerificationCode_5)
+    const lastCodeInput = page.locator('input[id="VerificationCode_5"]');
+    
+    // Esperar hasta que el último input tenga un valor numérico
+    const maxWaitTime = 300000; // 5 minutos
+    const checkInterval = 20000; // Verificar cada 2 segundos (menos intrusivo)
+    const startTime = Date.now();
+    let codeEntered = false;
+    let lastStatusMessage = Date.now();
+    
+    console.log('   Esperando a que se ingrese el código de verificación...\n');
+    console.log('   Puedes ingresar el código ahora. El test verificará cada 2 segundos.\n');
+    
+    // Bucle que espera hasta que el último input tenga un valor
+    while (Date.now() - startTime < maxWaitTime && !codeEntered) {
+      try {
+        // Verificar que el input existe y está visible
+        const isInputVisible = await lastCodeInput.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        if (isInputVisible) {
+          // Usar getAttribute('value') en lugar de inputValue() para ser menos intrusivo
+          // Esto evita interferir con la entrada del usuario
+          const inputValue = await lastCodeInput.getAttribute('value').catch(() => '') || '';
+          
+          // Verificar si el valor es un número (no vacío y es un dígito)
+          if (inputValue && /^\d$/.test(inputValue.trim())) {
+            codeEntered = true;
+            console.log('\n✓ Código de verificación ingresado completamente. Continuando...\n');
+            break;
+          }
+        }
+        
+        // Mostrar mensaje de espera cada 10 segundos
+        if (Date.now() - lastStatusMessage > 10000) {
+          const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+          console.log(`   ⏳ Esperando código de verificación... (${elapsedSeconds}s transcurridos)`);
+          lastStatusMessage = Date.now();
+        }
+      } catch (error) {
+        // Si hay un error, continuar esperando sin mostrar mensaje para no interferir
+      }
+      
+      // Esperar antes de verificar nuevamente (intervalo más largo para no interferir)
+      await page.waitForTimeout(checkInterval);
+    }
+    
+    // Si después del bucle no se ingresó el código, fallar
+    if (!codeEntered) {
+      // Verificar si el input todavía está vacío (usar getAttribute para ser menos intrusivo)
+      const lastInputValue = await lastCodeInput.getAttribute('value').catch(() => '') || '';
+      const isInputEmpty = !lastInputValue || !/^\d$/.test(lastInputValue.trim());
+      
+      if (isInputEmpty) {
+        console.error('\n❌ ERROR CRÍTICO: El código de verificación NO fue ingresado completamente.');
+        console.error('   El último dígito del código no tiene un valor numérico.');
+        console.error('   La prueba FALLA porque no se puede continuar sin el código completo.');
+        throw new Error('❌ FALLO: Código de verificación no ingresado completamente. El último dígito no tiene un valor numérico.');
+      } else {
+        console.error('\n❌ ERROR CRÍTICO: Timeout esperando el código de verificación.');
+        console.error('   No se pudo detectar que el código fue ingresado correctamente.');
+        console.error('   La prueba FALLA porque no se puede continuar.');
+        throw new Error('❌ FALLO: Timeout esperando código de verificación. El código no fue ingresado o validado correctamente.');
+      }
+    }
+    
+    // Esperar un momento para que se procese el código
+    await page.waitForTimeout(2000);
+  } else {
+    console.log('⚠️  No se detectó la página de código de verificación. Asumiendo que ya se ingresó el código.');
+  }
   
-  console.log('\n✓ Reanudando después de la pausa manual...\n');
+  // Obtener el input de contraseña y esperar a que esté visible
+  const passwordInput = page.locator('input[id="Password"]');
   
-  // Esperar a que aparezca el formulario de contraseña
-  await page.waitForTimeout(8000);
+  // Verificación final: asegurarnos de que el formulario de contraseña está visible
+  // Esto confirma que el código fue ingresado y validado correctamente
+  try {
+    await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('✓ Formulario de contraseña visible. El código de verificación fue validado correctamente.');
+  } catch (timeoutError) {
+    // Verificar si todavía estamos en la página de código de verificación
+    const verificationPageIndicators = [
+      page.locator('text=/código.*verificación|verificación.*código/i'),
+      page.locator('input[placeholder*="código" i]'),
+      page.locator('input[placeholder*="code" i]'),
+      page.locator('input[placeholder*="verificación" i]')
+    ];
+    
+    let stillOnVerificationPage = false;
+    for (const indicator of verificationPageIndicators) {
+      const isVisible = await indicator.isVisible({ timeout: 1000 }).catch(() => false);
+      if (isVisible) {
+        stillOnVerificationPage = true;
+        break;
+      }
+    }
+    
+    // La prueba FALLA si el código no fue ingresado
+    if (stillOnVerificationPage) {
+      console.error('\n❌ ERROR CRÍTICO: El código de verificación NO fue ingresado.');
+      console.error('   La prueba permanece en la página de código de verificación.');
+      console.error('   La prueba FALLA porque no se puede continuar sin el código.');
+      throw new Error('❌ FALLO: Código de verificación no ingresado. La prueba no puede continuar sin el código de verificación.');
+    } else {
+      // Si no estamos en la página de verificación pero tampoco vemos el formulario de contraseña,
+      // algo salió mal
+      console.error('\n❌ ERROR CRÍTICO: Timeout esperando el formulario de contraseña.');
+      console.error('   No se pudo detectar que el código fue ingresado correctamente.');
+      console.error('   La prueba FALLA porque no se puede continuar.');
+      throw new Error('❌ FALLO: Timeout esperando código de verificación. El código no fue ingresado o validado correctamente.');
+    }
+  }
+  
+  // Verificación adicional: asegurarnos de que realmente avanzamos a la página de contraseña
+  // Si no está visible, la prueba debe fallar
+  const isPasswordInputVisible = await passwordInput.isVisible({ timeout: 5000 }).catch(() => false);
+  if (!isPasswordInputVisible) {
+    throw new Error('❌ FALLO: El formulario de contraseña no está visible. El código de verificación puede no haber sido validado correctamente.');
+  }
+  
+  // Esperar un momento adicional para asegurar que la página se haya actualizado
+  await page.waitForTimeout(2000);
   
   // Paso 6: Ingresar la contraseña
-  const passwordInput = page.locator('input[id="Password"]');
-  await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
+  // passwordInput ya está declarado arriba y ya esperamos a que esté visible
   await passwordInput.fill(DEFAULT_ACCOUNT_PASSWORD);
   console.log('✓ Contraseña ingresada');
   

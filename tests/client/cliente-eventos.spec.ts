@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { login } from '../utils';
-import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD } from '../config';
+import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 test.use({
   viewport: { width: 1280, height: 720 }
@@ -9,12 +9,615 @@ test.use({
 // Configuración global de timeout (aumentado para dar más tiempo a la carga de servicios)
 test.setTimeout(180000); // 3 minutos
 
-test('Nueva fiesta', async ({ page }) => {
-  // Navegar a la página de login
-  await page.goto(`${DEFAULT_BASE_URL}/login`);
+/**
+ * Busca un servicio en el dashboard del proveedor y obtiene su información
+ */
+async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; categoria: string; subcategoria?: string } | null> {
+  console.log('\n🔍 BUSCANDO SERVICIO EN DASHBOARD DEL PROVEEDOR...');
   
-  // Esperar un momento para que cargue la página
+  // Intentar navegar directamente al dashboard del proveedor
+  // Si no estamos logueados, nos redirigirá al login
+  await page.goto(`${DEFAULT_BASE_URL}/provider/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
+  
+  // Verificar si estamos en la página de login (no logueados) o en el dashboard (logueados)
+  const currentUrl = page.url();
+  const isOnLoginPage = currentUrl.includes('/login');
+  
+  if (isOnLoginPage) {
+    // Necesitamos hacer login
+    console.log('⚠️ No estamos logueados, haciendo login...');
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
+    console.log('✓ Login exitoso como proveedor');
+    await page.waitForTimeout(2000);
+    
+    // Navegar nuevamente al dashboard después del login
+    await page.goto(`${DEFAULT_BASE_URL}/provider/dashboard`);
+    await page.waitForTimeout(2000);
+  } else {
+    console.log('✓ Ya estamos logueados como proveedor');
+  }
+  
+  // Navegar a administrar servicios
+  const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios"), div.flex.flex-row.gap-3 button:has-text("Administrar servicios")');
+  await expect(adminServiciosButton.first()).toBeVisible({ timeout: 10000 });
+  await adminServiciosButton.first().click();
+  await page.waitForTimeout(2000);
+  
+  // Buscar tarjetas de servicios reales (excluyendo botones de filtro y otros)
+  // Las tarjetas de servicios tienen: bg-neutral-0 rounded-6 shadow-4 border-1 border-light-neutral
+  // Y contienen un botón con icon-more-vertical
+  const serviceCardsContainer = page.locator('div.flex.flex-col.bg-neutral-0.rounded-6.shadow-4.border-1.border-light-neutral');
+  const serviceCardsCount = await serviceCardsContainer.count();
+  console.log(`📊 Tarjetas de servicios encontradas: ${serviceCardsCount}`);
+  
+  if (serviceCardsCount === 0) {
+    console.log('⚠️ No hay servicios disponibles en el dashboard del proveedor');
+    return null;
+  }
+  
+  // Seleccionar una tarjeta de servicio aleatoria
+  const randomIndex = Math.floor(Math.random() * serviceCardsCount);
+  const selectedServiceCard = serviceCardsContainer.nth(randomIndex);
+  
+  // Obtener el nombre del servicio desde la tarjeta
+  // El nombre está en un párrafo con clase "text-medium font-bold"
+  const serviceNameElement = selectedServiceCard.locator('p.text-medium.font-bold').first();
+  
+  let serviceName = '';
+  if (await serviceNameElement.count() > 0) {
+    serviceName = (await serviceNameElement.textContent())?.trim() || '';
+  }
+  
+  // Si no se encuentra con esa clase, intentar otras variantes
+  if (!serviceName) {
+    const altNameElement = selectedServiceCard.locator('p.font-bold, p.text-dark-neutral').first();
+    if (await altNameElement.count() > 0) {
+      serviceName = (await altNameElement.textContent())?.trim() || '';
+    }
+  }
+  
+  // Si aún no se encuentra, buscar cualquier párrafo que no sea "Filtrar" ni contenga iconos
+  if (!serviceName) {
+    const allParagraphs = selectedServiceCard.locator('p');
+    const paragraphCount = await allParagraphs.count();
+    for (let i = 0; i < paragraphCount; i++) {
+      const text = (await allParagraphs.nth(i).textContent())?.trim() || '';
+      // Excluir textos que no son nombres de servicios
+      if (text && 
+          text !== 'Filtrar' && 
+          !text.includes('Pendientes') && 
+          !text.includes('Contratados') &&
+          !text.includes('Inactivo') &&
+          text.length > 3) {
+        serviceName = text;
+        break;
+      }
+    }
+  }
+  
+  if (!serviceName) {
+    console.log('⚠️ No se pudo obtener el nombre del servicio');
+    return null;
+  }
+  
+  console.log(`✓ Servicio encontrado: "${serviceName}"`);
+  
+  // Obtener categoría y subcategoría si están disponibles en la tarjeta
+  // El <p> con la categoría está dentro del mismo div que contiene <i.icon-tag>
+  let categoria = '';
+  let subcategoria = '';
+  const categoriaContainer = selectedServiceCard.locator('div.flex.flex-row.items-center.gap-3.mt-1:has(i.icon-tag)');
+  if (await categoriaContainer.count() > 0) {
+    const categoriaElement = categoriaContainer.locator('p').first();
+    if (await categoriaElement.count() > 0) {
+      let categoriaText = (await categoriaElement.textContent())?.trim() || '';
+      
+      // Reemplazar entidades HTML si existen
+      categoriaText = categoriaText.replace(/&gt;/g, '>').replace(/&lt;/g, '<');
+      
+      // El formato suele ser "Categoría > Subcategoría" o "Categoría  > Subcategoría" (con espacios)
+      if (categoriaText.includes('>')) {
+        const parts = categoriaText.split('>').map(p => p.trim()).filter(p => p.length > 0);
+        categoria = parts[0] || '';
+        subcategoria = parts[1] || '';
+      } else {
+        categoria = categoriaText;
+      }
+      
+      console.log(`✓ Categoría extraída: "${categoria}"${subcategoria ? ` > "${subcategoria}"` : ''}`);
+    }
+  }
+  
+  // Hacer clic en el botón de tres puntos para abrir el menú y luego ver detalles
+  const threeDotsButton = selectedServiceCard.locator('button:has(i.icon-more-vertical)').first();
+  if (await threeDotsButton.count() > 0) {
+    await threeDotsButton.click();
+    await page.waitForTimeout(1000);
+    
+    // Buscar y hacer clic en "Ver servicio" o "Editar" en el menú desplegable
+    const verServicioButton = page.locator('button:has-text("Ver servicio"), button:has-text("Editar"), a:has-text("Ver servicio")').first();
+    if (await verServicioButton.count() > 0) {
+      await verServicioButton.click();
+      await page.waitForTimeout(2000);
+    } else {
+      // Si no hay menú, intentar hacer clic directamente en la tarjeta
+      await selectedServiceCard.click();
+      await page.waitForTimeout(2000);
+    }
+  } else {
+    // Si no hay botón de tres puntos, hacer clic en la tarjeta completa
+    await selectedServiceCard.click();
+    await page.waitForTimeout(2000);
+  }
+  
+  // Si no se encontraron categoría/subcategoría en la tarjeta, intentar obtenerlas de la página de detalles
+  if (!categoria) {
+    // Buscar información de categoría en la página de detalles
+    const categoriaElements = page.locator('p, span, div').filter({
+      hasText: /categoría|Categoría/i
+    });
+    
+    // También buscar en breadcrumbs o navegación
+    const breadcrumbs = page.locator('nav, ol, ul').filter({
+      has: page.locator('li, a, span')
+    });
+  }
+  
+  console.log(`✓ Información del servicio obtenida: Nombre="${serviceName}"${categoria ? `, Categoría="${categoria}"` : ''}${subcategoria ? `, Subcategoría="${subcategoria}"` : ''}`);
+  
+  // Cerrar o volver (si es necesario)
+  // await page.goBack();
+  
+  return {
+    nombre: serviceName,
+    categoria: categoria || '', // Se determinará navegando si no se encontró
+    subcategoria: subcategoria || '' // Se determinará navegando si no se encontró
+  };
+}
+
+/**
+ * Navega por subcategorías hasta encontrar un servicio específico por nombre
+ * Usa la categoría y subcategoría proporcionadas para navegar directamente al path correcto
+ */
+async function navegarHastaEncontrarServicioEspecifico(
+  page: Page, 
+  nombreServicio: string, 
+  categoria?: string, 
+  subcategoria?: string
+): Promise<boolean> {
+  const MAX_ATTEMPTS = 30;
+  const MAX_LEVELS = 5;
+  let attempts = 0;
+  let currentLevel = 0;
+  let targetSubcategoria = subcategoria;
+  
+  while (attempts < MAX_ATTEMPTS && currentLevel < MAX_LEVELS) {
+    attempts++;
+    await page.waitForTimeout(1000);
+    
+    // Verificar si estamos en una página de servicios
+    const serviciosTitle = page.locator('p.text-center, h1, h2, h3, h4, h5').filter({
+      hasText: /Servicios|servicios/i
+    });
+    
+    const isServicesPage = await serviciosTitle.first().isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (isServicesPage) {
+      // Buscar el servicio por nombre en la lista
+      console.log(`🔍 Buscando servicio "${nombreServicio}" en la lista...`);
+      
+      // Las tarjetas de servicio pueden ser diferentes estructuras según el tamaño de pantalla
+      // Buscar por el texto del nombre del servicio directamente (incluyendo servicios inactivos con texto gris)
+      // Buscar en elementos de texto: p.text-large.text-dark-neutral.font-bold, p.text-dark-neutral.font-bold.text-gray-neutral, h5.text-dark-neutral, h5.text-gray-neutral
+      const serviceNameElements = page.locator('p.text-large.text-dark-neutral.font-bold, p.text-dark-neutral.font-bold.text-gray-neutral, h5.text-dark-neutral, h5.text-gray-neutral, p.text-dark-neutral.font-bold, p.text-gray-neutral').filter({
+        hasText: new RegExp(nombreServicio.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      });
+      
+      const matchingElements = await serviceNameElements.count();
+      console.log(`📊 Elementos con el nombre del servicio encontrados: ${matchingElements}`);
+      
+      // Si no se encuentra con los selectores específicos, buscar en todos los elementos de texto de forma más amplia
+      let allTextElements: ReturnType<typeof page.locator> | null = null;
+      let allMatchingElements = 0;
+      
+      if (matchingElements === 0) {
+        console.log(`🔍 Buscando en todos los elementos de texto...`);
+        allTextElements = page.locator('p, h1, h2, h3, h4, h5, h6, span').filter({
+          hasText: new RegExp(nombreServicio.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+        });
+        allMatchingElements = await allTextElements.count();
+        console.log(`📊 Elementos genéricos con el nombre del servicio encontrados: ${allMatchingElements}`);
+      }
+      
+      // Procesar elementos encontrados con selectores específicos
+      if (matchingElements > 0) {
+        // Encontrar la tarjeta padre que contiene el servicio (puede ser un div con cursor-pointer o un botón)
+        // Filtrar solo los elementos visibles (uno es para móvil, otro para desktop)
+        for (let i = 0; i < matchingElements; i++) {
+          const nameElement = serviceNameElements.nth(i);
+          
+          // Verificar que el elemento esté visible antes de usarlo
+          const isVisible = await nameElement.isVisible().catch(() => false);
+          if (!isVisible) {
+            continue; // Saltar elementos ocultos (puede ser la versión móvil/desktop que no corresponde)
+          }
+          
+          const elementText = (await nameElement.textContent())?.trim() || '';
+          
+          // Verificar que el texto coincida (comparación más flexible, incluyendo solo la primera parte del nombre)
+          const nombreServicioNormalizado = nombreServicio.toLowerCase().trim();
+          const elementTextNormalizado = elementText.toLowerCase().trim();
+          
+          // Extraer solo la primera parte del nombre del servicio (antes de " - EDITADO" o similar)
+          const nombreBaseServicio = nombreServicioNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
+          const nombreBaseElemento = elementTextNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
+          
+          if (elementTextNormalizado === nombreServicioNormalizado ||
+              elementTextNormalizado.includes(nombreServicioNormalizado) ||
+              nombreServicioNormalizado.includes(elementTextNormalizado) ||
+              nombreBaseElemento === nombreBaseServicio ||
+              nombreBaseElemento.includes(nombreBaseServicio) ||
+              nombreBaseServicio.includes(nombreBaseElemento)) {
+            
+            console.log(`✅ Servicio encontrado por texto: "${elementText}"`);
+            
+            // Buscar el contenedor padre clicable (div con cursor-pointer, button, o a)
+            const clickableParent = nameElement.locator('xpath=ancestor::div[contains(@class, "cursor-pointer")] | ancestor::button | ancestor::a').first();
+            
+            if (await clickableParent.count() > 0) {
+              // Verificar que el contenedor padre también esté visible
+              const parentVisible = await clickableParent.isVisible().catch(() => false);
+              if (!parentVisible) {
+                continue; // Saltar si el contenedor padre no está visible
+              }
+              
+              // Verificar si el servicio está inactivo
+              // Los servicios inactivos tienen: clase "grayscale" en imágenes, texto "Inactivo", o texto gris
+              const cardContainer = nameElement.locator('xpath=ancestor::div[contains(@class, "flex")][contains(@class, "col") or contains(@class, "row")]').first();
+              const hasInactiveText = await cardContainer.locator('text=/Inactivo/i').count().then(count => count > 0);
+              const hasGrayscaleImage = await cardContainer.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
+              const isGrayText = await nameElement.evaluate(el => {
+                const styles = window.getComputedStyle(el);
+                return styles.color.includes('128') || styles.color.includes('107') || el.classList.contains('text-gray-neutral');
+              }).catch(() => false);
+              
+              const isInactive = hasInactiveText || hasGrayscaleImage || isGrayText;
+              
+              if (isInactive) {
+                console.log(`⚠️ Servicio "${elementText}" está inactivo, buscando otro servicio...`);
+                continue; // Saltar este servicio y buscar otro
+              }
+              
+              await clickableParent.scrollIntoViewIfNeeded();
+              console.log(`✅ Haciendo clic en la tarjeta del servicio...`);
+              await clickableParent.click();
+              
+              // Esperar a que cargue la página del servicio
+              await page.waitForTimeout(3000);
+              
+              // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
+              const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+                hasText: /Detalle|Detalles|proveedor/i
+              });
+              
+              const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
+              
+              if (isServicePage) {
+                console.log(`✓ Página del servicio cargada correctamente`);
+                
+                // Buscar y hacer clic en el botón "Contactar GRATIS"
+                const contactButtons = page.locator('button').filter({
+                  hasText: /Contactar GRATIS/i
+                });
+                
+                const contactButtonCount = await contactButtons.count();
+                console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+                
+                if (contactButtonCount > 0) {
+                  const selectedContactButton = contactButtons.first();
+                  await selectedContactButton.scrollIntoViewIfNeeded();
+                  console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+                  await selectedContactButton.click();
+                  await page.waitForTimeout(2000);
+                  return true;
+                } else {
+                  console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
+                  return false;
+                }
+              } else {
+                console.log(`⚠️ No se detectó la página del servicio después del clic`);
+                return false;
+              }
+            }
+          }
+        }
+        
+        // Si llegamos aquí, no se encontró el servicio con esa estructura
+        console.log(`⚠️ Servicio "${nombreServicio}" no encontrado en esta página con esa estructura`);
+      } else {
+        console.log(`⚠️ No se encontraron elementos con el nombre del servicio usando selectores específicos`);
+      }
+      
+      // Si no se encuentra con los selectores específicos, buscar en todos los elementos de texto
+      if (allTextElements && allMatchingElements > 0) {
+        console.log(`✅ Servicio encontrado por texto genérico!`);
+        
+        // Procesar elementos genéricos encontrados
+        for (let i = 0; i < allMatchingElements; i++) {
+          const textElement = allTextElements.nth(i);
+          
+          // Verificar que el elemento esté visible
+          const isVisible = await textElement.isVisible().catch(() => false);
+          if (!isVisible) {
+            continue;
+          }
+          
+          const elementText = (await textElement.textContent())?.trim() || '';
+          
+          // Comparación más flexible, incluyendo solo la primera parte del nombre
+          const nombreServicioNormalizado = nombreServicio.toLowerCase().trim();
+          const elementTextNormalizado = elementText.toLowerCase().trim();
+          
+          // Extraer solo la primera parte del nombre del servicio (antes de " - EDITADO" o similar)
+          const nombreBaseServicio = nombreServicioNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
+          const nombreBaseElemento = elementTextNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
+          
+          if (elementTextNormalizado.includes(nombreServicioNormalizado) ||
+              nombreServicioNormalizado.includes(elementTextNormalizado) ||
+              nombreBaseElemento.includes(nombreBaseServicio) ||
+              nombreBaseServicio.includes(nombreBaseElemento)) {
+            
+            // Buscar el contenedor padre clicable
+            const parentClickable = textElement.locator('xpath=ancestor::div[contains(@class, "cursor-pointer")] | ancestor::button | ancestor::a').first();
+            
+            if (await parentClickable.count() > 0) {
+              // Verificar que el contenedor padre también esté visible
+              const parentVisible = await parentClickable.isVisible().catch(() => false);
+              if (!parentVisible) {
+                continue;
+              }
+              
+              // Verificar si el servicio está inactivo
+              const cardContainer = textElement.locator('xpath=ancestor::div[contains(@class, "flex")][contains(@class, "col") or contains(@class, "row")]').first();
+              const hasInactiveText = await cardContainer.locator('text=/Inactivo/i').count().then(count => count > 0);
+              const hasGrayscaleImage = await cardContainer.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
+              const isGrayText = await textElement.evaluate(el => {
+                const styles = window.getComputedStyle(el);
+                return styles.color.includes('128') || styles.color.includes('107') || el.classList.contains('text-gray-neutral');
+              }).catch(() => false);
+              
+              const isInactive = hasInactiveText || hasGrayscaleImage || isGrayText;
+              
+              if (isInactive) {
+                console.log(`⚠️ Servicio "${elementText}" está inactivo, buscando otro servicio...`);
+                continue; // Saltar este servicio y buscar otro
+              }
+              
+              await parentClickable.scrollIntoViewIfNeeded();
+              console.log(`✅ Haciendo clic en la tarjeta del servicio (búsqueda genérica): "${elementText}"`);
+              await parentClickable.click();
+              
+              // Esperar a que cargue la página del servicio
+              await page.waitForTimeout(3000);
+              
+              // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
+              const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+                hasText: /Detalle|Detalles|proveedor/i
+              });
+              
+              const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
+              
+              if (isServicePage) {
+                console.log(`✓ Página del servicio cargada correctamente`);
+                
+                // Buscar y hacer clic en el botón "Contactar GRATIS"
+                const contactButtons = page.locator('button').filter({
+                  hasText: /Contactar GRATIS/i
+                });
+                
+                const contactButtonCount = await contactButtons.count();
+                console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+                
+                if (contactButtonCount > 0) {
+                  const selectedContactButton = contactButtons.first();
+                  await selectedContactButton.scrollIntoViewIfNeeded();
+                  console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+                  await selectedContactButton.click();
+                  await page.waitForTimeout(2000);
+                  return true;
+                } else {
+                  console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
+                  return false;
+                }
+              } else {
+                console.log(`⚠️ No se detectó la página del servicio después del clic`);
+                return false;
+              }
+            }
+          }
+        }
+      }
+      
+      // Si no se encontró el servicio objetivo o todos están inactivos, buscar cualquier servicio activo
+      console.log(`⚠️ Servicio objetivo "${nombreServicio}" no encontrado o está inactivo. Buscando cualquier servicio activo...`);
+      
+      // Buscar todas las tarjetas de servicio visibles (excluyendo inactivos)
+      const allServiceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, div[class*="cursor-pointer"]').filter({
+        hasNot: page.locator('text=/Inactivo/i, img.grayscale, div.grayscale')
+      });
+      
+      const activeServiceCardsCount = await allServiceCards.count();
+      console.log(`📊 Servicios activos encontrados: ${activeServiceCardsCount}`);
+      
+      if (activeServiceCardsCount > 0) {
+        // Seleccionar el primer servicio activo disponible
+        const firstActiveService = allServiceCards.first();
+        await firstActiveService.scrollIntoViewIfNeeded();
+        console.log(`✅ Seleccionando el primer servicio activo disponible...`);
+        await firstActiveService.click();
+        
+        // Esperar a que cargue la página del servicio
+        await page.waitForTimeout(3000);
+        
+        // Verificar que estamos en la página del servicio
+        const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+          hasText: /Detalle|Detalles|proveedor/i
+        });
+        
+        const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (isServicePage) {
+          console.log(`✓ Página del servicio cargada correctamente`);
+          
+          // Buscar y hacer clic en el botón "Contactar GRATIS"
+          const contactButtons = page.locator('button').filter({
+            hasText: /Contactar GRATIS/i
+          });
+          
+          const contactButtonCount = await contactButtons.count();
+          console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+          
+          if (contactButtonCount > 0) {
+            const selectedContactButton = contactButtons.first();
+            await selectedContactButton.scrollIntoViewIfNeeded();
+            console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+            await selectedContactButton.click();
+            await page.waitForTimeout(2000);
+            return true;
+          } else {
+            console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
+            return false;
+          }
+        } else {
+          console.log(`⚠️ No se detectó la página del servicio después del clic`);
+          return false;
+        }
+      }
+      
+      console.log(`⚠️ No se encontró ningún servicio activo en esta página`);
+      return false;
+    }
+    
+    // Si no estamos en página de servicios, buscar subcategorías
+    const subcategorias = await obtenerSubcategoriasParaBusqueda(page);
+    
+    if (subcategorias.length === 0) {
+      console.log('⚠️ No hay subcategorías ni servicios en este nivel');
+      return false;
+    }
+    
+    // Si tenemos una subcategoría objetivo, buscar esa específicamente
+    let subcategoriaSeleccionada: { name: string; button: any } | null = null;
+    
+    if (targetSubcategoria) {
+      // Buscar la subcategoría que coincida con el objetivo
+      subcategoriaSeleccionada = subcategorias.find(sub => 
+        sub.name.toLowerCase().trim() === targetSubcategoria!.toLowerCase().trim() ||
+        sub.name.toLowerCase().includes(targetSubcategoria!.toLowerCase().trim()) ||
+        targetSubcategoria!.toLowerCase().trim().includes(sub.name.toLowerCase())
+      ) || null;
+      
+      if (subcategoriaSeleccionada) {
+        console.log(`✅ Subcategoría objetivo encontrada: "${subcategoriaSeleccionada.name}"`);
+      } else {
+        console.log(`⚠️ Subcategoría "${targetSubcategoria}" no encontrada en esta página. Subcategorías disponibles: ${subcategorias.map(s => s.name).join(', ')}`);
+        // Si no se encuentra, usar la primera disponible
+        subcategoriaSeleccionada = subcategorias.length > 0 ? subcategorias[0] : null;
+        if (subcategoriaSeleccionada) {
+          console.log(`🔍 Usando primera subcategoría disponible: "${subcategoriaSeleccionada.name}"`);
+        }
+      }
+    } else {
+      // Si no hay subcategoría objetivo, usar la primera disponible
+      subcategoriaSeleccionada = subcategorias.length > 0 ? subcategorias[0] : null;
+      if (subcategoriaSeleccionada) {
+        console.log(`🔍 Navegando a subcategoría: "${subcategoriaSeleccionada.name}"`);
+      }
+    }
+    
+    if (!subcategoriaSeleccionada) {
+      console.log('⚠️ No hay subcategorías disponibles');
+      return false;
+    }
+    
+    await subcategoriaSeleccionada.button.scrollIntoViewIfNeeded();
+    await subcategoriaSeleccionada.button.click();
+    await page.waitForTimeout(2000);
+    
+    // Limpiar el targetSubcategoria después del primer uso para navegar normalmente en niveles más profundos
+    if (currentLevel === 0) {
+      targetSubcategoria = undefined;
+    }
+    
+    currentLevel++;
+  }
+  
+  return false;
+}
+
+/**
+ * Obtiene las subcategorías disponibles en la página actual (versión simplificada)
+ */
+async function obtenerSubcategoriasParaBusqueda(page: Page): Promise<Array<{ name: string; button: any }>> {
+  const subcategorias: Array<{ name: string; button: any }> = [];
+  
+  const botonesSubcategorias = page.locator('button').filter({
+    has: page.locator('p.text-neutral-800, p.text-dark-neutral, p.font-medium, p')
+  });
+  
+  const count = await botonesSubcategorias.count();
+  
+  for (let i = 0; i < count; i++) {
+    const boton = botonesSubcategorias.nth(i);
+    const isVisible = await boton.isVisible().catch(() => false);
+    
+    if (isVisible) {
+      const nombreElement = boton.locator('p').first();
+      const nombre = await nombreElement.textContent().catch(() => null);
+      
+      if (nombre && nombre.trim() !== '') {
+        subcategorias.push({
+          name: nombre.trim(),
+          button: boton
+        });
+      }
+    }
+  }
+  
+  return subcategorias;
+}
+
+test('Nueva fiesta', async ({ page }) => {
+  // PASO 1: Buscar un servicio en el dashboard del proveedor
+  const servicioInfo = await buscarServicioEnProveedor(page);
+  
+  if (!servicioInfo) {
+    throw new Error('❌ No se pudo obtener información de un servicio del proveedor');
+  }
+  
+  console.log(`\n🎯 OBJETIVO: Navegar hasta el servicio "${servicioInfo.nombre}"`);
+  
+  // PASO 2: Cerrar sesión del proveedor y hacer login como cliente
+  // Limpiar cookies y storage para asegurar que no haya sesión activa
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  console.log('✓ Sesión del proveedor cerrada');
+  
+  // Navegar al login
+  await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  
+  // Verificar que estamos en la página de login
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/login')) {
+    console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
+    await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+  }
   
   // Hacer login con las credenciales del cliente
   await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
@@ -28,7 +631,6 @@ test('Nueva fiesta', async ({ page }) => {
   console.log('✓ Navegación al dashboard confirmada');
   
   // Buscar y seleccionar el botón "Nueva fiesta"
-  // El botón tiene la clase "hidden lg:flex" (visible en pantallas grandes)
   const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
     hasText: 'Nueva fiesta'
   });
@@ -45,7 +647,6 @@ test('Nueva fiesta', async ({ page }) => {
   await page.waitForTimeout(2000);
   
   // Buscar todos los botones de categoría de evento
-  // Los botones tienen un párrafo con las clases "text-dark-neutral lg:text-large"
   const categoryButtons = page.locator('button[type="submit"]').filter({
     has: page.locator('p.text-dark-neutral')
   });
@@ -57,7 +658,7 @@ test('Nueva fiesta', async ({ page }) => {
   // Verificar que hay al menos una categoría
   expect(categoryCount).toBeGreaterThan(0);
   
-  // Seleccionar aleatoriamente una categoría
+  // Seleccionar aleatoriamente una categoría (por ahora, luego se puede mejorar para buscar la correcta)
   const randomIndex = Math.floor(Math.random() * categoryCount);
   const selectedCategory = categoryButtons.nth(randomIndex);
   
@@ -73,177 +674,128 @@ test('Nueva fiesta', async ({ page }) => {
   // Esperar a que cargue la página de selección de categoría de servicios
   await page.waitForTimeout(2000);
   
+  // PASO 3: Navegar por las categorías hasta encontrar el servicio objetivo
+  console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
+  
   // Buscar todos los botones de categoría de servicios
-  // Los botones tienen un párrafo con las clases "text-neutral-800 font-medium lg:text-large"
   const serviceButtons = page.locator('button').filter({
     has: page.locator('p.text-neutral-800.font-medium')
   });
   
-  // Contar cuántas categorías de servicios hay disponibles
-  const serviceCount = await serviceButtons.count();
-  console.log(`✓ Se encontraron ${serviceCount} categorías de servicios disponibles`);
+  // Navegar directamente a la categoría del servicio si está disponible
+  let servicioEncontrado = false;
   
-  // Verificar que hay al menos una categoría de servicio
-  expect(serviceCount).toBeGreaterThan(0);
-  
-  // Seleccionar aleatoriamente una categoría de servicio
-  const randomServiceIndex = Math.floor(Math.random() * serviceCount);
-  const selectedService = serviceButtons.nth(randomServiceIndex);
-  
-  // Obtener el nombre de la categoría de servicio seleccionada antes de hacer clic
-  const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
-  const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
-  console.log(`✓ Seleccionando categoría de servicio aleatoria: "${selectedServiceCategory}" (índice ${randomServiceIndex})`);
-  
-  // Hacer clic en la categoría de servicio seleccionada
-  await selectedService.click();
-  console.log(`✓ Se hizo clic en la categoría de servicio "${selectedServiceCategory}"`);
-  
-  // Esperar a que cargue el siguiente paso
-  await page.waitForTimeout(2000);
-  
-  // Estructura para rastrear la navegación por niveles
-  // Cada elemento representa un nivel navegado: { level: número, name: nombre }
-  let navigationPath: Array<{ level: number, name: string }> = [];
-  
-  // Set para rastrear subcategorías visitadas (se usará en el bucle de búsqueda de servicios)
-  const visitedSubcategories = new Set<string>();
-  
-  // Nivel inicial: 0 = categoría de servicio, 1 = subcategoría, 2 = sub-subcategoría, etc.
-  let currentLevel = 0;
-  
-  console.log(`📍 Nivel actual de navegación: ${currentLevel} (Categoría: ${selectedServiceCategory})`);
-  
-  // Verificar si la categoría seleccionada es "Mobiliario e invitaciones"
-  // Esta categoría no tiene subcategorías, así que saltamos la selección de subcategoría
-  if (selectedServiceCategory.toLowerCase().includes('mobiliario') && 
-      selectedServiceCategory.toLowerCase().includes('invitaciones')) {
-    console.log('ℹ Categoría "Mobiliario e invitaciones" seleccionada - no tiene subcategorías, continuando...');
-  } else {
-    // Buscar subcategorías disponibles
-    const subcategoryButtons = page.locator('button').filter({
-      has: page.locator('p.text-neutral-800')
-    });
+  if (servicioInfo.categoria) {
+    console.log(`🎯 Buscando categoría específica: "${servicioInfo.categoria}"`);
     
-    const subcategoryCount = await subcategoryButtons.count();
+    // Buscar la categoría que coincida con la categoría del servicio
+    let categoriaEncontrada = false;
+    const serviceCount = await serviceButtons.count();
     
-    if (subcategoryCount > 0) {
-      // Navegar recursivamente por subcategorías hasta llegar a una página de servicios
-      let reachedServicesPage = false;
-      const maxNavigationDepth = 10; // Límite de profundidad para evitar bucles infinitos
-      let navigationDepth = 0;
+    for (let i = 0; i < serviceCount; i++) {
+      const serviceButton = serviceButtons.nth(i);
+      const serviceName = await serviceButton.locator('p.text-neutral-800.font-medium').textContent();
+      const categoryName = serviceName?.trim() || '';
       
-      while (!reachedServicesPage && navigationDepth < maxNavigationDepth) {
-        navigationDepth++;
-        
-        // Verificar si ya estamos en una página de servicios
-        // Buscar el texto "Servicios" en el top de la página
-        const serviciosTitle = page.locator('p.text-center').filter({
-          hasText: 'Servicios'
-        });
-        
-        const isServicesPage = await serviciosTitle.isVisible({ timeout: 2000 }).catch(() => false);
-        
-        if (isServicesPage) {
-          console.log('✓ Se detectó la página de servicios (texto "Servicios" en el top)');
-          reachedServicesPage = true;
-          break;
-        }
-        
-        // Buscar subcategorías disponibles en el nivel actual
-        const currentLevelButtons = page.locator('button').filter({
-          has: page.locator('p.text-neutral-800')
-        });
-        
-        const currentLevelCount = await currentLevelButtons.count();
-        
-        if (currentLevelCount > 0) {
-          console.log(`✓ Se encontraron ${currentLevelCount} opciones en el nivel ${navigationDepth}`);
-          
-          // Seleccionar aleatoriamente una subcategoría
-          const randomIndex = Math.floor(Math.random() * currentLevelCount);
-          const selectedButton = currentLevelButtons.nth(randomIndex);
-          
-          // Obtener el nombre de la subcategoría seleccionada
-          const buttonName = await selectedButton.locator('p.text-neutral-800').textContent();
-          const selectedName = buttonName?.trim() || 'Desconocida';
-          
-          console.log(`✓ Seleccionando opción nivel ${navigationDepth}: "${selectedName}" (índice ${randomIndex})`);
-          
-          // Agregar al Set de subcategorías visitadas
-          visitedSubcategories.add(selectedName);
-          
-          // Actualizar el registro de navegación
-          currentLevel = navigationDepth;
-          navigationPath.push({ level: currentLevel, name: selectedName });
-          console.log(`📍 Nivel actualizado: ${currentLevel} - Ruta: ${navigationPath.map(p => p.name).join(' > ')}`);
-          
-          // Hacer clic en la subcategoría seleccionada
-          await selectedButton.click();
-          console.log(`✓ Se hizo clic en "${selectedName}"`);
-          
-          // Esperar más tiempo para que cargue la página
-          await page.waitForTimeout(4000);
-          
-        } else {
-          console.log(`ℹ No se encontraron más opciones en el nivel ${navigationDepth}`);
-          break; // No hay más opciones, asumir que estamos en una página de servicios
-        }
+      // Comparar nombres (case-insensitive, permitir coincidencias parciales)
+      if (categoryName.toLowerCase().trim() === servicioInfo.categoria.toLowerCase().trim() ||
+          categoryName.toLowerCase().includes(servicioInfo.categoria.toLowerCase().trim()) ||
+          servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
+        console.log(`✅ Categoría encontrada: "${categoryName}"`);
+        await serviceButton.click();
+        await page.waitForTimeout(2000);
+        categoriaEncontrada = true;
+        break;
       }
-      
-      if (navigationDepth >= maxNavigationDepth) {
-        console.log('⚠ Se alcanzó el límite de profundidad de navegación, continuando...');
-      }
+    }
+    
+    if (categoriaEncontrada) {
+      // Navegar por subcategorías hasta encontrar el servicio
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+        page, 
+        servicioInfo.nombre, 
+        servicioInfo.categoria, 
+        servicioInfo.subcategoria
+      );
     } else {
-      console.log('ℹ No se encontraron subcategorías disponibles para esta categoría');
+      console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
+      const firstCategory = serviceButtons.first();
+      await firstCategory.click();
+      await page.waitForTimeout(2000);
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+        page, 
+        servicioInfo.nombre, 
+        servicioInfo.categoria, 
+        servicioInfo.subcategoria
+      );
+    }
+  } else {
+    // Si no hay categoría, probar todas las categorías
+    console.log(`⚠️ No se obtuvo categoría del servicio, probando todas las categorías...`);
+    const serviceCount = await serviceButtons.count();
+    const maxIntentosCategorias = serviceCount;
+    let intentosCategoria = 0;
+    
+    while (!servicioEncontrado && intentosCategoria < maxIntentosCategorias) {
+      intentosCategoria++;
+      const selectedService = serviceButtons.nth(intentosCategoria - 1);
+      const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
+      const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
+      console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
+      
+      await selectedService.click();
+      await page.waitForTimeout(2000);
+      
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
+      
+      if (!servicioEncontrado) {
+        console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
+        await page.goBack();
+        await page.waitForTimeout(2000);
+      }
     }
   }
   
-  // Buscar servicios disponibles - retroceder y seleccionar otra subcategoría si no hay servicios
-  let foundServices = false;
-  let maxAttempts = 10; // Límite de intentos para evitar bucle infinito
-  let attempts = 0;
+  if (!servicioEncontrado) {
+    throw new Error(`❌ No se pudo encontrar el servicio "${servicioInfo.nombre}" después de navegar por las categorías`);
+  }
   
-  while (!foundServices && attempts < maxAttempts) {
-    attempts++;
-    console.log(`\n--- Intento ${attempts} de encontrar servicios ---`);
-    console.log(`📍 Nivel actual: ${currentLevel} - Ruta: ${navigationPath.length === 0 ? '[Raíz]' : navigationPath.map(p => p.name).join(' > ')}`);
+  console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado exitosamente!`);
+  
+  // Verificar si el formulario ya está visible (significa que ya se hizo clic en "Contactar GRATIS")
+  const formExists = await page.locator('input[id="Honoree"]').isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (formExists) {
+    console.log(`✓ El formulario ya está visible, no es necesario hacer clic en "Contactar GRATIS" nuevamente`);
+  } else {
+    // El formulario no está visible, verificar si estamos en la página del servicio
+    const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /Detalle|Detalles|proveedor/i
+    });
     
-    // Esperar un tiempo adicional para que carguen los servicios
-    await page.waitForTimeout(3000);
+    const isServicePage = await servicePageTitle.first().isVisible({ timeout: 2000 }).catch(() => false);
     
-    // Verificar si hay servicios disponibles
-    const servicesContainer = page.locator('div.flex.flex-wrap.gap-6').filter({
-      has: page.locator('button, a, div')
-    }).first();
-    
-    // Esperar a que el contenedor esté visible con un timeout más largo
-    try {
-      await servicesContainer.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {
-        console.log('ℹ Contenedor de servicios no visible aún, continuando...');
+    if (isServicePage) {
+      // Buscar y hacer clic en el botón "Contactar GRATIS"
+      const contactButtons = page.locator('button').filter({
+        hasText: /Contactar GRATIS/i
       });
-    } catch (e) {
-      console.log('ℹ Error esperando contenedor de servicios, continuando...');
-    }
-    
-    // Intentar contar elementos dentro del contenedor de servicios
-    const serviceCards = servicesContainer.locator('> *');
-    const serviceCount = await serviceCards.count();
-    
-    if (serviceCount > 0) {
-      console.log(`✓ ¡Se encontraron ${serviceCount} servicios disponibles!`);
-      foundServices = true;
       
-      // Seleccionar aleatoriamente un servicio
-      const randomServiceCardIndex = Math.floor(Math.random() * serviceCount);
-      const selectedServiceCard = serviceCards.nth(randomServiceCardIndex);
-      console.log(`✓ Seleccionando servicio aleatorio (índice ${randomServiceCardIndex})`);
+      const contactButtonCount = await contactButtons.count();
+      console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
       
-      // Hacer clic en la tarjeta del servicio para abrirlo
-      await selectedServiceCard.click();
-      console.log(`✓ Se hizo clic en el servicio`);
-      // Esperar más tiempo para que cargue la página del servicio
-      await page.waitForTimeout(4000);
+      if (contactButtonCount > 0) {
+        const selectedContactButton = contactButtons.first();
+        await selectedContactButton.scrollIntoViewIfNeeded();
+        console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+        await selectedContactButton.click();
+        await page.waitForTimeout(2000);
+      } else {
+        throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
+      }
+    } else {
+      // Si no estamos en la página del servicio, esperar un poco más
+      await page.waitForTimeout(2000);
       
       // Buscar y hacer clic en el botón "Contactar GRATIS"
       const contactButtons = page.locator('button').filter({
@@ -254,518 +806,400 @@ test('Nueva fiesta', async ({ page }) => {
       console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
       
       if (contactButtonCount > 0) {
-        // Seleccionar aleatoriamente un botón "Contactar GRATIS" si hay varios
-        const randomContactIndex = Math.floor(Math.random() * contactButtonCount);
-        const selectedContactButton = contactButtons.nth(randomContactIndex);
-        
-        console.log(`✓ Haciendo clic en el botón "Contactar GRATIS" (índice ${randomContactIndex})`);
+        const selectedContactButton = contactButtons.first();
+        await selectedContactButton.scrollIntoViewIfNeeded();
+        console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
-        console.log(`✓ Se hizo clic exitosamente en "Contactar GRATIS"`);
-        
-        // Esperar a que aparezca el formulario en lugar de espera fija
-        await page.locator('input[id="Honoree"]').waitFor({ state: 'visible', timeout: 5000 });
-        
-        // --- Función auxiliar para seleccionar hora y minuto en el reloj ---
-        async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
-          // 1. Abrir el selector de hora
-          const timeInput = page.locator('input#Time');
-          await timeInput.scrollIntoViewIfNeeded();
-          await timeInput.click({ force: true });
-          
-          // 2. Esperar a que aparezca el diálogo
-          await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
-          
-          // 3. Seleccionar la hora
-          // Usar coordenadas reales del HTML proporcionado
-          const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
-            1: { cx: 162.5, cy: 46.38784067832272 },
-            2: { cx: 193.6121593216773, cy: 77.5 },
-            3: { cx: 205, cy: 120 },
-            4: { cx: 193.6121593216773, cy: 162.5 },
-            5: { cx: 162.5, cy: 193.61215932167727 },
-            6: { cx: 120, cy: 205 },
-            7: { cx: 77.50000000000003, cy: 193.6121593216773 },
-            8: { cx: 46.3878406783227, cy: 162.5 },
-            9: { cx: 35, cy: 120.00000000000001 },
-            10: { cx: 46.38784067832272, cy: 77.5 },
-            11: { cx: 77.49999999999997, cy: 46.38784067832273 },
-            12: { cx: 120, cy: 35 },
-          };
-          
-          const h = horaCirculos[hora];
-          if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
-          
-          // Esperar un momento para que el diálogo se cargue completamente
-          await page.waitForTimeout(500);
-          
-          // Buscar el círculo de hora usando coordenadas
-          // Buscar todos los círculos y encontrar el más cercano a las coordenadas esperadas
-          const allCircles = page.locator('svg circle.cursor-pointer');
-          const circleCount = await allCircles.count();
-          
-          let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
-          let minDistance = Infinity;
-          
-          for (let i = 0; i < circleCount; i++) {
-            const circle = allCircles.nth(i);
-            const cx = parseFloat(await circle.getAttribute('cx') || '0');
-            const cy = parseFloat(await circle.getAttribute('cy') || '0');
-            
-            // Calcular distancia euclidiana a las coordenadas esperadas
-            const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
-            
-            if (distance < minDistance && distance < 25) { // Tolerancia de 25 píxeles (radio del círculo es 20)
-              minDistance = distance;
-              closestCircle = circle;
-            }
-          }
-          
-          if (closestCircle) {
-            await closestCircle.click({ timeout: 5000 });
-          } else {
-            throw new Error(`No se pudo encontrar el círculo para la hora ${hora} (buscando cerca de cx=${h.cx}, cy=${h.cy})`);
-          }
-          
-          // Esperar un momento para que el reloj cambie a modo de minutos
-          await page.waitForTimeout(500);
-          
-          // 4. Seleccionar el minuto
-          const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
-            0: { cx: 120, cy: 205 },
-            15: { cx: 205, cy: 120 },
-            30: { cx: 120, cy: 35 },
-            45: { cx: 35, cy: 120 },
-          };
-          
-          const m = minutoCirculos[minuto];
-          if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
-          
-          // Buscar el círculo de minuto usando el mismo enfoque robusto
-          const allMinuteCircles = page.locator('svg circle.cursor-pointer');
-          const minuteCircleCount = await allMinuteCircles.count();
-          
-          let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
-          let minMinuteDistance = Infinity;
-          
-          for (let i = 0; i < minuteCircleCount; i++) {
-            const circle = allMinuteCircles.nth(i);
-            const cx = parseFloat(await circle.getAttribute('cx') || '0');
-            const cy = parseFloat(await circle.getAttribute('cy') || '0');
-            
-            // Calcular distancia euclidiana
-            const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
-            
-            if (distance < minMinuteDistance && distance < 25) { // Tolerancia de 25 píxeles
-              minMinuteDistance = distance;
-              closestMinuteCircle = circle;
-            }
-          }
-          
-          if (closestMinuteCircle) {
-            await closestMinuteCircle.click({ timeout: 5000 });
-          } else {
-            throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
-          }
-          
-          // Esperar un momento antes de confirmar
-          await page.waitForTimeout(500);
-          
-          // 5. Confirmar selección
-          // Buscar el botón "Confirmar" usando el selector más específico
-          const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
-          await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-          await confirmButton.click({ timeout: 5000 });
-          console.log(`✓ Botón "Confirmar" presionado`);
-        }
-        
-        // Llenar todos los campos del formulario
-        console.log('\n📝 Llenando formulario de contacto...');
-        
-        // 1. Nombre del festejado
-        const randomNames = ['María', 'Juan', 'Carlos', 'Ana', 'Pedro', 'Laura', 'José', 'Carmen', 'Luis', 'Sofia'];
-        const randomLastNames = ['García', 'Rodríguez', 'Martínez', 'López', 'González', 'Hernández', 'Pérez', 'Sánchez', 'Ramírez', 'Torres'];
-        const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
-        const randomLastName = randomLastNames[Math.floor(Math.random() * randomLastNames.length)];
-        const randomHonoree = `${randomName} ${randomLastName}`;
-        
-        const honoreeField = page.locator('input[id="Honoree"]');
-        await honoreeField.fill(randomHonoree);
-        console.log(`✓ Campo "Nombre del festejado" llenado: ${randomHonoree}`);
-        
-        // 2. Fecha (usando date picker)
-        const dateField = page.locator('input[id="Date"]');
-        await dateField.click();
-        console.log(`✓ Abriendo date picker para seleccionar fecha futura`);
-        
-        // Esperar a que aparezca el date picker con timeout más corto
-        const datePicker = page.locator('.flatpickr-calendar:visible, .flatpickr-calendar.open').first();
-        await datePicker.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
-        
-        const datePickerVisible = await datePicker.isVisible().catch(() => false);
-        
-        if (datePickerVisible) {
-          console.log(`✓ Date picker visible, buscando días futuros...`);
-          
-          const availableDays = page.locator('.flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay)');
-          const daysCount = await availableDays.count();
-          const currentDay = new Date().getDate();
-          
-          console.log(`📊 Días disponibles: ${daysCount}, día actual: ${currentDay}`);
-          
-          let futureDayIndex = -1;
-          for (let i = 0; i < daysCount; i++) {
-            const dayElement = availableDays.nth(i);
-            const dayText = await dayElement.textContent();
-            const dayNumber = parseInt(dayText?.trim() || '0');
-            
-            if (dayNumber > currentDay) {
-              futureDayIndex = i;
-              break;
-            }
-          }
-          
-          if (futureDayIndex === -1) {
-            futureDayIndex = daysCount - 1;
-            console.log(`⚠ No hay días futuros en este mes, usando último día disponible`);
-          }
-          
-          const selectedDay = availableDays.nth(futureDayIndex);
-          await selectedDay.click();
-          const dayText = await selectedDay.textContent();
-          const selectedDayNumber = parseInt(dayText?.trim() || '0');
-          console.log(`✓ Fecha seleccionada: día ${selectedDayNumber}`);
-        }
-        
-        // 3. Hora (usando selector de hora)
-        const randomHour = Math.floor(Math.random() * 12) + 1; // Entre 1 y 12
-        const randomMinute = [0, 15, 30, 45][Math.floor(Math.random() * 4)]; // 0, 15, 30 o 45
-        
-        await seleccionarHoraYMinuto(page, randomHour, randomMinute);
-        console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')}`);
-        
-        // Esperar a que el diálogo del selector de hora se cierre completamente
-        // Verificar que el diálogo ya no esté visible
-        const timePickerDialog = page.locator('[data-time-picker-content="true"]');
-        try {
-          await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
-        } catch (e) {
-          // Si no se oculta rápidamente, esperar un poco más
-          await page.waitForTimeout(1000);
-        }
-        
-        // 4. Ciudad (usando autocompletado de Google)
-        const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
-        const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
-        
-        // Buscar el campo de ciudad usando el id "Address" (confirmado)
-        // Dar más tiempo para que el formulario esté listo
-        await page.waitForTimeout(500);
-        
-        let cityField: ReturnType<typeof page.locator> = page.locator('input[id="Address"]');
-        
-        // Verificar si el campo existe, si no, intentar otros selectores
-        try {
-          await cityField.waitFor({ state: 'visible', timeout: 5000 });
-        } catch (e) {
-          // Intentar buscar por el label asociado
-          console.log(`⚠ Campo no encontrado con id="Address", intentando otros selectores...`);
-          
-          // Buscar por el label que contiene "Ciudad"
-          const ciudadLabel = page.locator('label:has-text("Ciudad")');
-          const labelExists = await ciudadLabel.count().then(count => count > 0);
-          
-          if (labelExists) {
-            // Buscar el input usando el atributo 'for' del label
-            try {
-              const labelFor = await ciudadLabel.getAttribute('for');
-              if (labelFor) {
-                cityField = page.locator(`input[id="${labelFor}"]`);
-                await cityField.waitFor({ state: 'visible', timeout: 3000 });
-              } else {
-                // Si no tiene atributo 'for', buscar el input cercano usando XPath
-                cityField = page.locator('//label[contains(text(), "Ciudad")]/following-sibling::*//input | //label[contains(text(), "Ciudad")]/../input').first();
-              }
-            } catch (e2) {
-              // Último recurso: buscar cualquier input con placeholder vacío
-              cityField = page.locator('input[placeholder=" "]').first();
-            }
-          } else {
-            // Último recurso: buscar cualquier input con placeholder vacío
-            cityField = page.locator('input[placeholder=" "]').first();
-          }
-          
-          await cityField.waitFor({ state: 'visible', timeout: 5000 });
-        }
-        
-        console.log(`✓ Campo de ciudad encontrado`);
-        
-        // Limpiar el campo: hacer clic en el botón de limpiar si existe
-        const clearButton = page.locator('button[aria-label="Clear address"]');
-        const clearButtonVisible = await clearButton.isVisible().catch(() => false);
-        
-        if (clearButtonVisible) {
-          await clearButton.click();
-          await page.waitForTimeout(200);
-        } else {
-          // Si no hay botón de limpiar, seleccionar todo el texto y borrarlo
-          await cityField.click();
-          await cityField.selectText();
-          await cityField.press('Backspace');
-          await page.waitForTimeout(200);
-        }
-        
-        // Escribir la ciudad letra por letra para activar el autocompletado de Google
-        await cityField.pressSequentially(randomCity, { delay: 100 });
-        console.log(`✓ Ciudad escrita: "${randomCity}"`);
-        
-        // Esperar un momento para que aparezcan las sugerencias
-        await page.waitForTimeout(2000);
-        
-        // PAUSA MANUAL: Esperar a que el usuario seleccione la ciudad manualmente
-        console.log(`\n⏸️  PAUSA MANUAL: Por favor selecciona una ciudad de las sugerencias de Google Places`);
-        console.log(`   Una vez que hayas seleccionado la ciudad, la prueba continuará automáticamente...\n`);
-        
-        // Guardar el valor inicial del campo
-        const initialCityValue = await cityField.inputValue();
-        
-        // Pausar la ejecución para que el usuario pueda seleccionar manualmente
-        await page.pause();
-        
-        // Después de la pausa, esperar a que el campo tenga un valor diferente (indicando que se seleccionó una ciudad)
-        console.log(`\n⏳ Esperando a que se seleccione una ciudad...`);
-        
-        let citySelected = false;
-        const maxWaitTime = 60000; // 60 segundos máximo
-        const startTime = Date.now();
-        
-        while (!citySelected && (Date.now() - startTime) < maxWaitTime) {
-          await page.waitForTimeout(1000);
-          const currentCityValue = await cityField.inputValue();
-          
-          // Verificar si el valor cambió y no está vacío
-          if (currentCityValue !== initialCityValue && currentCityValue.trim().length > 0) {
-            citySelected = true;
-            console.log(`✓ Ciudad seleccionada: "${currentCityValue}"`);
-          }
-        }
-        
-        if (!citySelected) {
-          console.log(`⚠ No se detectó selección de ciudad, continuando de todos modos...`);
-        } else {
-          // Esperar un momento adicional para asegurar que la selección se complete
-          await page.waitForTimeout(1000);
-        }
-        
-        // 5. Número de invitados
-        const randomAttendees = Math.floor(Math.random() * 181) + 20; // Entre 20 y 200
-        const attendeesField = page.locator('input[id="Attendees"]');
-        await attendeesField.fill(randomAttendees.toString());
-        console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
-        
-        console.log('✅ Formulario completado exitosamente');
-        
-        // 6. Hacer clic en el botón "Crear evento"
-        const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
-          hasText: 'Crear evento'
-        });
-        await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
-        console.log(`✓ Botón "Crear evento" encontrado y visible`);
-        await createEventButton.click();
-        console.log(`✓ Se hizo clic en "Crear evento"`);
         await page.waitForTimeout(2000);
       } else {
-        console.log(`⚠ No se encontraron botones "Contactar GRATIS"`);
+        throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
+    }
+    
+    // Esperar a que aparezca el formulario
+    await page.locator('input[id="Honoree"]').waitFor({ state: 'visible', timeout: 10000 });
+  }
+  
+  // Continuar con el formulario de evento
+  // --- Función auxiliar para seleccionar hora y minuto en el reloj ---
+  async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
+    // 1. Abrir el selector de hora
+    const timeInput = page.locator('input#Time');
+    await timeInput.scrollIntoViewIfNeeded();
+    await timeInput.click({ force: true });
+    
+    // 2. Esperar a que aparezca el diálogo
+    await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
+    
+    // 3. Seleccionar la hora
+    const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
+      1: { cx: 162.5, cy: 46.38784067832272 },
+      2: { cx: 193.6121593216773, cy: 77.5 },
+      3: { cx: 205, cy: 120 },
+      4: { cx: 193.6121593216773, cy: 162.5 },
+      5: { cx: 162.5, cy: 193.61215932167727 },
+      6: { cx: 120, cy: 205 },
+      7: { cx: 77.50000000000003, cy: 193.6121593216773 },
+      8: { cx: 46.3878406783227, cy: 162.5 },
+      9: { cx: 35, cy: 120.00000000000001 },
+      10: { cx: 46.38784067832272, cy: 77.5 },
+      11: { cx: 77.49999999999997, cy: 46.38784067832273 },
+      12: { cx: 120, cy: 35 },
+    };
+    
+    const h = horaCirculos[hora];
+    if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
+    
+    await page.waitForTimeout(500);
+    
+    const allCircles = page.locator('svg circle.cursor-pointer');
+    const circleCount = await allCircles.count();
+    
+    let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < circleCount; i++) {
+      const circle = allCircles.nth(i);
+      const cx = parseFloat(await circle.getAttribute('cx') || '0');
+      const cy = parseFloat(await circle.getAttribute('cy') || '0');
+      const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
       
-      break; // Salir del bucle si encontramos servicios
+      if (distance < minDistance && distance < 25) {
+        minDistance = distance;
+        closestCircle = circle;
+      }
+    }
+    
+    if (closestCircle) {
+      await closestCircle.click({ timeout: 5000 });
     } else {
-      console.log(`⚠ No se encontraron servicios en esta subcategoría (intento ${attempts}/${maxAttempts})`);
+      throw new Error(`No se pudo encontrar el círculo para la hora ${hora}`);
+    }
+    
+    await page.waitForTimeout(500);
+    
+    // 4. Seleccionar el minuto
+    const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
+      0: { cx: 120, cy: 205 },
+      15: { cx: 205, cy: 120 },
+      30: { cx: 120, cy: 35 },
+      45: { cx: 35, cy: 120 },
+    };
+    
+    const m = minutoCirculos[minuto];
+    if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
+    
+    const allMinuteCircles = page.locator('svg circle.cursor-pointer');
+    const minuteCircleCount = await allMinuteCircles.count();
+    
+    let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
+    let minMinuteDistance = Infinity;
+    
+    for (let i = 0; i < minuteCircleCount; i++) {
+      const circle = allMinuteCircles.nth(i);
+      const cx = parseFloat(await circle.getAttribute('cx') || '0');
+      const cy = parseFloat(await circle.getAttribute('cy') || '0');
+      const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
       
-      // Si no hay servicios, retroceder un nivel usando el botón chevron-left-bold
-      // El botón tiene las clases: flex items-center justify-center w-[24px] aspect-square text-neutral-800
-      const backButton = page.locator('button.flex.items-center.justify-center').filter({
-        has: page.locator('i.icon-chevron-left-bold')
-      }).first();
-      
-      const backButtonVisible = await backButton.isVisible().catch(() => false);
-      
-      if (backButtonVisible) {
-        // Verificar cuántos niveles podemos retroceder
-        const levelsToGoBack = navigationPath.length;
-        
-        if (levelsToGoBack === 0) {
-          console.log('⚠ Ya estamos en el nivel raíz, no se puede retroceder más');
-          break;
-        }
-        
-        console.log(`⬅ Retrocediendo un nivel (de ${currentLevel} a ${currentLevel - 1}) para seleccionar otra subcategoría...`);
-        console.log(`📍 Niveles disponibles para retroceder: ${levelsToGoBack}`);
-        
-        // Retroceder: remover el último elemento del path y decrementar nivel
-        const lastLevel = navigationPath.pop();
-        currentLevel = Math.max(0, currentLevel - 1);
-        
-        console.log(`📍 Retrocedido desde "${lastLevel?.name}" - Nivel actual: ${currentLevel}`);
-        console.log(`📍 Ruta actualizada: ${navigationPath.length === 0 ? '[Raíz]' : navigationPath.map(p => p.name).join(' > ')}`);
-        
-        await backButton.click();
-        // Esperar más tiempo después de retroceder para que cargue la página
-        await page.waitForTimeout(4000);
-        
-        // Determinar qué nivel de subcategorías buscar basado en el nivel actual
-        const subcategoryButtons = page.locator('button').filter({
-          has: page.locator('p.text-neutral-800')
-        });
-        
-        const subcategoryCount = await subcategoryButtons.count();
-        
-        if (subcategoryCount > 0) {
-          // Obtener nombres de todas las subcategorías para evitar seleccionar las ya visitadas
-          let availableIndices: number[] = [];
-          
-          for (let i = 0; i < subcategoryCount; i++) {
-            const subcat = subcategoryButtons.nth(i);
-            const subcatName = await subcat.locator('p.text-neutral-800').textContent();
-            const subcatKey = subcatName?.trim() || '';
-            
-            if (!visitedSubcategories.has(subcatKey)) {
-              availableIndices.push(i);
-            }
-          }
-          
-          if (availableIndices.length > 0) {
-            // Seleccionar aleatoriamente una subcategoría no visitada
-            const randomAvailableIndex = Math.floor(Math.random() * availableIndices.length);
-            const randomSubcategoryIndex = availableIndices[randomAvailableIndex];
-            const selectedSubcategory = subcategoryButtons.nth(randomSubcategoryIndex);
-            
-            const subcategoryName = await selectedSubcategory.locator('p.text-neutral-800').textContent();
-            const selectedSubcategoryName = subcategoryName?.trim() || 'Desconocida';
-            
-            // Marcar como visitada
-            visitedSubcategories.add(selectedSubcategoryName);
-            
-            // Actualizar el registro de navegación
-            currentLevel = navigationPath.length + 1;
-            navigationPath.push({ level: currentLevel, name: selectedSubcategoryName });
-            
-            console.log(`✓ Seleccionando otra subcategoría: "${selectedSubcategoryName}" (índice ${randomSubcategoryIndex})`);
-            console.log(`📍 Nivel actualizado: ${currentLevel} - Ruta: ${navigationPath.map(p => p.name).join(' > ')}`);
-            
-            await selectedSubcategory.click();
-            console.log(`✓ Se hizo clic en la subcategoría "${selectedSubcategoryName}"`);
-            // Esperar más tiempo para que cargue la página
-            await page.waitForTimeout(4000);
-            
-            // Navegar recursivamente por subcategorías hasta llegar a una página de servicios
-            let reachedServicesPage = false;
-            const maxNavigationDepth = 10;
-            let navigationDepth = currentLevel; // Continuar desde el nivel actual
-            
-            while (!reachedServicesPage && navigationDepth < maxNavigationDepth) {
-              navigationDepth++;
-              
-              // Verificar si ya estamos en una página de servicios
-              const serviciosTitle = page.locator('p.text-center').filter({
-                hasText: 'Servicios'
-              });
-              
-              const isServicesPage = await serviciosTitle.isVisible({ timeout: 2000 }).catch(() => false);
-              
-              if (isServicesPage) {
-                console.log('✓ Se detectó la página de servicios (texto "Servicios" en el top)');
-                reachedServicesPage = true;
-                break;
-              }
-              
-              // Buscar subcategorías disponibles en el nivel actual
-              const currentLevelButtons = page.locator('button').filter({
-                has: page.locator('p.text-neutral-800')
-              });
-              
-              const currentLevelCount = await currentLevelButtons.count();
-              
-              if (currentLevelCount > 0) {
-                console.log(`✓ Se encontraron ${currentLevelCount} opciones en el nivel ${navigationDepth}`);
-                
-                // Obtener nombres de todas las opciones para evitar seleccionar las ya visitadas
-                let availableIndices: number[] = [];
-                
-                for (let i = 0; i < currentLevelCount; i++) {
-                  const btn = currentLevelButtons.nth(i);
-                  const btnName = await btn.locator('p.text-neutral-800').textContent();
-                  const btnKey = btnName?.trim() || '';
-                  
-                  if (!visitedSubcategories.has(btnKey)) {
-                    availableIndices.push(i);
-                  }
-                }
-                
-                if (availableIndices.length > 0) {
-                  // Seleccionar aleatoriamente una opción no visitada
-                  const randomAvailableIndex = Math.floor(Math.random() * availableIndices.length);
-                  const randomIndex = availableIndices[randomAvailableIndex];
-                  const selectedButton = currentLevelButtons.nth(randomIndex);
-                  
-                  const buttonName = await selectedButton.locator('p.text-neutral-800').textContent();
-                  const selectedName = buttonName?.trim() || 'Desconocida';
-                  
-                  // Marcar como visitada
-                  visitedSubcategories.add(selectedName);
-                  
-                  // Actualizar el registro de navegación
-                  currentLevel = navigationDepth;
-                  navigationPath.push({ level: currentLevel, name: selectedName });
-                  
-                  console.log(`✓ Seleccionando opción nivel ${navigationDepth}: "${selectedName}"`);
-                  console.log(`📍 Nivel actualizado: ${currentLevel} - Ruta: ${navigationPath.map(p => p.name).join(' > ')}`);
-                  
-                  await selectedButton.click();
-                  console.log(`✓ Se hizo clic en "${selectedName}"`);
-                  await page.waitForTimeout(4000);
-                } else {
-                  console.log(`ℹ Todas las opciones del nivel ${navigationDepth} ya fueron visitadas`);
-                  break;
-                }
-              } else {
-                console.log(`ℹ No se encontraron más opciones en el nivel ${navigationDepth}`);
-                break;
-              }
-            }
-          } else {
-            console.log('⚠ Todas las subcategorías ya fueron visitadas sin servicios');
-            console.log(`📍 Niveles restantes para retroceder: ${navigationPath.length}`);
-            
-            // Si aún hay niveles para retroceder, continuar el bucle para retroceder más
-            if (navigationPath.length > 0) {
-              console.log('ℹ Continuando para retroceder más niveles...');
-              continue;
-            } else {
-              break; // Salir del bucle si no hay más niveles para retroceder
-            }
-          }
-        } else {
-          console.log('⚠ No se encontraron subcategorías disponibles para seleccionar');
-          console.log(`📍 Niveles restantes para retroceder: ${navigationPath.length}`);
-          
-          // Si aún hay niveles para retroceder, continuar
-          if (navigationPath.length > 0) {
-            console.log('ℹ Continuando para retroceder más niveles...');
-            continue;
-          } else {
-            break; // Salir del bucle si no hay subcategorías
-          }
-        }
-      } else {
-        console.log('⚠ No se encontró botón de retroceder');
-        console.log(`📍 Niveles restantes según el registro: ${navigationPath.length}`);
-        break; // Salir del bucle si no hay botón de retroceder
+      if (distance < minMinuteDistance && distance < 25) {
+        minMinuteDistance = distance;
+        closestMinuteCircle = circle;
       }
+    }
+    
+    if (closestMinuteCircle) {
+      await closestMinuteCircle.click({ timeout: 5000 });
+    } else {
+      throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
+    }
+    
+    await page.waitForTimeout(500);
+    
+    // 5. Confirmar selección
+    const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
+    await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
+    await confirmButton.click({ timeout: 5000 });
+    console.log(`✓ Botón "Confirmar" presionado`);
+  }
+  
+  // Llenar todos los campos del formulario
+  console.log('\n📝 Llenando formulario de contacto...');
+  
+  // 1. Nombre del festejado
+  const randomNames = ['María', 'Juan', 'Carlos', 'Ana', 'Pedro', 'Laura', 'José', 'Carmen', 'Luis', 'Sofia'];
+  const randomLastNames = ['García', 'Rodríguez', 'Martínez', 'López', 'González', 'Hernández', 'Pérez', 'Sánchez', 'Ramírez', 'Torres'];
+  const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+  const randomLastName = randomLastNames[Math.floor(Math.random() * randomLastNames.length)];
+  const randomHonoree = `${randomName} ${randomLastName}`;
+  
+  const honoreeField = page.locator('input[id="Honoree"]').first();
+  await honoreeField.scrollIntoViewIfNeeded();
+  await honoreeField.click();
+  await honoreeField.fill(randomHonoree);
+  console.log(`✓ Campo "Nombre del festejado" llenado: ${randomHonoree}`);
+  
+  // Quitar el foco del campo de nombre del festejado para evitar que el siguiente input escriba aquí
+  await honoreeField.blur().catch(() => {});
+  await page.waitForTimeout(300);
+  
+  // 2. Fecha (usando date picker)
+  const dateField = page.locator('input[id="Date"]');
+  await dateField.click();
+  console.log(`✓ Abriendo date picker para seleccionar fecha futura`);
+  
+  const datePicker = page.locator('.flatpickr-calendar:visible, .flatpickr-calendar.open').first();
+  await datePicker.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+  
+  const datePickerVisible = await datePicker.isVisible().catch(() => false);
+  
+  if (datePickerVisible) {
+    console.log(`✓ Date picker visible, buscando días futuros...`);
+    
+    const availableDays = page.locator('.flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay)');
+    const daysCount = await availableDays.count();
+    const currentDay = new Date().getDate();
+    
+    console.log(`📊 Días disponibles: ${daysCount}, día actual: ${currentDay}`);
+    
+    let futureDayIndex = -1;
+    for (let i = 0; i < daysCount; i++) {
+      const dayElement = availableDays.nth(i);
+      const dayText = await dayElement.textContent();
+      const dayNumber = parseInt(dayText?.trim() || '0');
+      
+      if (dayNumber > currentDay) {
+        futureDayIndex = i;
+        break;
+      }
+    }
+    
+    if (futureDayIndex === -1) {
+      futureDayIndex = daysCount - 1;
+      console.log(`⚠ No hay días futuros en este mes, usando último día disponible`);
+    }
+    
+    const selectedDay = availableDays.nth(futureDayIndex);
+    await selectedDay.click();
+    const dayText = await selectedDay.textContent();
+    const selectedDayNumber = parseInt(dayText?.trim() || '0');
+    console.log(`✓ Fecha seleccionada: día ${selectedDayNumber}`);
+  }
+  
+  // 3. Hora (usando selector de hora)
+  const randomHour = Math.floor(Math.random() * 12) + 1;
+  const randomMinute = [0, 15, 30, 45][Math.floor(Math.random() * 4)];
+  
+  await seleccionarHoraYMinuto(page, randomHour, randomMinute);
+  console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')}`);
+  
+  const timePickerDialog = page.locator('[data-time-picker-content="true"]');
+  try {
+    await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
+  } catch (e) {
+    await page.waitForTimeout(1000);
+  }
+  
+  // 4. Ciudad (usando autocompletado de Google)
+  const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
+  const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
+  
+  await page.waitForTimeout(500);
+  
+  // Buscar el campo de ciudad usando el label "Ciudad" para asegurar que es el correcto
+  let cityField: ReturnType<typeof page.locator> | null = null;
+  
+  // Intentar primero con el label "Ciudad" para encontrar el campo correcto
+  const ciudadLabel = page.locator('label:has-text("Ciudad")').first();
+  const labelExists = await ciudadLabel.count().then(count => count > 0);
+  
+  if (labelExists) {
+    try {
+      const labelFor = await ciudadLabel.getAttribute('for');
+      if (labelFor) {
+        cityField = page.locator(`input[id="${labelFor}"]`).first();
+        await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Campo de ciudad encontrado por atributo "for" del label: ${labelFor}`);
+      } else {
+        // Si no tiene atributo "for", buscar el input dentro del mismo contenedor que el label
+        cityField = page.locator('//label[contains(text(), "Ciudad")]/ancestor::div[contains(@class, "flex") or contains(@class, "relative")]//input | //label[contains(text(), "Ciudad")]/following::input[1]').first();
+        await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Campo de ciudad encontrado por proximidad al label`);
+      }
+    } catch (e) {
+      console.log(`⚠ Error al encontrar campo por label, intentando con id="Address"...`);
+      cityField = page.locator('input[id="Address"]').first();
+      await cityField.waitFor({ state: 'visible', timeout: 5000 });
+    }
+  } else {
+    // Si no se encuentra el label, usar el id directamente
+    cityField = page.locator('input[id="Address"]').first();
+    try {
+      await cityField.waitFor({ state: 'visible', timeout: 5000 });
+      console.log(`✓ Campo de ciudad encontrado por id="Address"`);
+    } catch (e) {
+      console.log(`⚠ Campo no encontrado con id="Address", intentando selector genérico...`);
+      // Último recurso: buscar input con el ícono de map-pin cerca
+      cityField = page.locator('input').filter({
+        has: page.locator('..').locator('i.icon-map-pin')
+      }).first();
+      await cityField.waitFor({ state: 'visible', timeout: 5000 });
     }
   }
   
-  if (!foundServices) {
-    console.log('⚠ No se encontraron servicios después de todos los intentos');
+  if (!cityField) {
+    throw new Error('❌ No se pudo encontrar el campo de ciudad');
   }
+  
+  // Verificar que el campo encontrado es realmente el campo de ciudad
+  const fieldId = await cityField.getAttribute('id');
+  const fieldLabel = await cityField.locator('xpath=ancestor::div//label[contains(text(), "Ciudad")]').count().catch(() => 0);
+  
+  console.log(`✓ Campo de ciudad identificado: id="${fieldId}"`);
+  
+  // Asegurar que ningún otro campo tenga el foco antes de escribir en el campo de ciudad
+  // Hacer clic en un área neutral para quitar el foco de cualquier otro campo
+  await page.locator('body').click({ position: { x: 10, y: 10 } }).catch(() => {});
+  await page.waitForTimeout(200);
+  
+  // Ahora hacer clic específicamente en el campo de ciudad
+  await cityField.scrollIntoViewIfNeeded();
+  await cityField.click({ force: true });
+  await page.waitForTimeout(500);
+  
+  // Limpiar el campo si tiene algún valor
+  const clearButton = page.locator('button[aria-label="Clear address"]');
+  const clearButtonVisible = await clearButton.isVisible().catch(() => false);
+  
+  if (clearButtonVisible) {
+    await clearButton.click();
+    await page.waitForTimeout(200);
+    // Hacer clic nuevamente en el campo después de limpiar para asegurar el foco
+    await cityField.click({ force: true });
+    await page.waitForTimeout(500);
+  } else {
+    // Limpiar el campo seleccionando todo y borrando
+    const currentValue = await cityField.inputValue();
+    if (currentValue && currentValue.trim().length > 0) {
+      await cityField.selectText();
+      await cityField.press('Backspace');
+      await page.waitForTimeout(200);
+    }
+  }
+  
+  // Verificar que el campo correcto esté enfocado verificando el atributo id
+  const focusedElement = await page.evaluate(() => {
+    const active = document.activeElement;
+    return active && active.tagName === 'INPUT' ? (active as HTMLInputElement).id : null;
+  });
+  
+  const cityFieldId = await cityField.getAttribute('id');
+  
+  if (focusedElement !== cityFieldId) {
+    console.log(`⚠️ El foco no está en el campo de ciudad (id esperado: "${cityFieldId}", id actual: "${focusedElement}"). Enfocando nuevamente...`);
+    // Forzar el foco usando JavaScript
+    await cityField.evaluate((el: HTMLInputElement) => {
+      el.focus();
+      el.click();
+    });
+    await page.waitForTimeout(500);
+    
+    // Verificar nuevamente
+    const focusedElement2 = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active && active.tagName === 'INPUT' ? (active as HTMLInputElement).id : null;
+    });
+    
+    if (focusedElement2 !== cityFieldId) {
+      console.log(`⚠️ Aún no está enfocado correctamente. Intentando con selectText y luego escribir...`);
+      await cityField.selectText();
+      await page.waitForTimeout(200);
+    }
+  } else {
+    console.log(`✓ Campo de ciudad correctamente enfocado`);
+  }
+  
+  // Escribir en el campo de ciudad
+  await cityField.fill(randomCity);
+  await page.waitForTimeout(300);
+  
+  // Verificar que el texto se escribió en el campo correcto
+  const cityValue = await cityField.inputValue();
+  if (cityValue !== randomCity) {
+    console.log(`⚠️ El texto no se escribió correctamente. Intentando nuevamente...`);
+    await cityField.clear();
+    await cityField.fill(randomCity);
+    await page.waitForTimeout(300);
+  }
+  
+  console.log(`✓ Ciudad escrita: "${randomCity}" (valor en campo: "${await cityField.inputValue()}")`);
+  await page.waitForTimeout(2000);
+
+  // Esperar a que aparezcan las opciones de autocompletado de Google Places
+  try {
+    const autocompleteList = page.locator('ul.flex.flex-col.py-2, ul[class*="flex"][class*="flex-col"]');
+    await autocompleteList.first().waitFor({ state: 'visible', timeout: 5000 });
+    
+    const autocompleteOptions = autocompleteList.locator('li.cursor-pointer, li[class*="cursor-pointer"]');
+    await autocompleteOptions.first().waitFor({ state: 'visible', timeout: 3000 });
+    
+    const optionsCount = await autocompleteOptions.count();
+    console.log(`📋 Opciones de ciudad encontradas: ${optionsCount}`);
+    
+    if (optionsCount > 0) {
+      const firstOption = autocompleteOptions.first();
+      const optionText = await firstOption.textContent();
+      console.log(`📋 Seleccionando ciudad: "${optionText?.trim()}"`);
+      
+      await firstOption.click();
+      await page.waitForTimeout(1500);
+      
+      const cityValue = await cityField.inputValue();
+      console.log(`✅ Ciudad seleccionada. Valor del campo: "${cityValue}"`);
+      
+      const errorMessage = page.locator('p.text-xsmall.text-danger-neutral:has-text("Selecciona una dirección")');
+      const hasError = await errorMessage.isVisible().catch(() => false);
+      
+      if (!hasError) {
+        console.log('✅ Mensaje de error desapareció, ciudad seleccionada correctamente');
+      }
+    } else {
+      throw new Error('No se encontraron opciones en la lista');
+    }
+  } catch (error) {
+    try {
+      const autocompleteOptionsAlt = page.locator('li.cursor-pointer.flex.items-center, li[class*="cursor-pointer"]');
+      await autocompleteOptionsAlt.first().waitFor({ state: 'visible', timeout: 3000 });
+      
+      const firstOption = autocompleteOptionsAlt.first();
+      const optionText = await firstOption.textContent();
+      console.log(`📋 Seleccionando ciudad (selector alternativo): "${optionText?.trim()}"`);
+      
+      await firstOption.click();
+      await page.waitForTimeout(1500);
+      console.log('✅ Ciudad seleccionada del autocompletado (selector alternativo)');
+    } catch (error2) {
+      console.log('⚠️ No se pudieron encontrar las opciones de autocompletado, continuando con el texto ingresado');
+    }
+  }
+  
+  // 5. Número de invitados
+  const randomAttendees = Math.floor(Math.random() * 181) + 20;
+  const attendeesField = page.locator('input[id="Attendees"]');
+  await attendeesField.fill(randomAttendees.toString());
+  console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
+  
+  console.log('✅ Formulario completado exitosamente');
+  
+  // 6. Hacer clic en el botón "Crear evento"
+  const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
+    hasText: 'Crear evento'
+  });
+  await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
+  console.log(`✓ Botón "Crear evento" encontrado y visible`);
+  await createEventButton.click();
+  console.log(`✓ Se hizo clic en "Crear evento"`);
+  await page.waitForTimeout(2000);
+  
+  console.log('✅ Prueba de creación de evento completada exitosamente');
 });
 

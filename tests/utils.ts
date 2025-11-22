@@ -27,14 +27,32 @@ export async function safeFill(page: Page, label: string, value: string, timeout
  * Login completo: navega a la página, abre el formulario de login, llena los campos y valida el acceso.
  */
 export async function login(page: Page, email: string, password: string) {
-  await page.goto(DEFAULT_BASE_URL, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1500);
+  const currentUrl = page.url();
+  const isAlreadyOnLoginPage = currentUrl.includes('/login');
+  
+  if (!isAlreadyOnLoginPage) {
+    // Navegar a la página principal y abrir el formulario de login
+    await page.goto(DEFAULT_BASE_URL, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
 
-  const loginButton = page.locator('button:has(i.icon-user)');
-  await loginButton.click();
+    const loginButton = page.locator('button:has(i.icon-user)');
+    const loginButtonVisible = await loginButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (loginButtonVisible) {
+      await loginButton.click();
+      await page.waitForTimeout(500);
+    } else {
+      // Si el botón no está visible, intentar navegar directamente al login
+      await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1500);
+    }
+  } else {
+    // Ya estamos en la página de login, solo esperar a que se cargue
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+  }
 
-  await page.waitForTimeout(500);
-
+  // Llenar los campos de login
   await safeFill(page, 'Correo', email);
   await safeFill(page, 'Contraseña', password);
   await page.getByRole('button', { name: 'Ingresar' }).click();
