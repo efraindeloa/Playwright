@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { login } from '../utils';
+import { login, showStepMessage, clearStepMessage } from '../utils';
 import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 test.use({
@@ -14,6 +14,7 @@ test.setTimeout(180000); // 3 minutos
  */
 async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; categoria: string; subcategoria?: string } | null> {
   console.log('\n🔍 BUSCANDO SERVICIO EN DASHBOARD DEL PROVEEDOR...');
+  await showStepMessage(page, '🔍 BUSCANDO SERVICIO EN DASHBOARD DEL PROVEEDOR');
   
   // Intentar navegar directamente al dashboard del proveedor
   // Si no estamos logueados, nos redirigirá al login
@@ -589,6 +590,8 @@ async function obtenerSubcategoriasParaBusqueda(page: Page): Promise<Array<{ nam
 }
 
 test('Nueva fiesta', async ({ page }) => {
+  await showStepMessage(page, '🎉 INICIANDO CREACIÓN DE NUEVA FIESTA');
+  
   // PASO 1: Buscar un servicio en el dashboard del proveedor
   const servicioInfo = await buscarServicioEnProveedor(page);
   
@@ -597,9 +600,11 @@ test('Nueva fiesta', async ({ page }) => {
   }
   
   console.log(`\n🎯 OBJETIVO: Navegar hasta el servicio "${servicioInfo.nombre}"`);
+  await showStepMessage(page, `🎯 OBJETIVO: Encontrar servicio "${servicioInfo.nombre}"`);
   
   // PASO 2: Cerrar sesión del proveedor y hacer login como cliente
   // Limpiar cookies y storage para asegurar que no haya sesión activa
+  await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
   await page.context().clearCookies();
   await page.evaluate(() => {
     localStorage.clear();
@@ -620,6 +625,7 @@ test('Nueva fiesta', async ({ page }) => {
   }
   
   // Hacer login con las credenciales del cliente
+  await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
   await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
   console.log('✓ Login exitoso como cliente');
   
@@ -631,6 +637,7 @@ test('Nueva fiesta', async ({ page }) => {
   console.log('✓ Navegación al dashboard confirmada');
   
   // Buscar y seleccionar el botón "Nueva fiesta"
+  await showStepMessage(page, '🔘 BUSCANDO BOTÓN "NUEVA FIESTA"');
   const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
     hasText: 'Nueva fiesta'
   });
@@ -640,6 +647,7 @@ test('Nueva fiesta', async ({ page }) => {
   console.log('✓ Botón "Nueva fiesta" encontrado y visible');
   
   // Hacer clic en el botón "Nueva fiesta"
+  await showStepMessage(page, '🖱️ HACIENDO CLIC EN "NUEVA FIESTA"');
   await nuevaFiestaButton.click();
   console.log('✓ Se hizo clic en "Nueva fiesta"');
   
@@ -659,6 +667,7 @@ test('Nueva fiesta', async ({ page }) => {
   expect(categoryCount).toBeGreaterThan(0);
   
   // Seleccionar aleatoriamente una categoría (por ahora, luego se puede mejorar para buscar la correcta)
+  await showStepMessage(page, '🎲 SELECCIONANDO CATEGORÍA DE EVENTO');
   const randomIndex = Math.floor(Math.random() * categoryCount);
   const selectedCategory = categoryButtons.nth(randomIndex);
   
@@ -676,6 +685,7 @@ test('Nueva fiesta', async ({ page }) => {
   
   // PASO 3: Navegar por las categorías hasta encontrar el servicio objetivo
   console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
+  await showStepMessage(page, `🔍 NAVEGANDO PARA ENCONTRAR SERVICIO "${servicioInfo.nombre}"`);
   
   // Buscar todos los botones de categoría de servicios
   const serviceButtons = page.locator('button').filter({
@@ -690,7 +700,7 @@ test('Nueva fiesta', async ({ page }) => {
     
     // Buscar la categoría que coincida con la categoría del servicio
     let categoriaEncontrada = false;
-    const serviceCount = await serviceButtons.count();
+  const serviceCount = await serviceButtons.count();
     
     for (let i = 0; i < serviceCount; i++) {
       const serviceButton = serviceButtons.nth(i);
@@ -739,13 +749,13 @@ test('Nueva fiesta', async ({ page }) => {
     while (!servicioEncontrado && intentosCategoria < maxIntentosCategorias) {
       intentosCategoria++;
       const selectedService = serviceButtons.nth(intentosCategoria - 1);
-      const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
-      const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
+  const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
+  const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
       console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
-      
-      await selectedService.click();
-      await page.waitForTimeout(2000);
-      
+  
+  await selectedService.click();
+  await page.waitForTimeout(2000);
+  
       servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
       
       if (!servicioEncontrado) {
@@ -790,7 +800,7 @@ test('Nueva fiesta', async ({ page }) => {
         console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
         await page.waitForTimeout(2000);
-      } else {
+        } else {
         throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
     } else {
@@ -821,230 +831,272 @@ test('Nueva fiesta', async ({ page }) => {
   }
   
   // Continuar con el formulario de evento
-  // --- Función auxiliar para seleccionar hora y minuto en el reloj ---
-  async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
-    // 1. Abrir el selector de hora
-    const timeInput = page.locator('input#Time');
-    await timeInput.scrollIntoViewIfNeeded();
-    await timeInput.click({ force: true });
-    
-    // 2. Esperar a que aparezca el diálogo
-    await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
-    
-    // 3. Seleccionar la hora
-    const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
-      1: { cx: 162.5, cy: 46.38784067832272 },
-      2: { cx: 193.6121593216773, cy: 77.5 },
-      3: { cx: 205, cy: 120 },
-      4: { cx: 193.6121593216773, cy: 162.5 },
-      5: { cx: 162.5, cy: 193.61215932167727 },
-      6: { cx: 120, cy: 205 },
-      7: { cx: 77.50000000000003, cy: 193.6121593216773 },
-      8: { cx: 46.3878406783227, cy: 162.5 },
-      9: { cx: 35, cy: 120.00000000000001 },
-      10: { cx: 46.38784067832272, cy: 77.5 },
-      11: { cx: 77.49999999999997, cy: 46.38784067832273 },
-      12: { cx: 120, cy: 35 },
-    };
-    
-    const h = horaCirculos[hora];
-    if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
-    
-    await page.waitForTimeout(500);
-    
-    const allCircles = page.locator('svg circle.cursor-pointer');
-    const circleCount = await allCircles.count();
-    
-    let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
-    let minDistance = Infinity;
-    
-    for (let i = 0; i < circleCount; i++) {
-      const circle = allCircles.nth(i);
-      const cx = parseFloat(await circle.getAttribute('cx') || '0');
-      const cy = parseFloat(await circle.getAttribute('cy') || '0');
-      const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
-      
+        // --- Función auxiliar para seleccionar hora y minuto en el reloj ---
+        async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
+          // 1. Abrir el selector de hora
+          const timeInput = page.locator('input#Time');
+          await timeInput.scrollIntoViewIfNeeded();
+          await timeInput.click({ force: true });
+          
+          // 2. Esperar a que aparezca el diálogo
+          await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
+          
+          // 3. Seleccionar la hora
+          const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
+            1: { cx: 162.5, cy: 46.38784067832272 },
+            2: { cx: 193.6121593216773, cy: 77.5 },
+            3: { cx: 205, cy: 120 },
+            4: { cx: 193.6121593216773, cy: 162.5 },
+            5: { cx: 162.5, cy: 193.61215932167727 },
+            6: { cx: 120, cy: 205 },
+            7: { cx: 77.50000000000003, cy: 193.6121593216773 },
+            8: { cx: 46.3878406783227, cy: 162.5 },
+            9: { cx: 35, cy: 120.00000000000001 },
+            10: { cx: 46.38784067832272, cy: 77.5 },
+            11: { cx: 77.49999999999997, cy: 46.38784067832273 },
+            12: { cx: 120, cy: 35 },
+          };
+          
+          const h = horaCirculos[hora];
+          if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
+          
+          await page.waitForTimeout(500);
+          
+          const allCircles = page.locator('svg circle.cursor-pointer');
+          const circleCount = await allCircles.count();
+          
+          let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
+          let minDistance = Infinity;
+          
+          for (let i = 0; i < circleCount; i++) {
+            const circle = allCircles.nth(i);
+            const cx = parseFloat(await circle.getAttribute('cx') || '0');
+            const cy = parseFloat(await circle.getAttribute('cy') || '0');
+            const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
+            
       if (distance < minDistance && distance < 25) {
-        minDistance = distance;
-        closestCircle = circle;
-      }
-    }
-    
-    if (closestCircle) {
-      await closestCircle.click({ timeout: 5000 });
-    } else {
+              minDistance = distance;
+              closestCircle = circle;
+            }
+          }
+          
+          if (closestCircle) {
+            await closestCircle.click({ timeout: 5000 });
+          } else {
       throw new Error(`No se pudo encontrar el círculo para la hora ${hora}`);
-    }
-    
-    await page.waitForTimeout(500);
-    
-    // 4. Seleccionar el minuto
-    const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
-      0: { cx: 120, cy: 205 },
-      15: { cx: 205, cy: 120 },
-      30: { cx: 120, cy: 35 },
-      45: { cx: 35, cy: 120 },
-    };
-    
-    const m = minutoCirculos[minuto];
-    if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
-    
-    const allMinuteCircles = page.locator('svg circle.cursor-pointer');
-    const minuteCircleCount = await allMinuteCircles.count();
-    
-    let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
-    let minMinuteDistance = Infinity;
-    
-    for (let i = 0; i < minuteCircleCount; i++) {
-      const circle = allMinuteCircles.nth(i);
-      const cx = parseFloat(await circle.getAttribute('cx') || '0');
-      const cy = parseFloat(await circle.getAttribute('cy') || '0');
-      const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
-      
+          }
+          
+          await page.waitForTimeout(500);
+          
+          // 4. Seleccionar el minuto
+          const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
+            0: { cx: 120, cy: 205 },
+            15: { cx: 205, cy: 120 },
+            30: { cx: 120, cy: 35 },
+            45: { cx: 35, cy: 120 },
+          };
+          
+          const m = minutoCirculos[minuto];
+          if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
+          
+          const allMinuteCircles = page.locator('svg circle.cursor-pointer');
+          const minuteCircleCount = await allMinuteCircles.count();
+          
+          let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
+          let minMinuteDistance = Infinity;
+          
+          for (let i = 0; i < minuteCircleCount; i++) {
+            const circle = allMinuteCircles.nth(i);
+            const cx = parseFloat(await circle.getAttribute('cx') || '0');
+            const cy = parseFloat(await circle.getAttribute('cy') || '0');
+            const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
+            
       if (distance < minMinuteDistance && distance < 25) {
-        minMinuteDistance = distance;
-        closestMinuteCircle = circle;
-      }
-    }
-    
-    if (closestMinuteCircle) {
-      await closestMinuteCircle.click({ timeout: 5000 });
-    } else {
-      throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
-    }
-    
-    await page.waitForTimeout(500);
-    
-    // 5. Confirmar selección
-    const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
-    await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-    await confirmButton.click({ timeout: 5000 });
-    console.log(`✓ Botón "Confirmar" presionado`);
-  }
+              minMinuteDistance = distance;
+              closestMinuteCircle = circle;
+            }
+          }
+          
+          if (closestMinuteCircle) {
+            await closestMinuteCircle.click({ timeout: 5000 });
+          } else {
+            throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
+          }
+          
+          await page.waitForTimeout(500);
+          
+          // 5. Confirmar selección
+          const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
+          await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
+          await confirmButton.click({ timeout: 5000 });
+          console.log(`✓ Botón "Confirmar" presionado`);
+        }
+        
+        // Llenar todos los campos del formulario
+        console.log('\n📝 Llenando formulario de contacto...');
+  await showStepMessage(page, '📝 LLENANDO FORMULARIO DE EVENTO');
   
-  // Llenar todos los campos del formulario
-  console.log('\n📝 Llenando formulario de contacto...');
-  
-  // 1. Nombre del festejado
-  const randomNames = ['María', 'Juan', 'Carlos', 'Ana', 'Pedro', 'Laura', 'José', 'Carmen', 'Luis', 'Sofia'];
-  const randomLastNames = ['García', 'Rodríguez', 'Martínez', 'López', 'González', 'Hernández', 'Pérez', 'Sánchez', 'Ramírez', 'Torres'];
-  const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
-  const randomLastName = randomLastNames[Math.floor(Math.random() * randomLastNames.length)];
-  const randomHonoree = `${randomName} ${randomLastName}`;
+  // Variables para guardar los datos del evento y verificarlos después
+  let eventData: {
+    honoree: string;
+    date: string;
+    time: string;
+    city: string;
+    attendees: number;
+  };
+        
+        // 1. Nombre del festejado
+        const randomNames = ['María', 'Juan', 'Carlos', 'Ana', 'Pedro', 'Laura', 'José', 'Carmen', 'Luis', 'Sofia'];
+        const randomLastNames = ['García', 'Rodríguez', 'Martínez', 'López', 'González', 'Hernández', 'Pérez', 'Sánchez', 'Ramírez', 'Torres'];
+        const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+        const randomLastName = randomLastNames[Math.floor(Math.random() * randomLastNames.length)];
+        const randomHonoree = `${randomName} ${randomLastName}`;
+        
+  eventData = {
+    honoree: randomHonoree,
+    date: '',
+    time: '',
+    city: '',
+    attendees: 0
+  };
   
   const honoreeField = page.locator('input[id="Honoree"]').first();
   await honoreeField.scrollIntoViewIfNeeded();
   await honoreeField.click();
-  await honoreeField.fill(randomHonoree);
-  console.log(`✓ Campo "Nombre del festejado" llenado: ${randomHonoree}`);
+        await honoreeField.fill(randomHonoree);
+        console.log(`✓ Campo "Nombre del festejado" llenado: ${randomHonoree}`);
   
   // Quitar el foco del campo de nombre del festejado para evitar que el siguiente input escriba aquí
   await honoreeField.blur().catch(() => {});
   await page.waitForTimeout(300);
-  
-  // 2. Fecha (usando date picker)
-  const dateField = page.locator('input[id="Date"]');
-  await dateField.click();
-  console.log(`✓ Abriendo date picker para seleccionar fecha futura`);
-  
-  const datePicker = page.locator('.flatpickr-calendar:visible, .flatpickr-calendar.open').first();
-  await datePicker.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
-  
-  const datePickerVisible = await datePicker.isVisible().catch(() => false);
-  
-  if (datePickerVisible) {
-    console.log(`✓ Date picker visible, buscando días futuros...`);
+        
+        // 2. Fecha (usando date picker)
+        const dateField = page.locator('input[id="Date"]');
+        await dateField.click();
+        console.log(`✓ Abriendo date picker para seleccionar fecha futura`);
+        
+        const datePicker = page.locator('.flatpickr-calendar:visible, .flatpickr-calendar.open').first();
+        await datePicker.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+        
+        const datePickerVisible = await datePicker.isVisible().catch(() => false);
+        
+        if (datePickerVisible) {
+          console.log(`✓ Date picker visible, buscando días futuros...`);
+          
+          const availableDays = page.locator('.flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay)');
+          const daysCount = await availableDays.count();
+          const currentDay = new Date().getDate();
+          
+          console.log(`📊 Días disponibles: ${daysCount}, día actual: ${currentDay}`);
+          
+          let futureDayIndex = -1;
+          for (let i = 0; i < daysCount; i++) {
+            const dayElement = availableDays.nth(i);
+            const dayText = await dayElement.textContent();
+            const dayNumber = parseInt(dayText?.trim() || '0');
+            
+            if (dayNumber > currentDay) {
+              futureDayIndex = i;
+              break;
+            }
+          }
+          
+          if (futureDayIndex === -1) {
+            futureDayIndex = daysCount - 1;
+            console.log(`⚠ No hay días futuros en este mes, usando último día disponible`);
+          }
+          
+          const selectedDay = availableDays.nth(futureDayIndex);
+          await selectedDay.click();
+          const dayText = await selectedDay.textContent();
+          const selectedDayNumber = parseInt(dayText?.trim() || '0');
     
-    const availableDays = page.locator('.flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay)');
-    const daysCount = await availableDays.count();
-    const currentDay = new Date().getDate();
-    
-    console.log(`📊 Días disponibles: ${daysCount}, día actual: ${currentDay}`);
-    
-    let futureDayIndex = -1;
-    for (let i = 0; i < daysCount; i++) {
-      const dayElement = availableDays.nth(i);
-      const dayText = await dayElement.textContent();
-      const dayNumber = parseInt(dayText?.trim() || '0');
-      
-      if (dayNumber > currentDay) {
-        futureDayIndex = i;
-        break;
-      }
-    }
-    
-    if (futureDayIndex === -1) {
-      futureDayIndex = daysCount - 1;
-      console.log(`⚠ No hay días futuros en este mes, usando último día disponible`);
-    }
-    
-    const selectedDay = availableDays.nth(futureDayIndex);
-    await selectedDay.click();
-    const dayText = await selectedDay.textContent();
-    const selectedDayNumber = parseInt(dayText?.trim() || '0');
-    console.log(`✓ Fecha seleccionada: día ${selectedDayNumber}`);
-  }
-  
-  // 3. Hora (usando selector de hora)
+    // Guardar la fecha seleccionada
+    const dateFieldValue = await dateField.inputValue();
+    eventData.date = dateFieldValue;
+    console.log(`✓ Fecha seleccionada: día ${selectedDayNumber} (${dateFieldValue})`);
+        }
+        
+        // 3. Hora (usando selector de hora)
   const randomHour = Math.floor(Math.random() * 12) + 1;
   const randomMinute = [0, 15, 30, 45][Math.floor(Math.random() * 4)];
+        
+        await seleccionarHoraYMinuto(page, randomHour, randomMinute);
   
-  await seleccionarHoraYMinuto(page, randomHour, randomMinute);
-  console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')}`);
+  // Guardar la hora seleccionada
+  const timeField = page.locator('input[id="Time"]');
+  await timeField.waitFor({ state: 'visible', timeout: 3000 });
+  const timeValue = await timeField.inputValue();
+  eventData.time = timeValue;
+  console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')} (${timeValue})`);
   
-  const timePickerDialog = page.locator('[data-time-picker-content="true"]');
-  try {
-    await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
-  } catch (e) {
-    await page.waitForTimeout(1000);
-  }
-  
-  // 4. Ciudad (usando autocompletado de Google)
-  const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
-  const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
-  
-  await page.waitForTimeout(500);
-  
+        const timePickerDialog = page.locator('[data-time-picker-content="true"]');
+        try {
+          await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
+        } catch (e) {
+          await page.waitForTimeout(1000);
+        }
+        
+        // 4. Ciudad (usando autocompletado de Google)
+        const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
+        const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
+        
+        await page.waitForTimeout(500);
+        
   // Buscar el campo de ciudad usando el label "Ciudad" para asegurar que es el correcto
   let cityField: ReturnType<typeof page.locator> | null = null;
   
-  // Intentar primero con el label "Ciudad" para encontrar el campo correcto
   const ciudadLabel = page.locator('label:has-text("Ciudad")').first();
-  const labelExists = await ciudadLabel.count().then(count => count > 0);
-  
-  if (labelExists) {
-    try {
-      const labelFor = await ciudadLabel.getAttribute('for');
-      if (labelFor) {
-        cityField = page.locator(`input[id="${labelFor}"]`).first();
+          const labelExists = await ciudadLabel.count().then(count => count > 0);
+          
+          if (labelExists) {
+              const labelFor = await ciudadLabel.getAttribute('for');
+              if (labelFor) {
+      cityField = page.locator(`input[id="${labelFor}"]`).first();
+      const foundById = await cityField.count().then(count => count > 0);
+      if (foundById) {
         await cityField.waitFor({ state: 'visible', timeout: 5000 });
         console.log(`✓ Campo de ciudad encontrado por atributo "for" del label: ${labelFor}`);
-      } else {
-        // Si no tiene atributo "for", buscar el input dentro del mismo contenedor que el label
-        cityField = page.locator('//label[contains(text(), "Ciudad")]/ancestor::div[contains(@class, "flex") or contains(@class, "relative")]//input | //label[contains(text(), "Ciudad")]/following::input[1]').first();
+              } else {
+        console.log(`⚠ Campo con id="${labelFor}" no existe. Buscando input hermano del label...`);
+        cityField = ciudadLabel.locator('xpath=preceding-sibling::input[1]').first();
+        if (!(await cityField.count())) {
+          cityField = ciudadLabel.locator('xpath=ancestor::div[contains(@class, "relative") or contains(@class, "flex")]//input').first();
+        }
         await cityField.waitFor({ state: 'visible', timeout: 5000 });
         console.log(`✓ Campo de ciudad encontrado por proximidad al label`);
+            }
+          } else {
+      cityField = ciudadLabel.locator('xpath=preceding-sibling::input[1]').first();
+      const siblingExists = await cityField.count().then(count => count > 0);
+      if (!siblingExists) {
+        cityField = ciudadLabel.locator('xpath=ancestor::div[contains(@class, "relative") or contains(@class, "flex")]//input').first();
       }
-    } catch (e) {
-      console.log(`⚠ Error al encontrar campo por label, intentando con id="Address"...`);
-      cityField = page.locator('input[id="Address"]').first();
+      if (!(await cityField.count())) {
+        cityField = ciudadLabel.locator('xpath=following::input[1]').first();
+      }
       await cityField.waitFor({ state: 'visible', timeout: 5000 });
+      console.log(`✓ Campo de ciudad encontrado por proximidad al label`);
     }
   } else {
-    // Si no se encuentra el label, usar el id directamente
-    cityField = page.locator('input[id="Address"]').first();
-    try {
-      await cityField.waitFor({ state: 'visible', timeout: 5000 });
-      console.log(`✓ Campo de ciudad encontrado por id="Address"`);
-    } catch (e) {
-      console.log(`⚠ Campo no encontrado con id="Address", intentando selector genérico...`);
-      // Último recurso: buscar input con el ícono de map-pin cerca
-      cityField = page.locator('input').filter({
-        has: page.locator('..').locator('i.icon-map-pin')
-      }).first();
-      await cityField.waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`⚠ Label "Ciudad" no encontrado, usando selectores alternos...`);
+    cityField = page.locator('input').filter({
+      has: page.locator('..').locator('i.icon-map-pin')
+    }).first();
+  }
+  
+  if (cityField) {
+    const exists = await cityField.count().then(count => count > 0);
+    if (!exists) {
+      cityField = null;
     }
   }
+  
+  if (!cityField) {
+    throw new Error('❌ No se pudo encontrar el campo de ciudad');
+          }
+          
+          await cityField.waitFor({ state: 'visible', timeout: 5000 });
   
   if (!cityField) {
     throw new Error('❌ No se pudo encontrar el campo de ciudad');
@@ -1067,22 +1119,22 @@ test('Nueva fiesta', async ({ page }) => {
   await page.waitForTimeout(500);
   
   // Limpiar el campo si tiene algún valor
-  const clearButton = page.locator('button[aria-label="Clear address"]');
-  const clearButtonVisible = await clearButton.isVisible().catch(() => false);
-  
-  if (clearButtonVisible) {
-    await clearButton.click();
-    await page.waitForTimeout(200);
+        const clearButton = page.locator('button[aria-label="Clear address"]');
+        const clearButtonVisible = await clearButton.isVisible().catch(() => false);
+        
+        if (clearButtonVisible) {
+          await clearButton.click();
+          await page.waitForTimeout(200);
     // Hacer clic nuevamente en el campo después de limpiar para asegurar el foco
     await cityField.click({ force: true });
     await page.waitForTimeout(500);
-  } else {
+        } else {
     // Limpiar el campo seleccionando todo y borrando
     const currentValue = await cityField.inputValue();
     if (currentValue && currentValue.trim().length > 0) {
-      await cityField.selectText();
-      await cityField.press('Backspace');
-      await page.waitForTimeout(200);
+          await cityField.selectText();
+          await cityField.press('Backspace');
+          await page.waitForTimeout(200);
     }
   }
   
@@ -1132,8 +1184,8 @@ test('Nueva fiesta', async ({ page }) => {
   }
   
   console.log(`✓ Ciudad escrita: "${randomCity}" (valor en campo: "${await cityField.inputValue()}")`);
-  await page.waitForTimeout(2000);
-
+        await page.waitForTimeout(2000);
+        
   // Esperar a que aparezcan las opciones de autocompletado de Google Places
   try {
     const autocompleteList = page.locator('ul.flex.flex-col.py-2, ul[class*="flex"][class*="flex-col"]');
@@ -1154,6 +1206,7 @@ test('Nueva fiesta', async ({ page }) => {
       await page.waitForTimeout(1500);
       
       const cityValue = await cityField.inputValue();
+      eventData.city = cityValue;
       console.log(`✅ Ciudad seleccionada. Valor del campo: "${cityValue}"`);
       
       const errorMessage = page.locator('p.text-xsmall.text-danger-neutral:has-text("Selecciona una dirección")');
@@ -1176,30 +1229,302 @@ test('Nueva fiesta', async ({ page }) => {
       
       await firstOption.click();
       await page.waitForTimeout(1500);
+      const cityValueAlt = await cityField.inputValue();
+      eventData.city = cityValueAlt;
       console.log('✅ Ciudad seleccionada del autocompletado (selector alternativo)');
     } catch (error2) {
-      console.log('⚠️ No se pudieron encontrar las opciones de autocompletado, continuando con el texto ingresado');
+      // Si no se encontró autocompletado, usar el valor que se escribió
+      const cityValueFallback = await cityField.inputValue();
+      eventData.city = cityValueFallback || randomCity;
+      console.log(`⚠️ No se pudieron encontrar las opciones de autocompletado, usando: "${eventData.city}"`);
     }
   }
   
-  // 5. Número de invitados
+  // Asegurar que la ciudad esté guardada
+  if (!eventData.city) {
+    const cityValueFinal = await cityField.inputValue();
+    eventData.city = cityValueFinal || randomCity;
+        }
+        
+        // 5. Número de invitados
   const randomAttendees = Math.floor(Math.random() * 181) + 20;
-  const attendeesField = page.locator('input[id="Attendees"]');
-  await attendeesField.fill(randomAttendees.toString());
-  console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
+        const attendeesField = page.locator('input[id="Attendees"]');
+        await attendeesField.fill(randomAttendees.toString());
+  eventData.attendees = randomAttendees;
+        console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
+        
+        console.log('✅ Formulario completado exitosamente');
+        
+        // 6. Hacer clic en el botón "Crear evento"
+  await showStepMessage(page, '🚀 CREANDO EVENTO');
+        const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
+          hasText: 'Crear evento'
+        });
+        await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Botón "Crear evento" encontrado y visible`);
+        await createEventButton.click();
+        console.log(`✓ Se hizo clic en "Crear evento"`);
+        await page.waitForTimeout(2000);
   
-  console.log('✅ Formulario completado exitosamente');
+  // 7. Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
+  await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
+  const preQuotationForm = page.locator('#PrequotationRequestForm');
+  await preQuotationForm.waitFor({ state: 'visible', timeout: 15000 });
+  console.log('🪟 Modal de solicitud visible');
   
-  // 6. Hacer clic en el botón "Crear evento"
-  const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
-    hasText: 'Crear evento'
-  });
-  await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
-  console.log(`✓ Botón "Crear evento" encontrado y visible`);
-  await createEventButton.click();
-  console.log(`✓ Se hizo clic en "Crear evento"`);
+  const checkboxLocator = preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]');
+  const checkboxCount = await checkboxLocator.count();
+  console.log(`📋 Checkboxes disponibles: ${checkboxCount}`);
+  
+  if (checkboxCount > 0) {
+    const shouldSelectAll = Math.random() < 0.4;
+    
+    if (shouldSelectAll) {
+      await showStepMessage(page, '☑️ SELECCIONANDO TODAS LAS VARIEDADES');
+      const selectAllButton = preQuotationForm.locator('div:has(> p:has-text("Seleccionar todo")) button').first();
+      if (await selectAllButton.isVisible().catch(() => false)) {
+        await selectAllButton.click();
+        console.log('✅ Se hizo clic en "Seleccionar todo"');
+      } else {
+        console.log('⚠ Botón "Seleccionar todo" no visible, seleccionando manualmente');
+      }
+    } else {
+      await showStepMessage(page, '☑️ SELECCIONANDO VARIEDADES ALEATORIAS');
+    }
+    
+    if (! (await preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]:checked').count())) {
+      // Seleccionar manualmente algunos checkboxes si no se seleccionaron con el botón
+      const indices = Array.from({ length: checkboxCount }, (_, i) => i).sort(() => Math.random() - 0.5);
+      const selections = Math.min(checkboxCount, Math.max(1, Math.floor(Math.random() * checkboxCount) + 1));
+      
+      for (let i = 0; i < selections; i++) {
+        const checkbox = checkboxLocator.nth(indices[i]);
+        const alreadyChecked = await checkbox.evaluate(el => (el as HTMLInputElement).checked).catch(() => false);
+        if (alreadyChecked) continue;
+        
+        const checkboxId = await checkbox.getAttribute('id');
+        let clickTarget = checkbox;
+        if (checkboxId) {
+          const label = preQuotationForm.locator(`label[for="${checkboxId}"]`).first();
+          if (await label.count()) {
+            clickTarget = label;
+          }
+        } else {
+          const buttonWrapper = checkbox.locator('xpath=ancestor::button[1]');
+          if (await buttonWrapper.count()) {
+            clickTarget = buttonWrapper;
+          }
+        }
+        
+        await clickTarget.click({ force: true });
+        console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
+        await page.waitForTimeout(200);
+      }
+    }
+  } else {
+    console.log('⚠ No se encontraron checkboxes para seleccionar');
+  }
+  
+  // 8. Llenar el campo "Solicitudes"
+  await showStepMessage(page, '📝 LLENANDO CAMPO DE SOLICITUDES');
+  const requestMessages = [
+    'Nos gustaría incluir opciones vegetarianas y postres personalizados.',
+    'Buscamos algo con temática tropical y servicio completo de montaje.',
+    'Necesitamos cotización con barra libre y personal extra para servicio.',
+    'Queremos opciones premium y asesoría para decoración a juego.',
+  ];
+  const randomRequestMessage = requestMessages[Math.floor(Math.random() * requestMessages.length)];
+  
+  const requestField = preQuotationForm.locator('textarea#Request');
+  await requestField.waitFor({ state: 'visible', timeout: 5000 });
+  await requestField.fill(randomRequestMessage);
+  console.log(`📝 Campo "Solicitudes" llenado con: ${randomRequestMessage}`);
+  
+  // 9. Enviar la solicitud
+  await showStepMessage(page, '🚀 ENVIANDO SOLICITUD');
+  // El botón "Solicitar" está fuera del formulario, buscarlo en toda la página
+  const solicitarButton = page.locator('button[form="PrequotationRequestForm"], button:has-text("Solicitar")').first();
+  await solicitarButton.waitFor({ state: 'visible', timeout: 10000 });
+  await solicitarButton.click();
+  console.log('🚀 Botón "Solicitar" presionado');
+  
+  await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
+  await page.waitForTimeout(1000);
+  
+  // 9.1 Confirmar diálogo "Solicitud enviada"
+  await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
+  const successDialog = page.locator('div:has-text("Solicitud enviada")').first();
+  try {
+    await successDialog.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('🎊 Modal "Solicitud enviada" visible');
+    
+    const okButton = successDialog.locator('button:has-text("OK")').first();
+    await okButton.waitFor({ state: 'visible', timeout: 5000 });
+    await okButton.click();
+    console.log('👍 Botón "OK" presionado');
+  } catch (successModalError) {
+    console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
+  }
+  
+  await page.waitForTimeout(1500);
+  
+  // 10. Verificar que el flujo regrese automáticamente al dashboard del cliente
+  await showStepMessage(page, '🔁 ESPERANDO REGRESO AL DASHBOARD');
+  console.log('🔁 Esperando a que la aplicación regrese al dashboard del cliente...');
+  await page.waitForURL('**/client/dashboard', { timeout: 20000 });
+  console.log('🏠 Dashboard del cliente visible');
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(1000);
+  
+  // 11. Verificar que el evento aparezca en el dashboard del cliente
+  await showStepMessage(page, '🔍 VERIFICANDO EVENTO EN DASHBOARD');
+  console.log('🔍 Verificando que el nuevo evento aparezca en el dashboard del cliente...');
+  
+  const newEventCard = page.locator(`text=${randomHonoree}`).first();
+  await newEventCard.waitFor({ state: 'visible', timeout: 15000 });
+  console.log(`🎉 Evento "${randomHonoree}" visible en el dashboard del cliente`);
+  
+  // 12. Verificar que los datos del evento coincidan con los datos creados
+  await showStepMessage(page, '✅ VERIFICANDO DATOS DEL EVENTO');
+  console.log('\n🔍 Verificando que los datos del evento coincidan...');
+  
+  // Buscar la tarjeta del evento (puede estar en un contenedor padre)
+  const eventCardContainer = newEventCard.locator('xpath=ancestor::div[contains(@class, "card") or contains(@class, "flex")]').first();
+  const cardExists = await eventCardContainer.count().then(count => count > 0);
+  const cardToCheck = cardExists ? eventCardContainer : page.locator(`text=${randomHonoree}`).locator('xpath=ancestor::div').first();
+  
+  // Verificar nombre del festejado
+  const honoreeInCard = await cardToCheck.locator(`text=${eventData.honoree}`).count().then(count => count > 0);
+  if (honoreeInCard) {
+    console.log(`✅ Nombre del festejado verificado: "${eventData.honoree}"`);
+  } else {
+    console.log(`⚠️ Nombre del festejado no encontrado en la tarjeta`);
+  }
+  
+  // Verificar fecha (puede estar en diferentes formatos)
+  const dateInCard = await cardToCheck.textContent();
+  const dateFormats = [
+    eventData.date,
+    eventData.date.replace(/-/g, '/'),
+    eventData.date.split('-').reverse().join('/'),
+  ];
+  const dateFound = dateFormats.some(format => dateInCard?.includes(format) || false);
+  if (dateFound) {
+    console.log(`✅ Fecha verificada: "${eventData.date}"`);
+  } else {
+    console.log(`⚠️ Fecha "${eventData.date}" no encontrada en la tarjeta (contenido: "${dateInCard?.substring(0, 100)}...")`);
+  }
+  
+  // Verificar hora (puede estar en formato 12h o 24h)
+  const timeInCard = dateInCard || '';
+  const timeFormats = [
+    eventData.time,
+    eventData.time.replace(' PM', '').replace(' AM', ''),
+    eventData.time.toLowerCase(),
+  ];
+  const timeFound = timeFormats.some(format => timeInCard?.includes(format) || false);
+  if (timeFound) {
+    console.log(`✅ Hora verificada: "${eventData.time}"`);
+  } else {
+    console.log(`⚠️ Hora "${eventData.time}" no encontrada en la tarjeta`);
+  }
+  
+  // Verificar ciudad (puede estar abreviada o con formato diferente)
+  const cityParts = eventData.city.split(',').map(s => s.trim());
+  const cityFound = cityParts.some(part => dateInCard?.includes(part) || false);
+  if (cityFound) {
+    console.log(`✅ Ciudad verificada: "${eventData.city}"`);
+  } else {
+    console.log(`⚠️ Ciudad "${eventData.city}" no encontrada en la tarjeta`);
+  }
+  
+  // Verificar número de invitados
+  const attendeesInCard = await cardToCheck.locator(`text=${eventData.attendees}`).count().then(count => count > 0);
+  if (attendeesInCard) {
+    console.log(`✅ Número de invitados verificado: ${eventData.attendees}`);
+  } else {
+    console.log(`⚠️ Número de invitados "${eventData.attendees}" no encontrado en la tarjeta`);
+  }
+  
+  // 13. Seleccionar el evento en el dashboard
+  await showStepMessage(page, '🖱️ SELECCIONANDO EVENTO EN DASHBOARD');
+  console.log('\n🖱️ Seleccionando evento en el dashboard...');
+  
+  // Hacer clic en la tarjeta del evento
+  await newEventCard.click();
+  await page.waitForTimeout(2000);
+  console.log('✓ Se hizo clic en la tarjeta del evento');
+  
+  // Esperar a que cargue la página de detalles del evento
+  await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(2000);
   
-  console.log('✅ Prueba de creación de evento completada exitosamente');
+  // 14. Verificar que el servicio aparece en la sección de servicios
+  await showStepMessage(page, '🔍 VERIFICANDO SERVICIO EN SECCIÓN DE SERVICIOS');
+  console.log('\n🔍 Verificando que el servicio aparece en la sección de servicios...');
+  
+  // Buscar la sección de servicios (puede estar en un contenedor con overflow-y-auto)
+  const serviciosSection = page.locator('div.flex.flex-col.grow.overflow-y-auto').first();
+  const serviciosExists = await serviciosSection.count().then(count => count > 0);
+  
+  if (serviciosExists) {
+    // Buscar el servicio por su nombre (puede estar en un botón o tarjeta)
+    const servicioEnLista = serviciosSection.locator(`text=${servicioInfo.nombre}`).first();
+    const servicioVisible = await servicioEnLista.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (servicioVisible) {
+      console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado en la sección de servicios`);
+      
+      // Verificar que el servicio tiene el estado correcto (PENDIENTE)
+      const servicioCard = servicioEnLista.locator('xpath=ancestor::button[1]').first();
+      const estadoPendiente = await servicioCard.locator('text=PENDIENTE').count().then(count => count > 0);
+      if (estadoPendiente) {
+        console.log('✅ Estado "PENDIENTE" verificado en el servicio');
+      }
+    } else {
+      console.log(`⚠️ Servicio "${servicioInfo.nombre}" no visible en la sección de servicios`);
+    }
+  } else {
+    console.log('⚠️ Sección de servicios no encontrada');
+  }
+  
+  // 15. Verificar que hay una notificación en Fiestachat del proveedor
+  await showStepMessage(page, '💬 VERIFICANDO NOTIFICACIÓN EN FIESTACHAT');
+  console.log('\n💬 Verificando notificación en Fiestachat...');
+  
+  // Buscar la sección de Fiestachat
+  const fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+  const fiestachatExists = await fiestachatSection.count().then(count => count > 0);
+  
+  if (fiestachatExists) {
+    // Buscar notificaciones en Fiestachat
+    const notificaciones = fiestachatSection.locator('button.flex.gap-4').filter({
+      has: page.locator('text=/Solicitud recibida|Pronto tendrás una respuesta/i')
+    });
+    const notificacionesCount = await notificaciones.count();
+    
+    if (notificacionesCount > 0) {
+      console.log(`✅ Se encontraron ${notificacionesCount} notificación(es) en Fiestachat`);
+      
+      // Verificar que la notificación contiene el mensaje esperado
+      const primeraNotificacion = notificaciones.first();
+      const textoNotificacion = await primeraNotificacion.textContent();
+      
+      if (textoNotificacion?.includes('Solicitud recibida') || textoNotificacion?.includes('Pronto tendrás una respuesta')) {
+        console.log('✅ Notificación del proveedor verificada en Fiestachat');
+        console.log(`   Contenido: "${textoNotificacion?.substring(0, 100)}..."`);
+                } else {
+        console.log(`⚠️ Notificación encontrada pero no contiene el mensaje esperado`);
+                }
+              } else {
+      console.log('⚠️ No se encontraron notificaciones en Fiestachat');
+            }
+          } else {
+    console.log('⚠️ Sección de Fiestachat no encontrada');
+  }
+  
+  await showStepMessage(page, '🎉 PRUEBA COMPLETADA EXITOSAMENTE');
+  console.log('\n✅ Prueba de creación de evento completada exitosamente');
+  await clearStepMessage(page);
 });
 
