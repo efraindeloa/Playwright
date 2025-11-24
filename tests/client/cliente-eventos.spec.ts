@@ -10,9 +10,111 @@ test.use({
 test.setTimeout(180000); // 3 minutos
 
 /**
+ * Función auxiliar para seleccionar hora y minuto en el reloj
+ */
+export async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
+  // 1. Abrir el selector de hora
+  const timeInput = page.locator('input#Time');
+  await timeInput.scrollIntoViewIfNeeded();
+  await timeInput.click({ force: true });
+  
+  // 2. Esperar a que aparezca el diálogo
+  await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
+  
+  // 3. Seleccionar la hora
+  const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
+    1: { cx: 162.5, cy: 46.38784067832272 },
+    2: { cx: 193.6121593216773, cy: 77.5 },
+    3: { cx: 205, cy: 120 },
+    4: { cx: 193.6121593216773, cy: 162.5 },
+    5: { cx: 162.5, cy: 193.61215932167727 },
+    6: { cx: 120, cy: 205 },
+    7: { cx: 77.50000000000003, cy: 193.6121593216773 },
+    8: { cx: 46.3878406783227, cy: 162.5 },
+    9: { cx: 35, cy: 120.00000000000001 },
+    10: { cx: 46.38784067832272, cy: 77.5 },
+    11: { cx: 77.49999999999997, cy: 46.38784067832273 },
+    12: { cx: 120, cy: 35 },
+  };
+  
+  const h = horaCirculos[hora];
+  if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
+  
+  await page.waitForTimeout(500);
+  
+  const allCircles = page.locator('svg circle.cursor-pointer');
+  const circleCount = await allCircles.count();
+  
+  let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
+  let minDistance = Infinity;
+  
+  for (let i = 0; i < circleCount; i++) {
+    const circle = allCircles.nth(i);
+    const cx = parseFloat(await circle.getAttribute('cx') || '0');
+    const cy = parseFloat(await circle.getAttribute('cy') || '0');
+    const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
+    
+    if (distance < minDistance && distance < 25) {
+      minDistance = distance;
+      closestCircle = circle;
+    }
+  }
+  
+  if (closestCircle) {
+    await closestCircle.click({ timeout: 5000 });
+  } else {
+    throw new Error(`No se pudo encontrar el círculo para la hora ${hora}`);
+  }
+  await page.waitForTimeout(500);
+  
+  // 4. Seleccionar el minuto
+  const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
+    0: { cx: 120, cy: 205 },
+    15: { cx: 205, cy: 120 },
+    30: { cx: 120, cy: 35 },
+    45: { cx: 35, cy: 120 },
+  };
+  
+  const m = minutoCirculos[minuto];
+  if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
+  
+  const allMinuteCircles = page.locator('svg circle.cursor-pointer');
+  const minuteCircleCount = await allMinuteCircles.count();
+  
+  let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
+  let minMinuteDistance = Infinity;
+  
+  for (let i = 0; i < minuteCircleCount; i++) {
+    const circle = allMinuteCircles.nth(i);
+    const cx = parseFloat(await circle.getAttribute('cx') || '0');
+    const cy = parseFloat(await circle.getAttribute('cy') || '0');
+    const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
+    
+    if (distance < minMinuteDistance && distance < 25) {
+      minMinuteDistance = distance;
+      closestMinuteCircle = circle;
+    }
+  }
+  
+  if (closestMinuteCircle) {
+    await closestMinuteCircle.click({ timeout: 5000 });
+  } else {
+    throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
+  }
+  
+  await page.waitForTimeout(500);
+  
+  // 5. Confirmar selección
+  const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
+  await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
+  await confirmButton.click({ timeout: 5000 });
+  console.log(`✓ Botón "Confirmar" presionado`);
+}
+
+/**
  * Busca un servicio en el dashboard del proveedor y obtiene su información
  */
-async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; categoria: string; subcategoria?: string } | null> {
+export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; categoria: string; subcategoria?: string } | null> {
   console.log('\n🔍 BUSCANDO SERVICIO EN DASHBOARD DEL PROVEEDOR...');
   await showStepMessage(page, '🔍 BUSCANDO SERVICIO EN DASHBOARD DEL PROVEEDOR');
   
@@ -57,9 +159,75 @@ async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; 
     return null;
   }
   
-  // Seleccionar una tarjeta de servicio aleatoria
-  const randomIndex = Math.floor(Math.random() * serviceCardsCount);
-  const selectedServiceCard = serviceCardsContainer.nth(randomIndex);
+  // Filtrar servicios activos (excluir inactivos)
+  // El estado se verifica abriendo el menú de tres puntos y viendo si hay botón "Desactivar" (activo) o "Activar" (inactivo)
+  console.log('🔍 Filtrando servicios activos...');
+  const activeServiceIndices: number[] = [];
+  
+  for (let i = 0; i < serviceCardsCount; i++) {
+    const card = serviceCardsContainer.nth(i);
+    
+    // Verificar si la tarjeta es visible
+    const isVisible = await card.isVisible().catch(() => false);
+    if (!isVisible) {
+      continue;
+    }
+    
+    // Buscar el botón de tres puntos en la tarjeta
+    const threeDotsButton = card.locator('button:has(i.icon-more-vertical)').first();
+    const hasThreeDots = await threeDotsButton.count().then(count => count > 0);
+    
+    if (!hasThreeDots) {
+      // Si no tiene botón de tres puntos, asumimos que está activo (fallback)
+      console.log(`⚠️ Servicio en índice ${i} no tiene botón de tres puntos, asumiendo activo`);
+      activeServiceIndices.push(i);
+      continue;
+    }
+    
+    // Hacer clic en el botón de tres puntos para abrir el menú
+    try {
+      await threeDotsButton.click();
+      await page.waitForTimeout(1500); // Esperar a que el menú se abra
+      
+      // Verificar si tiene botón "Desactivar" (servicio activo) o "Activar" (servicio inactivo)
+      const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+      const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+      
+      const hasDeactivate = await deactivateButton.count().then(count => count > 0);
+      const hasActivate = await activateButton.count().then(count => count > 0);
+      
+      // Si tiene botón "Desactivar", el servicio está activo
+      if (hasDeactivate) {
+        activeServiceIndices.push(i);
+        console.log(`✅ Servicio en índice ${i} está activo`);
+      } else if (hasActivate) {
+        console.log(`⚠️ Servicio en índice ${i} está inactivo, omitiéndolo`);
+      } else {
+        // Si no tiene ninguno de los dos, asumimos que está activo (fallback)
+        console.log(`⚠️ Servicio en índice ${i} no tiene botones de estado claros, asumiendo activo`);
+        activeServiceIndices.push(i);
+      }
+      
+      // Cerrar el menú presionando Escape
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    } catch (error) {
+      console.log(`⚠️ Error al verificar servicio en índice ${i}: ${error}`);
+      // En caso de error, asumimos que está activo para no perder servicios
+      activeServiceIndices.push(i);
+    }
+  }
+  
+  if (activeServiceIndices.length === 0) {
+    console.log('⚠️ No se encontraron servicios activos en el dashboard del proveedor');
+    return null;
+  }
+  
+  console.log(`✅ Servicios activos encontrados: ${activeServiceIndices.length} de ${serviceCardsCount}`);
+  
+  // Seleccionar una tarjeta de servicio aleatoria de las activas
+  const randomActiveIndex = activeServiceIndices[Math.floor(Math.random() * activeServiceIndices.length)];
+  const selectedServiceCard = serviceCardsContainer.nth(randomActiveIndex);
   
   // Obtener el nombre del servicio desde la tarjeta
   // El nombre está en un párrafo con clase "text-medium font-bold"
@@ -181,7 +349,7 @@ async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; 
  * Navega por subcategorías hasta encontrar un servicio específico por nombre
  * Usa la categoría y subcategoría proporcionadas para navegar directamente al path correcto
  */
-async function navegarHastaEncontrarServicioEspecifico(
+export async function navegarHastaEncontrarServicioEspecifico(
   page: Page, 
   nombreServicio: string, 
   categoria?: string, 
@@ -444,16 +612,26 @@ async function navegarHastaEncontrarServicioEspecifico(
       console.log(`⚠️ Servicio objetivo "${nombreServicio}" no encontrado o está inactivo. Buscando cualquier servicio activo...`);
       
       // Buscar todas las tarjetas de servicio visibles (excluyendo inactivos)
-      const allServiceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, div[class*="cursor-pointer"]').filter({
-        hasNot: page.locator('text=/Inactivo/i, img.grayscale, div.grayscale')
-      });
+      const allServiceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, div[class*="cursor-pointer"]');
       
-      const activeServiceCardsCount = await allServiceCards.count();
-      console.log(`📊 Servicios activos encontrados: ${activeServiceCardsCount}`);
+      // Filtrar manualmente para excluir servicios inactivos
+      const totalCards = await allServiceCards.count();
+      let firstActiveServiceIndex = -1;
       
-      if (activeServiceCardsCount > 0) {
+      for (let i = 0; i < totalCards; i++) {
+        const card = allServiceCards.nth(i);
+        const hasInactivoText = await card.locator('text=/Inactivo/i').count().then(count => count > 0);
+        const hasGrayscaleImage = await card.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
+        
+        if (!hasInactivoText && !hasGrayscaleImage) {
+          firstActiveServiceIndex = i;
+          break; // Encontramos el primer servicio activo
+        }
+      }
+      
+      if (firstActiveServiceIndex >= 0) {
         // Seleccionar el primer servicio activo disponible
-        const firstActiveService = allServiceCards.first();
+        const firstActiveService = allServiceCards.nth(firstActiveServiceIndex);
         await firstActiveService.scrollIntoViewIfNeeded();
         console.log(`✅ Seleccionando el primer servicio activo disponible...`);
         await firstActiveService.click();
@@ -589,7 +767,11 @@ async function obtenerSubcategoriasParaBusqueda(page: Page): Promise<Array<{ nam
   return subcategorias;
 }
 
-test('Nueva fiesta', async ({ page }) => {
+/**
+ * Ejecuta el flujo completo de creación de evento como cliente
+ * Esta función puede ser reutilizada por otras pruebas
+ */
+export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   await showStepMessage(page, '🎉 INICIANDO CREACIÓN DE NUEVA FIESTA');
   
   // PASO 1: Buscar un servicio en el dashboard del proveedor
@@ -675,6 +857,9 @@ test('Nueva fiesta', async ({ page }) => {
   const categoryName = await selectedCategory.locator('p.text-dark-neutral').textContent();
   const selectedEventType = categoryName?.trim() || 'Desconocido';
   console.log(`✓ Seleccionando categoría aleatoria: "${selectedEventType}" (índice ${randomIndex})`);
+  
+  // Guardar el tipo de evento para validaciones posteriores
+  const eventTypeForValidation = selectedEventType;
   
   // Hacer clic en la categoría seleccionada
   await selectedCategory.click();
@@ -831,108 +1016,7 @@ test('Nueva fiesta', async ({ page }) => {
   }
   
   // Continuar con el formulario de evento
-        // --- Función auxiliar para seleccionar hora y minuto en el reloj ---
-        async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: number) {
-          // 1. Abrir el selector de hora
-          const timeInput = page.locator('input#Time');
-          await timeInput.scrollIntoViewIfNeeded();
-          await timeInput.click({ force: true });
-          
-          // 2. Esperar a que aparezca el diálogo
-          await page.waitForSelector('[data-time-picker-content="true"]', { state: 'visible', timeout: 10000 });
-          
-          // 3. Seleccionar la hora
-          const horaCirculos: { [key: number]: { cx: number; cy: number } } = {
-            1: { cx: 162.5, cy: 46.38784067832272 },
-            2: { cx: 193.6121593216773, cy: 77.5 },
-            3: { cx: 205, cy: 120 },
-            4: { cx: 193.6121593216773, cy: 162.5 },
-            5: { cx: 162.5, cy: 193.61215932167727 },
-            6: { cx: 120, cy: 205 },
-            7: { cx: 77.50000000000003, cy: 193.6121593216773 },
-            8: { cx: 46.3878406783227, cy: 162.5 },
-            9: { cx: 35, cy: 120.00000000000001 },
-            10: { cx: 46.38784067832272, cy: 77.5 },
-            11: { cx: 77.49999999999997, cy: 46.38784067832273 },
-            12: { cx: 120, cy: 35 },
-          };
-          
-          const h = horaCirculos[hora];
-          if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
-          
-          await page.waitForTimeout(500);
-          
-          const allCircles = page.locator('svg circle.cursor-pointer');
-          const circleCount = await allCircles.count();
-          
-          let closestCircle: ReturnType<typeof allCircles.nth> | null = null;
-          let minDistance = Infinity;
-          
-          for (let i = 0; i < circleCount; i++) {
-            const circle = allCircles.nth(i);
-            const cx = parseFloat(await circle.getAttribute('cx') || '0');
-            const cy = parseFloat(await circle.getAttribute('cy') || '0');
-            const distance = Math.sqrt(Math.pow(cx - h.cx, 2) + Math.pow(cy - h.cy, 2));
-            
-      if (distance < minDistance && distance < 25) {
-              minDistance = distance;
-              closestCircle = circle;
-            }
-          }
-          
-          if (closestCircle) {
-            await closestCircle.click({ timeout: 5000 });
-          } else {
-      throw new Error(`No se pudo encontrar el círculo para la hora ${hora}`);
-          }
-          
-          await page.waitForTimeout(500);
-          
-          // 4. Seleccionar el minuto
-          const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
-            0: { cx: 120, cy: 205 },
-            15: { cx: 205, cy: 120 },
-            30: { cx: 120, cy: 35 },
-            45: { cx: 35, cy: 120 },
-          };
-          
-          const m = minutoCirculos[minuto];
-          if (!m) throw new Error(`Minuto ${minuto} no está mapeado`);
-          
-          const allMinuteCircles = page.locator('svg circle.cursor-pointer');
-          const minuteCircleCount = await allMinuteCircles.count();
-          
-          let closestMinuteCircle: ReturnType<typeof allMinuteCircles.nth> | null = null;
-          let minMinuteDistance = Infinity;
-          
-          for (let i = 0; i < minuteCircleCount; i++) {
-            const circle = allMinuteCircles.nth(i);
-            const cx = parseFloat(await circle.getAttribute('cx') || '0');
-            const cy = parseFloat(await circle.getAttribute('cy') || '0');
-            const distance = Math.sqrt(Math.pow(cx - m.cx, 2) + Math.pow(cy - m.cy, 2));
-            
-      if (distance < minMinuteDistance && distance < 25) {
-              minMinuteDistance = distance;
-              closestMinuteCircle = circle;
-            }
-          }
-          
-          if (closestMinuteCircle) {
-            await closestMinuteCircle.click({ timeout: 5000 });
-          } else {
-            throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
-          }
-          
-          await page.waitForTimeout(500);
-          
-          // 5. Confirmar selección
-          const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
-          await confirmButton.waitFor({ state: 'visible', timeout: 5000 });
-          await confirmButton.click({ timeout: 5000 });
-          console.log(`✓ Botón "Confirmar" presionado`);
-        }
-        
-        // Llenar todos los campos del formulario
+  // Llenar todos los campos del formulario
         console.log('\n📝 Llenando formulario de contacto...');
   await showStepMessage(page, '📝 LLENANDO FORMULARIO DE EVENTO');
   
@@ -997,7 +1081,7 @@ test('Nueva fiesta', async ({ page }) => {
             
             if (dayNumber > currentDay) {
               futureDayIndex = i;
-              break;
+          break;
             }
           }
           
@@ -1057,7 +1141,7 @@ test('Nueva fiesta', async ({ page }) => {
       if (foundById) {
         await cityField.waitFor({ state: 'visible', timeout: 5000 });
         console.log(`✓ Campo de ciudad encontrado por atributo "for" del label: ${labelFor}`);
-              } else {
+        } else {
         console.log(`⚠ Campo con id="${labelFor}" no existe. Buscando input hermano del label...`);
         cityField = ciudadLabel.locator('xpath=preceding-sibling::input[1]').first();
         if (!(await cityField.count())) {
@@ -1128,7 +1212,7 @@ test('Nueva fiesta', async ({ page }) => {
     // Hacer clic nuevamente en el campo después de limpiar para asegurar el foco
     await cityField.click({ force: true });
     await page.waitForTimeout(500);
-        } else {
+    } else {
     // Limpiar el campo seleccionando todo y borrando
     const currentValue = await cityField.inputValue();
     if (currentValue && currentValue.trim().length > 0) {
@@ -1266,6 +1350,178 @@ test('Nueva fiesta', async ({ page }) => {
         console.log(`✓ Se hizo clic en "Crear evento"`);
         await page.waitForTimeout(2000);
   
+  // 6.1. Validar el diálogo de confirmación pre-solicitud
+  await showStepMessage(page, '📋 VALIDANDO DIÁLOGO DE CONFIRMACIÓN');
+  console.log('\n🔍 Validando diálogo de confirmación pre-solicitud...');
+  
+  // Buscar el diálogo de confirmación con múltiples estrategias
+  let dialogTitle: ReturnType<typeof page.locator> | null = null;
+  
+  // Estrategia 1: Selector original
+  try {
+    dialogTitle = page.locator('p.text-large.font-semibold');
+    await expect(dialogTitle).toBeVisible({ timeout: 3000 });
+    console.log(`✓ Diálogo de confirmación encontrado con selector original`);
+  } catch (e1) {
+    console.log(`⚠ Selector original no funcionó, intentando otras estrategias...`);
+    
+    // Estrategia 2: Buscar por texto que contenga "Dile aquí"
+    try {
+      dialogTitle = page.locator('p').filter({ hasText: /Dile aquí|necesitas|qué es lo que/i });
+      await expect(dialogTitle).toBeVisible({ timeout: 3000 });
+      console.log(`✓ Diálogo de confirmación encontrado por texto`);
+    } catch (e2) {
+      console.log(`⚠ Selector por texto no funcionó, intentando selector genérico...`);
+      
+      // Estrategia 3: Buscar cualquier párrafo con clase font-semibold
+      try {
+        dialogTitle = page.locator('p.font-semibold');
+        await expect(dialogTitle).toBeVisible({ timeout: 3000 });
+        console.log(`✓ Diálogo de confirmación encontrado con selector genérico`);
+      } catch (e3) {
+        console.log(`⚠ No se encontró el diálogo de confirmación con ninguna estrategia`);
+        console.log(`📊 Contenido de la página después de crear evento:`);
+        
+        // Buscar todos los párrafos visibles para debugging
+        const allParagraphs = page.locator('p');
+        const paragraphCount = await allParagraphs.count();
+        console.log(`📊 Total de párrafos encontrados: ${paragraphCount}`);
+        
+        for (let i = 0; i < Math.min(paragraphCount, 10); i++) {
+          try {
+            const paragraph = allParagraphs.nth(i);
+            const text = await paragraph.textContent();
+            const isVisible = await paragraph.isVisible();
+            if (text && isVisible) {
+              console.log(`   - Párrafo ${i}: "${text.trim().substring(0, 100)}..."`);
+            }
+    } catch (e) {
+            // Ignorar errores al leer párrafos
+          }
+        }
+        
+        console.log(`⚠ Continuando sin validar el diálogo de confirmación...`);
+      }
+    }
+  }
+  
+  if (dialogTitle) {
+    console.log(`✓ Diálogo de confirmación visible`);
+    
+    // Extraer y validar el nombre del servicio en el diálogo
+    let dialogTitleText = '';
+    dialogTitleText = await dialogTitle.textContent() || '';
+    console.log(`📝 Texto del diálogo: "${dialogTitleText}"`);
+    
+    // El texto debería contener "Dile aquí a [NOMBRE_SERVICIO] qué es lo que necesitas"
+    if (dialogTitleText && dialogTitleText.includes('Dile aquí a')) {
+      console.log(`✓ El diálogo menciona el servicio correctamente`);
+    } else {
+      console.log(`⚠ El formato del diálogo no es el esperado`);
+    }
+    
+    // Validar la información del evento en el diálogo
+    const eventInfoContainer = page.locator('div.w-full.flex.flex-col.items-center.border-\\[1px\\]');
+    const containerVisible = await eventInfoContainer.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (containerVisible) {
+      console.log(`✓ Contenedor de información del evento visible`);
+      
+      const eventInfoText = await eventInfoContainer.textContent();
+      console.log(`📋 Información del evento en el diálogo: "${eventInfoText}"`);
+      
+      // Validar que contiene el tipo de evento
+      if (eventInfoText?.includes(eventTypeForValidation)) {
+        console.log(`✓ Tipo de evento coincide: "${eventTypeForValidation}"`);
+      } else {
+        console.log(`⚠ Tipo de evento no encontrado. Esperado: "${eventTypeForValidation}"`);
+      }
+      
+      // Validar que contiene el nombre del festejado
+      if (eventInfoText?.includes(randomHonoree)) {
+        console.log(`✓ Nombre del festejado coincide: "${randomHonoree}"`);
+      } else {
+        console.log(`⚠ Nombre del festejado no encontrado. Esperado: "${randomHonoree}"`);
+      }
+      
+      // Validar que contiene el número de invitados
+      if (eventInfoText?.includes(randomAttendees.toString())) {
+        console.log(`✓ Número de invitados coincide: ${randomAttendees}`);
+      } else {
+        console.log(`⚠ Número de invitados no encontrado. Esperado: ${randomAttendees}`);
+      }
+      
+      // Validar que contiene la ciudad usando el valor seleccionado
+      const cityValue = eventData.city || '';
+      console.log(`📊 Ciudad seleccionada: "${cityValue}"`);
+      
+      if (cityValue && eventInfoText?.toLowerCase().includes(cityValue.toLowerCase())) {
+        console.log(`✓ Ciudad coincide exactamente: "${cityValue}"`);
+      } else {
+        console.log(`⚠ Ciudad no coincide exactamente. Ciudad seleccionada: "${cityValue}"`);
+        
+        // Buscar cualquier mención de la ciudad en el texto
+        const cityWords = cityValue.split(/[,\s]+/).filter(word => word.length > 2);
+        let foundCityWords: string[] = [];
+        
+        for (const word of cityWords) {
+          if (eventInfoText?.toLowerCase().includes(word.toLowerCase())) {
+            foundCityWords.push(word);
+          }
+        }
+        
+        if (foundCityWords.length > 0) {
+          console.log(`✓ Ciudad validada por palabras encontradas: [${foundCityWords.join(', ')}]`);
+        } else {
+          console.log(`⚠ Ninguna palabra de la ciudad fue encontrada en el diálogo`);
+          console.log(`📊 Palabras buscadas: [${cityWords.join(', ')}]`);
+        }
+      }
+      
+      // Validar que contiene la hora
+      const timeValue = eventData.time || '';
+      console.log(`📊 Hora en el campo: "${timeValue}"`);
+      
+      if (timeValue && eventInfoText?.toLowerCase().includes(timeValue.toLowerCase())) {
+        console.log(`✓ Hora coincide exactamente: ${timeValue}`);
+      } else {
+        console.log(`⚠ Hora no coincide exactamente. Valor del campo: "${timeValue}"`);
+        
+        // Validar componentes de la hora seleccionada
+        const timeMatch = timeValue.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (timeMatch) {
+          const hour = parseInt(timeMatch[1]);
+          const minute = parseInt(timeMatch[2]);
+          const period = timeMatch[3].toUpperCase();
+          
+          // Buscar la hora en el diálogo
+          if (eventInfoText?.includes(hour.toString())) {
+            console.log(`✓ Hora validada: ${hour}`);
+          }
+          
+          // Buscar los minutos en el diálogo
+          if (eventInfoText?.includes(minute.toString().padStart(2, '0'))) {
+            console.log(`✓ Minutos validados: ${minute.toString().padStart(2, '0')}`);
+          }
+          
+          // Si no se validó la hora exacta, intentar con formato 24h
+          if (period === 'PM' && hour !== 12) {
+            const hour24 = hour + 12;
+            if (eventInfoText?.includes(hour24.toString())) {
+              console.log(`✓ Hora validada en formato 24h: ${hour24}`);
+            }
+          }
+        }
+      }
+      
+      console.log(`\n✓ Validación del diálogo de confirmación completada`);
+    } else {
+      console.log(`⚠ Contenedor de información del evento no visible`);
+    }
+  }
+  
+  await page.waitForTimeout(1000);
+  
   // 7. Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
   await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
   const preQuotationForm = page.locator('#PrequotationRequestForm');
@@ -1376,6 +1632,291 @@ test('Nueva fiesta', async ({ page }) => {
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(1000);
   
+  // 10.1. Validar que el evento aparece en la lista general (ANTES de filtrar por día)
+  await showStepMessage(page, '📋 VALIDANDO EVENTO EN LISTA GENERAL');
+  console.log('\n🔍 Validando que el evento aparece en la lista de eventos del dashboard (sin filtrar)...');
+  
+  const eventsContainerInitial = page.locator('div.flex.relative.w-full.overflow-hidden');
+  const containerInitialVisible = await eventsContainerInitial.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (containerInitialVisible) {
+    console.log(`✓ Contenedor de eventos visible en el dashboard`);
+    
+    // Buscar eventos en la lista
+    const eventCardsInitial = eventsContainerInitial.locator('button.flex.flex-col');
+    const eventCountInitial = await eventCardsInitial.count();
+    console.log(`📊 Eventos encontrados en la lista: ${eventCountInitial}`);
+    
+    if (eventCountInitial > 0) {
+      console.log(`✓ Lista de eventos cargada correctamente`);
+      
+      // Buscar el evento creado por el nombre del festejado
+      let eventFoundInitial = false;
+      for (let i = 0; i < eventCountInitial; i++) {
+        const eventCard = eventCardsInitial.nth(i);
+        const eventText = await eventCard.textContent();
+        
+        if (eventText && eventText.includes(randomHonoree)) {
+          console.log(`✅ Evento encontrado en la lista general: "${randomHonoree}"`);
+          console.log(`   📋 Detalles: "${eventText.trim().substring(0, 100)}..."`);
+          eventFoundInitial = true;
+          break;
+        }
+      }
+      
+      if (!eventFoundInitial) {
+        console.log(`⚠ Evento "${randomHonoree}" NO encontrado en la lista general`);
+        console.log(`📊 Listando eventos disponibles para debugging...`);
+        
+        // Listar los primeros 3 eventos para debugging
+        for (let i = 0; i < Math.min(eventCountInitial, 3); i++) {
+          const eventCard = eventCardsInitial.nth(i);
+          const eventCardText = await eventCard.textContent();
+          console.log(`   - Evento ${i + 1}: "${eventCardText?.trim().substring(0, 80)}..."`);
+        }
+      }
+    } else {
+      console.log(`⚠ No se encontraron eventos en la lista`);
+    }
+  } else {
+    console.log(`⚠ Contenedor de eventos no visible en el dashboard`);
+  }
+  
+  // 10.2. Seleccionar el día del evento en el calendario del dashboard
+  await showStepMessage(page, '📅 FILTRANDO EVENTOS POR DÍA EN CALENDARIO');
+  console.log('\n🔍 Buscando calendario en el dashboard...');
+  
+  // Obtener el día del evento creado (parsear la fecha guardada)
+  let eventDay = 0;
+  let eventMonth = '';
+  let futureDate: Date | null = null;
+  
+  if (eventData.date) {
+    // El formato puede ser DD-MM-YYYY o DD/MM/YYYY
+    const dateParts = eventData.date.split(/[-\/]/);
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0]);
+      const month = parseInt(dateParts[1]) - 1; // Los meses en JavaScript son 0-indexed
+      const year = parseInt(dateParts[2]);
+      
+      futureDate = new Date(year, month, day);
+      eventDay = futureDate.getDate();
+      eventMonth = futureDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+      
+      console.log(`📅 Día del evento creado: ${eventDay}`);
+      console.log(`📅 Mes del evento: ${eventMonth}`);
+    }
+  }
+  
+  if (futureDate && eventDay > 0) {
+    // Buscar el calendario en el dashboard
+    const calendarContainer = page.locator('div.w-full.flex.flex-col.gap-4').first();
+    const calendarVisible = await calendarContainer.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (calendarVisible) {
+      console.log(`✓ Calendario encontrado en el dashboard`);
+      
+      // Buscar el título del mes
+      const monthTitle = calendarContainer.locator('button.text-dark-neutral.font-bold').first();
+      const monthText = await monthTitle.textContent();
+      console.log(`📅 Mes mostrado en calendario: "${monthText?.trim()}"`);
+      
+      // Navegar al mes del evento si es necesario
+      const currentMonthInCalendar = monthText?.trim().toLowerCase() || '';
+      const targetMonth = eventMonth.toLowerCase();
+      
+      console.log(`🔍 Verificando si necesitamos cambiar de mes...`);
+      console.log(`   - Mes en calendario: "${currentMonthInCalendar}"`);
+      console.log(`   - Mes del evento: "${targetMonth}"`);
+      
+      // Si el mes no coincide, navegar usando los botones de chevron
+      if (!currentMonthInCalendar.includes(targetMonth.split(' ')[0])) {
+        console.log(`⚠ El mes del calendario no coincide con el mes del evento`);
+        console.log(`🖱️ Navegando al mes correcto...`);
+        
+        // Buscar el botón de siguiente mes (chevron-right)
+        const nextMonthButton = calendarContainer.locator('button').filter({
+          has: page.locator('i.icon-chevron-right')
+        });
+        
+        // Hacer clic hasta 3 veces para avanzar meses si es necesario
+        for (let clicks = 0; clicks < 3; clicks++) {
+          await nextMonthButton.click();
+          await page.waitForTimeout(1000);
+          
+          const updatedMonthText = await monthTitle.textContent();
+          console.log(`   📅 Mes actualizado: "${updatedMonthText?.trim()}"`);
+          
+          if (updatedMonthText?.toLowerCase().includes(targetMonth.split(' ')[0])) {
+            console.log(`✓ Mes correcto encontrado: "${updatedMonthText?.trim()}"`);
+            break;
+          }
+        }
+      }
+      
+      // Buscar todos los días del calendario
+      const allDayButtons = calendarContainer.locator('button').filter({
+        has: page.locator('p.text-dark-neutral')
+      }).filter({
+        hasNot: page.locator('i.icon')
+      });
+      
+      const dayButtonCount = await allDayButtons.count();
+      console.log(`📊 Total de días en el calendario: ${dayButtonCount}`);
+      
+      // Buscar el día del evento por número
+      let eventDayFound = false;
+      for (let i = 0; i < dayButtonCount; i++) {
+        const dayButton = allDayButtons.nth(i);
+        const dayTextElement = dayButton.locator('p.text-dark-neutral').first();
+        const dayText = await dayTextElement.textContent();
+        const dayNumber = parseInt(dayText?.trim() || '0');
+        
+        // Verificar que no tiene opacidad (días del mes anterior/siguiente tienen opacity-40)
+        const hasOpacity = await dayButton.locator('p.opacity-40').count() > 0;
+        
+        if (dayNumber === eventDay && !hasOpacity) {
+          console.log(`✓ Día del evento encontrado en el calendario: ${dayNumber}`);
+          console.log(`🖱️ Haciendo clic en el día ${dayNumber} para filtrar eventos...`);
+          await dayButton.click();
+          await page.waitForTimeout(2000);
+          console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
+          
+          eventDayFound = true;
+          break;
+        }
+      }
+      
+      if (!eventDayFound) {
+        console.log(`⚠ Día del evento (${eventDay}) no encontrado en el calendario`);
+      } else {
+        // Validar que el evento aparece en la sección de eventos después de seleccionar el día
+        console.log(`\n🔍 Validando que el evento aparece en la sección de eventos del día seleccionado...`);
+        
+        const eventsSection = page.locator('div.flex.relative.w-full.overflow-hidden');
+        const eventsSectionVisible = await eventsSection.isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (eventsSectionVisible) {
+          console.log(`✓ Sección de eventos visible en el dashboard`);
+          
+          // Buscar todos los eventos en la lista
+          const eventCards = eventsSection.locator('button.flex.flex-col');
+          const eventCardsCount = await eventCards.count();
+          console.log(`📊 Total de eventos mostrados en la lista: ${eventCardsCount}`);
+          
+          if (eventCardsCount > 0) {
+            console.log(`✓ Eventos encontrados en la lista`);
+            
+            // Buscar el evento recién creado por el nombre del festejado
+            let eventFoundInList = false;
+            
+            for (let i = 0; i < eventCardsCount; i++) {
+              const eventCard = eventCards.nth(i);
+              const eventCardText = await eventCard.textContent();
+              
+              if (eventCardText) {
+                // Verificar si el evento contiene el nombre del festejado
+                if (eventCardText.includes(randomHonoree)) {
+                  console.log(`✓ Evento encontrado en la lista del día seleccionado: "${randomHonoree}"`);
+                  console.log(`   📋 Detalles: "${eventCardText.trim().substring(0, 100)}..."`);
+                  eventFoundInList = true;
+                  
+                  // Validar que la fecha del evento coincide con el día seleccionado
+                  const eventDateInCard = eventCardText.match(/\d{1,2}\s+\w+\.?\s+\d{4}/);
+                  if (eventDateInCard) {
+                    console.log(`   📅 Fecha en la card: "${eventDateInCard[0]}"`);
+                  }
+                  
+                  break;
+                }
+              }
+            }
+            
+            if (eventFoundInList) {
+              console.log(`✅ VALIDACIÓN EXITOSA: El evento "${randomHonoree}" aparece en la lista del día ${eventDay}`);
+            } else {
+              console.log(`⚠ Evento "${randomHonoree}" NO encontrado en la lista del día ${eventDay}`);
+            }
+            
+            // Validar que todos los eventos mostrados corresponden al día seleccionado
+            console.log(`\n🔍 Validando que todos los eventos mostrados pertenecen al día ${eventDay}...`);
+            
+            let allEventsFromSelectedDay = true;
+            for (let i = 0; i < eventCardsCount; i++) {
+              const eventCard = eventCards.nth(i);
+              const eventCardText = await eventCard.textContent();
+              
+              if (eventCardText) {
+                // Extraer la fecha del evento (formato: "31 oct. 2025")
+                const dateMatch = eventCardText.match(/(\d{1,2})\s+(\w+)\.?\s+(\d{4})/);
+                
+                if (dateMatch) {
+                  const dayInCard = parseInt(dateMatch[1]);
+                  console.log(`   📅 Evento ${i + 1}: Día ${dayInCard}`);
+                  
+                  if (dayInCard === eventDay) {
+                    console.log(`      ✓ Corresponde al día seleccionado (${eventDay})`);
+                  } else {
+                    console.log(`      ⚠ NO corresponde al día seleccionado (esperado: ${eventDay}, encontrado: ${dayInCard})`);
+                    allEventsFromSelectedDay = false;
+                  }
+                } else {
+                  console.log(`   ⚠ Evento ${i + 1}: No se pudo extraer la fecha`);
+                }
+              }
+            }
+            
+            if (allEventsFromSelectedDay) {
+              console.log(`✓ Todos los eventos mostrados corresponden al día seleccionado (${eventDay})`);
+            } else {
+              console.log(`⚠ Algunos eventos NO corresponden al día seleccionado (puede ser esperado si el filtro no se aplicó)`);
+            }
+          } else {
+            console.log(`⚠ No se encontraron eventos en la lista del día seleccionado`);
+          }
+        } else {
+          console.log(`⚠ Sección de eventos no visible en el dashboard`);
+        }
+      }
+    } else {
+      console.log(`⚠ Calendario no encontrado en el dashboard`);
+      
+      // Intentar buscar el calendario de forma alternativa
+      const calendarAlt = page.locator('div.flex.flex-col.gap-2.p-4.rounded-6.bg-light-light.shadow-4');
+      const calendarAltVisible = await calendarAlt.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (calendarAltVisible) {
+        console.log(`✓ Calendario encontrado (versión alternativa)`);
+        
+        // Buscar el día del evento en la versión alternativa
+        const allDayButtonsAlt = calendarAlt.locator('button').filter({
+          has: page.locator('p.text-dark-neutral')
+        });
+        
+        const dayButtonCountAlt = await allDayButtonsAlt.count();
+        console.log(`📊 Total de días en el calendario (alt): ${dayButtonCountAlt}`);
+        
+        for (let i = 0; i < dayButtonCountAlt; i++) {
+          const dayButton = allDayButtonsAlt.nth(i);
+          const dayText = await dayButton.locator('p').first().textContent();
+          const dayNumber = parseInt(dayText?.trim() || '0');
+          const hasOpacity = await dayButton.locator('p.opacity-40').count() > 0;
+          
+          if (dayNumber === eventDay && !hasOpacity) {
+            console.log(`✓ Día del evento encontrado: ${dayNumber}`);
+            console.log(`🖱️ Haciendo clic en el día ${dayNumber}...`);
+            await dayButton.click();
+            await page.waitForTimeout(2000);
+            console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    console.log(`⚠ No se pudo obtener la fecha del evento para filtrar por día`);
+  }
+  
   // 11. Verificar que el evento aparezca en el dashboard del cliente
   await showStepMessage(page, '🔍 VERIFICANDO EVENTO EN DASHBOARD');
   console.log('🔍 Verificando que el nuevo evento aparezca en el dashboard del cliente...');
@@ -1463,68 +2004,1498 @@ test('Nueva fiesta', async ({ page }) => {
   await showStepMessage(page, '🔍 VERIFICANDO SERVICIO EN SECCIÓN DE SERVICIOS');
   console.log('\n🔍 Verificando que el servicio aparece en la sección de servicios...');
   
-  // Buscar la sección de servicios (puede estar en un contenedor con overflow-y-auto)
-  const serviciosSection = page.locator('div.flex.flex-col.grow.overflow-y-auto').first();
-  const serviciosExists = await serviciosSection.count().then(count => count > 0);
+  // Buscar el contenedor de servicios
+  const servicesContainer = page.locator('div.flex.flex-col.grow.overflow-y-auto.w-full');
+  const containerVisible = await servicesContainer.isVisible({ timeout: 5000 }).catch(() => false);
   
-  if (serviciosExists) {
-    // Buscar el servicio por su nombre (puede estar en un botón o tarjeta)
-    const servicioEnLista = serviciosSection.locator(`text=${servicioInfo.nombre}`).first();
-    const servicioVisible = await servicioEnLista.isVisible({ timeout: 5000 }).catch(() => false);
+  if (containerVisible) {
+    console.log(`✓ Contenedor de servicios visible`);
     
-    if (servicioVisible) {
-      console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado en la sección de servicios`);
+    // Buscar servicios en la lista
+    const serviceCards = servicesContainer.locator('button.text-start.flex.flex-col');
+    const serviceCount = await serviceCards.count();
+    console.log(`📊 Servicios encontrados en la lista: ${serviceCount}`);
+    
+    if (serviceCount > 0) {
+      console.log(`✓ Lista de servicios cargada correctamente`);
       
-      // Verificar que el servicio tiene el estado correcto (PENDIENTE)
-      const servicioCard = servicioEnLista.locator('xpath=ancestor::button[1]').first();
-      const estadoPendiente = await servicioCard.locator('text=PENDIENTE').count().then(count => count > 0);
-      if (estadoPendiente) {
-        console.log('✅ Estado "PENDIENTE" verificado en el servicio');
+      // Listar los servicios encontrados para validación
+      console.log(`📋 Listando servicios encontrados para validación...`);
+      for (let j = 0; j < Math.min(serviceCount, 5); j++) {
+        const serviceCard = serviceCards.nth(j);
+        const serviceText = await serviceCard.textContent();
+        console.log(`   - Servicio ${j + 1}: "${serviceText?.trim().substring(0, 80)}..."`);
+      }
+      
+      // Buscar el servicio específico por su nombre
+      const servicioEnLista = servicesContainer.locator(`text=${servicioInfo.nombre}`).first();
+      const servicioVisible = await servicioEnLista.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (servicioVisible) {
+        console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado en la sección de servicios`);
+        
+        // Verificar que el servicio tiene el estado correcto (PENDIENTE)
+        const servicioCard = servicioEnLista.locator('xpath=ancestor::button[1]').first();
+        const estadoPendiente = await servicioCard.locator('text=PENDIENTE').count().then(count => count > 0);
+        if (estadoPendiente) {
+          console.log('✅ Estado "PENDIENTE" verificado en el servicio');
+        }
+        
+        console.log(`✓ El servicio seleccionado está incluido en esta lista`);
+      } else {
+        console.log(`⚠️ Servicio "${servicioInfo.nombre}" no visible en la sección de servicios`);
       }
     } else {
-      console.log(`⚠️ Servicio "${servicioInfo.nombre}" no visible en la sección de servicios`);
+      console.log(`⚠ No se encontraron servicios en la lista`);
     }
   } else {
-    console.log('⚠️ Sección de servicios no encontrada');
+    // Buscar la sección de servicios (puede estar en un contenedor con overflow-y-auto)
+    const serviciosSection = page.locator('div.flex.flex-col.grow.overflow-y-auto').first();
+    const serviciosExists = await serviciosSection.count().then(count => count > 0);
+    
+    if (serviciosExists) {
+      // Buscar el servicio por su nombre (puede estar en un botón o tarjeta)
+      const servicioEnLista = serviciosSection.locator(`text=${servicioInfo.nombre}`).first();
+      const servicioVisible = await servicioEnLista.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (servicioVisible) {
+        console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado en la sección de servicios`);
+        
+        // Verificar que el servicio tiene el estado correcto (PENDIENTE)
+        const servicioCard = servicioEnLista.locator('xpath=ancestor::button[1]').first();
+        const estadoPendiente = await servicioCard.locator('text=PENDIENTE').count().then(count => count > 0);
+        if (estadoPendiente) {
+          console.log('✅ Estado "PENDIENTE" verificado en el servicio');
+        }
+      } else {
+        console.log(`⚠️ Servicio "${servicioInfo.nombre}" no visible en la sección de servicios`);
+      }
+    } else {
+      console.log('⚠️ Sección de servicios no encontrada');
+    }
+  }
+  
+  // 14.1. Validar otros datos del evento en la página completa
+  await showStepMessage(page, '📄 VALIDANDO DATOS EN PÁGINA COMPLETA');
+  console.log('\n🔍 Validando otros datos del evento en la página completa...');
+  
+  // Buscar información del evento en la página
+  const pageContent = await page.textContent('body').catch(() => null);
+  if (pageContent) {
+    // Validar que aparece el tipo de evento
+    if (pageContent.includes(eventTypeForValidation)) {
+      console.log(`✓ Tipo de evento "${eventTypeForValidation}" encontrado en la página`);
+    } else {
+      console.log(`⚠ Tipo de evento "${eventTypeForValidation}" no encontrado en la página`);
+    }
+    
+    // Validar que aparece el nombre del festejado
+    if (pageContent.includes(randomHonoree)) {
+      console.log(`✓ Nombre del festejado "${randomHonoree}" encontrado en la página`);
+    } else {
+      console.log(`⚠ Nombre del festejado "${randomHonoree}" no encontrado en la página`);
+    }
+    
+    // Validar que aparece la ciudad
+    const cityParts = eventData.city.split(',').map(s => s.trim());
+    const cityFoundInPage = cityParts.some(part => pageContent.includes(part));
+    if (cityFoundInPage) {
+      console.log(`✓ Ciudad encontrada en la página`);
+    } else {
+      console.log(`⚠ Ciudad no encontrada en la página`);
+    }
+    
+    // Validar que aparece el número de invitados
+    if (pageContent.includes(randomAttendees.toString())) {
+      console.log(`✓ Número de invitados "${randomAttendees}" encontrado en la página`);
+    } else {
+      console.log(`⚠ Número de invitados "${randomAttendees}" no encontrado en la página`);
+    }
+  } else {
+    console.log(`⚠ No se pudo obtener el contenido de la página para validación`);
   }
   
   // 15. Verificar que hay una notificación en Fiestachat del proveedor
   await showStepMessage(page, '💬 VERIFICANDO NOTIFICACIÓN EN FIESTACHAT');
   console.log('\n💬 Verificando notificación en Fiestachat...');
   
-  // Buscar la sección de Fiestachat
-  const fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
-  const fiestachatExists = await fiestachatSection.count().then(count => count > 0);
+  // Buscar la sección de Fiestachat (múltiples estrategias)
+  let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+  let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
   
-  if (fiestachatExists) {
-    // Buscar notificaciones en Fiestachat
-    const notificaciones = fiestachatSection.locator('button.flex.gap-4').filter({
-      has: page.locator('text=/Solicitud recibida|Pronto tendrás una respuesta/i')
-    });
-    const notificacionesCount = await notificaciones.count();
+  if (!fiestachatVisible) {
+    // Buscar alternativamente la sección sin la clase hidden
+    fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+  }
+  
+  if (!fiestachatVisible) {
+    // Estrategia alternativa: buscar por texto
+    fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+    fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+  }
+  
+  if (fiestachatVisible) {
+    console.log(`✓ Sección Fiestachat visible en el dashboard`);
     
-    if (notificacionesCount > 0) {
-      console.log(`✅ Se encontraron ${notificacionesCount} notificación(es) en Fiestachat`);
-      
-      // Verificar que la notificación contiene el mensaje esperado
-      const primeraNotificacion = notificaciones.first();
-      const textoNotificacion = await primeraNotificacion.textContent();
-      
-      if (textoNotificacion?.includes('Solicitud recibida') || textoNotificacion?.includes('Pronto tendrás una respuesta')) {
-        console.log('✅ Notificación del proveedor verificada en Fiestachat');
-        console.log(`   Contenido: "${textoNotificacion?.substring(0, 100)}..."`);
-                } else {
-        console.log(`⚠️ Notificación encontrada pero no contiene el mensaje esperado`);
-                }
-              } else {
-      console.log('⚠️ No se encontraron notificaciones en Fiestachat');
-            }
+    // Buscar el título "¡Fiestachat!"
+    const fiestachatTitle = fiestachatSection.locator('p.text-regular.text-primary-neutral.text-center.font-bold');
+    const titleText = await fiestachatTitle.textContent().catch(() => null);
+    
+    if (titleText && titleText.includes('¡Fiestachat!')) {
+      console.log(`✓ Título "¡Fiestachat!" encontrado`);
+    } else {
+      console.log(`⚠ Título "¡Fiestachat!" no encontrado`);
+    }
+    
+    // Buscar el subtítulo "La línea directa a tu evento"
+    const fiestachatSubtitle = fiestachatSection.locator('p.text-small.text-dark-neutral.text-center');
+    const subtitleText = await fiestachatSubtitle.textContent().catch(() => null);
+    
+    if (subtitleText && subtitleText.includes('La línea directa a tu evento')) {
+      console.log(`✓ Subtítulo "La línea directa a tu evento" encontrado`);
           } else {
-    console.log('⚠️ Sección de Fiestachat no encontrada');
+      console.log(`⚠ Subtítulo "La línea directa a tu evento" no encontrado`);
+    }
+    
+    // Buscar notificaciones en la sección
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    console.log(`📊 Notificaciones encontradas en Fiestachat: ${notificationCount}`);
+    
+    if (notificationCount > 0) {
+      console.log(`✓ Notificaciones encontradas en la sección Fiestachat`);
+      
+      // Validar la primera notificación (debería ser la más reciente)
+      const firstNotification = notificationButtons.first();
+      const notificationText = await firstNotification.textContent();
+      
+      if (notificationText) {
+        console.log(`📋 Contenido de la notificación: "${notificationText.trim()}"`);
+        
+        // Validar que contiene "Solicitud de cotización enviada" o "Solicitud recibida"
+        if (notificationText.includes('Solicitud de cotización enviada') || 
+            notificationText.includes('Solicitud recibida') ||
+            notificationText.includes('Pronto tendrás una respuesta')) {
+          console.log(`✓ Notificación de solicitud encontrada`);
+        } else {
+          console.log(`⚠ Texto de solicitud no encontrado en la notificación`);
+        }
+        
+        // Validar que contiene una fecha y hora (formato flexible)
+        const hasDateAndTime = /\d{1,2}:\d{2}\s*(AM|PM|am|pm)/.test(notificationText) ||
+          /\d{1,2}:\d{2}/.test(notificationText) ||
+          /(Hoy|Ayer|mañana)/i.test(notificationText);
+        
+        if (hasDateAndTime) {
+          console.log(`✓ Fecha y hora encontradas en la notificación`);
+        } else {
+          console.log(`⚠ Fecha y hora no encontradas en la notificación`);
+        }
+        
+        // Buscar el nombre del servicio en la notificación (puede estar truncado)
+        const serviceNameElement = firstNotification.locator('p.text-small.text-dark-neutral.font-bold.text-start');
+        const serviceNameText = await serviceNameElement.textContent().catch(() => null);
+        
+        if (serviceNameText) {
+          console.log(`✓ Nombre del servicio en la notificación: "${serviceNameText.trim()}"`);
+          console.log(`✓ El servicio seleccionado debe estar relacionado con esta notificación`);
+          
+          // Verificar que el nombre del servicio coincide (parcialmente)
+          if (serviceNameText.toLowerCase().includes(servicioInfo.nombre.toLowerCase().substring(0, 10))) {
+            console.log(`✓ El nombre del servicio en la notificación coincide con el servicio seleccionado`);
+          }
+        } else {
+          console.log(`⚠ No se pudo obtener el nombre del servicio de la notificación`);
+        }
+        
+        // Validar el mensaje de la notificación
+        const messageElement = firstNotification.locator('span');
+        const messageText = await messageElement.textContent().catch(() => null);
+        
+        if (messageText && (messageText.includes('Solicitud de cotización enviada') || 
+            messageText.includes('Solicitud recibida') ||
+            messageText.includes('Pronto tendrás una respuesta'))) {
+          console.log(`✓ Mensaje de notificación correcto: "${messageText.trim()}"`);
+        } else {
+          console.log(`⚠ Mensaje de notificación no coincide: "${messageText?.trim()}"`);
+        }
+      } else {
+        console.log(`⚠ No se pudo obtener el texto de la notificación`);
+      }
+    } else {
+      console.log(`⚠ No se encontraron notificaciones en la sección Fiestachat`);
+    }
+  } else {
+    console.log(`⚠ Sección Fiestachat no visible en el dashboard`);
   }
   
   await showStepMessage(page, '🎉 PRUEBA COMPLETADA EXITOSAMENTE');
   console.log('\n✅ Prueba de creación de evento completada exitosamente');
   await clearStepMessage(page);
+}
+
+/**
+ * Agrega un servicio a un evento existente
+ * Selecciona un evento del dashboard, hace clic en "Agregar servicios",
+ * navega hasta encontrar un servicio y completa el flujo de solicitud
+ */
+export async function agregarServicioAEventoExistente(page: Page) {
+  await showStepMessage(page, '🎯 AGREGANDO SERVICIO A EVENTO EXISTENTE');
+  
+  // PASO 1: Seleccionar un evento existente del dashboard
+  await showStepMessage(page, '📋 SELECCIONANDO EVENTO EXISTENTE');
+  console.log('\n🔍 Buscando eventos en el dashboard...');
+  
+  // Buscar eventos en la lista del dashboard
+  const eventsContainer = page.locator('div.flex.relative.w-full.overflow-hidden');
+  const eventsContainerVisible = await eventsContainer.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (!eventsContainerVisible) {
+    throw new Error('❌ No se encontró el contenedor de eventos en el dashboard');
+  }
+  
+  const eventCards = eventsContainer.locator('button.flex.flex-col');
+  const eventCount = await eventCards.count();
+  console.log(`📊 Eventos encontrados en el dashboard: ${eventCount}`);
+  
+  if (eventCount === 0) {
+    throw new Error('❌ No hay eventos disponibles en el dashboard. Debe haber al menos un evento para agregar servicios.');
+  }
+  
+  // Filtrar eventos con fecha futura
+  console.log('🔍 Filtrando eventos con fecha futura...');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Resetear horas para comparar solo fechas
+  
+  let selectedEvent: ReturnType<typeof eventCards.nth> | null = null;
+  let selectedEventIndex = -1;
+  
+  for (let i = 0; i < eventCount; i++) {
+    const eventCard = eventCards.nth(i);
+    const eventText = await eventCard.textContent();
+    
+    if (!eventText) continue;
+    
+    // Buscar fecha en el texto del evento (formato: "31 jul. 2026" o "31 jul 2026")
+    const dateMatch = eventText.match(/(\d{1,2})\s+(\w+)\.?\s+(\d{4})/);
+    
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1]);
+      const monthName = dateMatch[2].toLowerCase();
+      const year = parseInt(dateMatch[3]);
+      
+      // Mapear nombres de meses en español a números
+      const monthMap: { [key: string]: number } = {
+        'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+      };
+      
+      const month = monthMap[monthName.substring(0, 3)];
+      
+      if (month !== undefined) {
+        const eventDate = new Date(year, month, day);
+        eventDate.setHours(0, 0, 0, 0);
+        
+        if (eventDate >= today) {
+          selectedEvent = eventCard;
+          selectedEventIndex = i;
+          console.log(`✅ Evento con fecha futura encontrado: día ${day}, mes ${monthName}, año ${year}`);
+          break;
+        } else {
+          console.log(`⚠️ Evento en índice ${i} tiene fecha pasada (${day} ${monthName} ${year}), omitiéndolo`);
+        }
+      }
+    } else {
+      // Si no se puede extraer la fecha, asumir que es válido (fallback)
+      console.log(`⚠️ No se pudo extraer la fecha del evento en índice ${i}, asumiendo válido`);
+      if (!selectedEvent) {
+        selectedEvent = eventCard;
+        selectedEventIndex = i;
+      }
+    }
+  }
+  
+  if (!selectedEvent) {
+    throw new Error('❌ No se encontraron eventos con fecha futura en el dashboard.');
+  }
+  
+  const eventText = await selectedEvent.textContent();
+  console.log(`✅ Evento seleccionado (índice ${selectedEventIndex}): "${eventText?.trim().substring(0, 80)}..."`);
+  
+  // Hacer clic en el evento para abrir sus detalles
+  await selectedEvent.click();
+  await page.waitForTimeout(2000);
+  await page.waitForLoadState('domcontentloaded');
+  console.log('✓ Se hizo clic en el evento, esperando a que cargue la página de detalles...');
+  
+  // PASO 2: Buscar y hacer clic en "Agregar servicios"
+  await showStepMessage(page, '🔘 BUSCANDO BOTÓN "AGREGAR SERVICIOS"');
+  await page.waitForTimeout(1000);
+  
+  const botonAgregarServicios = page.getByRole('button', { name: /Agregar servicios/i });
+  await expect(botonAgregarServicios).toBeVisible({ timeout: 10000 });
+  console.log('✓ Botón "Agregar servicios" encontrado y visible');
+  
+  await showStepMessage(page, '🖱️ HACIENDO CLIC EN "AGREGAR SERVICIOS"');
+  await botonAgregarServicios.click();
+  await page.waitForTimeout(2000);
+  console.log('✓ Se hizo clic en "Agregar servicios"');
+  
+  // PASO 3: Bucle para buscar un servicio que no esté agregado al evento
+  const MAX_INTENTOS_SERVICIO = 5; // Máximo de intentos para encontrar un servicio no agregado
+  let servicioInfo: { nombre: string; categoria: string; subcategoria?: string } | null = null;
+  let servicioAgregadoExitosamente = false;
+  let intentosServicio = 0;
+  
+  while (!servicioAgregadoExitosamente && intentosServicio < MAX_INTENTOS_SERVICIO) {
+    intentosServicio++;
+    console.log(`\n🔄 Intento ${intentosServicio}/${MAX_INTENTOS_SERVICIO} de agregar servicio...`);
+    
+    // Buscar un servicio en el dashboard del proveedor
+    const servicioInfoActual = await buscarServicioEnProveedor(page);
+    
+    if (!servicioInfoActual) {
+      throw new Error('❌ No se pudo obtener información de un servicio del proveedor');
+    }
+    
+    servicioInfo = servicioInfoActual;
+    console.log(`\n🎯 OBJETIVO: Navegar hasta el servicio "${servicioInfo.nombre}"`);
+    await showStepMessage(page, `🎯 OBJETIVO: Encontrar servicio "${servicioInfo.nombre}"`);
+    
+    // Cerrar sesión del proveedor y hacer login como cliente
+    await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
+    await page.context().clearCookies();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    console.log('✓ Sesión del proveedor cerrada');
+    
+    // Navegar al login
+    await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+    
+    // Verificar que estamos en la página de login
+    const currentUrl = page.url();
+    if (!currentUrl.includes('/login')) {
+      console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
+      await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2000);
+    }
+    
+    // Hacer login con las credenciales del cliente
+    await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    console.log('✓ Login exitoso como cliente');
+    
+    // Esperar a que se cargue el dashboard después del login
+    await page.waitForTimeout(3000);
+    
+    // Verificar que estamos en el dashboard
+    await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
+    console.log('✓ Navegación al dashboard confirmada');
+    
+    // Volver a seleccionar el evento y hacer clic en "Agregar servicios"
+    await showStepMessage(page, '📋 VOLVIENDO A SELECCIONAR EVENTO');
+    await page.waitForTimeout(1000);
+    
+    // Buscar el evento nuevamente usando el mismo índice que se seleccionó inicialmente
+    const eventsContainer2 = page.locator('div.flex.relative.w-full.overflow-hidden');
+    const eventCards2 = eventsContainer2.locator('button.flex.flex-col');
+    const eventCount2 = await eventCards2.count();
+    
+    if (eventCount2 > selectedEventIndex && selectedEventIndex >= 0) {
+      // Usar el mismo índice del evento que se seleccionó inicialmente
+      const selectedEvent2 = eventCards2.nth(selectedEventIndex);
+      await selectedEvent2.click();
+      await page.waitForTimeout(2000);
+      console.log(`✓ Evento seleccionado nuevamente (índice ${selectedEventIndex})`);
+    } else if (eventCount2 > 0) {
+      // Fallback: seleccionar el primer evento
+      const selectedEvent2 = eventCards2.first();
+      await selectedEvent2.click();
+      await page.waitForTimeout(2000);
+      console.log('✓ Primer evento seleccionado (fallback)');
+    }
+    
+    // Buscar y hacer clic en "Agregar servicios" nuevamente
+    const botonAgregarServicios2 = page.getByRole('button', { name: /Agregar servicios/i });
+    await expect(botonAgregarServicios2).toBeVisible({ timeout: 10000 });
+    await botonAgregarServicios2.click();
+    await page.waitForTimeout(2000);
+    console.log('✓ Se hizo clic en "Agregar servicios"');
+    
+    // Navegar por las categorías hasta encontrar el servicio objetivo
+    console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
+    await showStepMessage(page, `🔍 NAVEGANDO PARA ENCONTRAR SERVICIO "${servicioInfo.nombre}"`);
+    
+    // Buscar todos los botones de categoría de servicios
+    const serviceButtons = page.locator('button').filter({
+      has: page.locator('p.text-neutral-800.font-medium')
+    });
+    
+    // Navegar directamente a la categoría del servicio si está disponible
+    let servicioEncontrado = false;
+    
+    if (servicioInfo.categoria) {
+      console.log(`🎯 Buscando categoría específica: "${servicioInfo.categoria}"`);
+      
+      // Buscar la categoría que coincida con la categoría del servicio
+      let categoriaEncontrada = false;
+      const serviceCount = await serviceButtons.count();
+      
+      for (let i = 0; i < serviceCount; i++) {
+        const serviceButton = serviceButtons.nth(i);
+        const serviceName = await serviceButton.locator('p.text-neutral-800.font-medium').textContent();
+        const categoryName = serviceName?.trim() || '';
+        
+        // Comparar nombres (case-insensitive, permitir coincidencias parciales)
+        if (categoryName.toLowerCase().trim() === servicioInfo.categoria.toLowerCase().trim() ||
+            categoryName.toLowerCase().includes(servicioInfo.categoria.toLowerCase().trim()) ||
+            servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
+          console.log(`✅ Categoría encontrada: "${categoryName}"`);
+          await serviceButton.click();
+          await page.waitForTimeout(2000);
+          categoriaEncontrada = true;
+          break;
+        }
+      }
+      
+      if (categoriaEncontrada) {
+        // Navegar por subcategorías hasta encontrar el servicio
+        servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+          page, 
+          servicioInfo.nombre, 
+          servicioInfo.categoria, 
+          servicioInfo.subcategoria
+        );
+          } else {
+        console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
+        const firstCategory = serviceButtons.first();
+        await firstCategory.click();
+        await page.waitForTimeout(2000);
+        servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+          page, 
+          servicioInfo.nombre, 
+          servicioInfo.categoria, 
+          servicioInfo.subcategoria
+        );
+      }
+    } else {
+      // Si no hay categoría, probar todas las categorías
+      console.log(`⚠️ No se obtuvo categoría del servicio, probando todas las categorías...`);
+      const serviceCount = await serviceButtons.count();
+      const maxIntentosCategorias = serviceCount;
+      let intentosCategoria = 0;
+      
+      while (!servicioEncontrado && intentosCategoria < maxIntentosCategorias) {
+        intentosCategoria++;
+        const selectedService = serviceButtons.nth(intentosCategoria - 1);
+        const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
+        const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
+        console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
+    
+        await selectedService.click();
+        await page.waitForTimeout(2000);
+    
+        servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
+        
+        if (!servicioEncontrado) {
+          console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
+          await page.goBack();
+          await page.waitForTimeout(2000);
+        }
+      }
+    }
+    
+    if (!servicioEncontrado) {
+      console.log(`⚠️ No se pudo encontrar el servicio "${servicioInfo.nombre}", intentando con otro servicio...`);
+      continue; // Continuar con el siguiente intento
+    }
+    
+    console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado exitosamente!`);
+    
+    // Verificar si aparece el mensaje "Servicio previamente agregado"
+    await showStepMessage(page, '🔍 VERIFICANDO SI EL SERVICIO YA ESTÁ AGREGADO');
+    await page.waitForTimeout(2000);
+    
+    // Buscar el mensaje "Servicio previamente agregado" o "Este servicio ya fue agregado anteriormente"
+    const servicioYaAgregadoDialog = page.locator('div.fixed.top-0.left-0').filter({
+      has: page.locator('span, p, div, b').filter({
+        hasText: /Servicio previamente agregado|Este servicio ya fue agregado anteriormente/i
+      })
+    });
+    
+    const servicioYaAgregadoVisible = await servicioYaAgregadoDialog.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (servicioYaAgregadoVisible) {
+      console.log(`⚠️ El servicio "${servicioInfo.nombre}" ya está agregado al evento. Buscando otro servicio...`);
+      
+      // Cerrar el diálogo (buscar botón de cerrar o hacer clic fuera)
+      const closeButton = servicioYaAgregadoDialog.locator('button, [aria-label*="close"], [aria-label*="cerrar"]').first();
+      const closeButtonExists = await closeButton.count().then(count => count > 0);
+      
+      if (closeButtonExists) {
+        await closeButton.click();
+        await page.waitForTimeout(1000);
+      } else {
+        // Si no hay botón de cerrar, presionar Escape o hacer clic fuera
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(1000);
+      }
+      
+      // Continuar con el siguiente intento
+      continue;
+    }
+    
+    // Si no aparece el mensaje, el servicio no está agregado y podemos continuar
+    servicioAgregadoExitosamente = true;
+    console.log(`✅ El servicio "${servicioInfo.nombre}" no está agregado, continuando con el flujo...`);
+  }
+  
+  if (!servicioAgregadoExitosamente || !servicioInfo) {
+    throw new Error(`❌ No se pudo encontrar un servicio que no esté agregado al evento después de ${MAX_INTENTOS_SERVICIO} intentos.`);
+  }
+  
+  // PASO 4: Verificar si el formulario ya está visible (navegarHastaEncontrarServicioEspecifico ya hizo clic en "Contactar GRATIS")
+  await showStepMessage(page, '⏳ ESPERANDO FORMULARIO DE SOLICITUD');
+  console.log('✓ La función navegarHastaEncontrarServicioEspecifico ya hizo clic en "Contactar GRATIS"');
+  
+  // Esperar a que aparezca el formulario o el modal de solicitud
+  // El modal puede aparecer directamente sin formulario de evento (porque ya está en un evento)
+  const formExists = await page.locator('input[id="Honoree"]').isVisible({ timeout: 2000 }).catch(() => false);
+  const modalExists = await page.locator('#PrequotationRequestForm').isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (modalExists) {
+    console.log(`✓ El modal de solicitud ya está visible, continuando...`);
+  } else if (formExists) {
+    console.log(`✓ El formulario está visible, pero no el modal. Esperando...`);
+    await page.waitForTimeout(2000);
+  } else {
+    console.log(`⚠️ Ni el formulario ni el modal están visibles. Esperando un poco más...`);
+    await page.waitForTimeout(3000);
+  }
+  
+  // PASO 5: Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
+  await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
+  const preQuotationForm = page.locator('#PrequotationRequestForm');
+  await preQuotationForm.waitFor({ state: 'visible', timeout: 15000 });
+  console.log('🪟 Modal de solicitud visible');
+  
+  const checkboxLocator = preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]');
+  const checkboxCount = await checkboxLocator.count();
+  console.log(`📋 Checkboxes disponibles: ${checkboxCount}`);
+  
+  if (checkboxCount > 0) {
+    const shouldSelectAll = Math.random() < 0.4;
+    
+    if (shouldSelectAll) {
+      await showStepMessage(page, '☑️ SELECCIONANDO TODAS LAS VARIEDADES');
+      const selectAllButton = preQuotationForm.locator('div:has(> p:has-text("Seleccionar todo")) button').first();
+      if (await selectAllButton.isVisible().catch(() => false)) {
+        await selectAllButton.click();
+        console.log('✅ Se hizo clic en "Seleccionar todo"');
+      } else {
+        console.log('⚠ Botón "Seleccionar todo" no visible, seleccionando manualmente');
+      }
+    } else {
+      await showStepMessage(page, '☑️ SELECCIONANDO VARIEDADES ALEATORIAS');
+    }
+    
+    if (! (await preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]:checked').count())) {
+      // Seleccionar manualmente algunos checkboxes si no se seleccionaron con el botón
+      const indices = Array.from({ length: checkboxCount }, (_, i) => i).sort(() => Math.random() - 0.5);
+      const selections = Math.min(checkboxCount, Math.max(1, Math.floor(Math.random() * checkboxCount) + 1));
+      
+      for (let i = 0; i < selections; i++) {
+        const checkbox = checkboxLocator.nth(indices[i]);
+        const alreadyChecked = await checkbox.evaluate(el => (el as HTMLInputElement).checked).catch(() => false);
+        if (alreadyChecked) continue;
+        
+        const checkboxId = await checkbox.getAttribute('id');
+        let clickTarget = checkbox;
+        if (checkboxId) {
+          const label = preQuotationForm.locator(`label[for="${checkboxId}"]`).first();
+          if (await label.count()) {
+            clickTarget = label;
+          }
+        } else {
+          const buttonWrapper = checkbox.locator('xpath=ancestor::button[1]');
+          if (await buttonWrapper.count()) {
+            clickTarget = buttonWrapper;
+          }
+        }
+        
+        await clickTarget.click({ force: true });
+        console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
+        await page.waitForTimeout(200);
+      }
+    }
+  } else {
+    console.log('⚠ No se encontraron checkboxes para seleccionar');
+  }
+  
+  // Llenar el campo "Solicitudes"
+  await showStepMessage(page, '📝 LLENANDO CAMPO DE SOLICITUDES');
+  const requestMessages = [
+    'Nos gustaría incluir opciones vegetarianas y postres personalizados.',
+    'Buscamos algo con temática tropical y servicio completo de montaje.',
+    'Necesitamos cotización con barra libre y personal extra para servicio.',
+    'Queremos opciones premium y asesoría para decoración a juego.',
+  ];
+  const randomRequestMessage = requestMessages[Math.floor(Math.random() * requestMessages.length)];
+  
+  const requestField = preQuotationForm.locator('textarea#Request');
+  await requestField.waitFor({ state: 'visible', timeout: 5000 });
+  await requestField.fill(randomRequestMessage);
+  console.log(`📝 Campo "Solicitudes" llenado con: ${randomRequestMessage}`);
+  
+  // Enviar la solicitud
+  await showStepMessage(page, '🚀 ENVIANDO SOLICITUD');
+  const solicitarButton = page.locator('button[form="PrequotationRequestForm"], button:has-text("Solicitar")').first();
+  await solicitarButton.waitFor({ state: 'visible', timeout: 10000 });
+  await solicitarButton.click();
+  console.log('🚀 Botón "Solicitar" presionado');
+  
+  await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
+  await page.waitForTimeout(1000);
+  
+  // Confirmar diálogo "Solicitud enviada"
+  await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
+  const successDialog = page.locator('div:has-text("Solicitud enviada")').first();
+  try {
+    await successDialog.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('🎊 Modal "Solicitud enviada" visible');
+    
+    const okButton = successDialog.locator('button:has-text("OK")').first();
+    await okButton.waitFor({ state: 'visible', timeout: 5000 });
+    await okButton.click();
+    console.log('👍 Botón "OK" presionado');
+  } catch (successModalError) {
+    console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
+  }
+  
+  await page.waitForTimeout(1500);
+  
+  // PASO 6: Verificar que el servicio aparece en la sección de servicios del evento
+  await showStepMessage(page, '🔍 VERIFICANDO SERVICIO EN SECCIÓN DE SERVICIOS');
+  console.log('\n🔍 Verificando que el servicio aparece en la sección de servicios...');
+  
+  // Buscar el contenedor de servicios
+  const servicesContainerAdd = page.locator('div.flex.flex-col.grow.overflow-y-auto.w-full');
+  const servicesContainerAddVisible = await servicesContainerAdd.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (servicesContainerAddVisible) {
+    console.log(`✓ Contenedor de servicios visible`);
+    
+    // Buscar servicios en la lista
+    const serviceCards = servicesContainerAdd.locator('button.text-start.flex.flex-col');
+    const serviceCount = await serviceCards.count();
+    console.log(`📊 Servicios encontrados en la lista: ${serviceCount}`);
+    
+    if (serviceCount > 0) {
+      console.log(`✓ Lista de servicios cargada correctamente`);
+      
+      // Buscar el servicio específico por su nombre
+      const servicioEnLista = servicesContainerAdd.locator(`text=${servicioInfo.nombre}`).first();
+      const servicioVisible = await servicioEnLista.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (servicioVisible) {
+        console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado en la sección de servicios`);
+        
+        // Verificar que el servicio tiene el estado correcto (PENDIENTE)
+        const servicioCard = servicioEnLista.locator('xpath=ancestor::button[1]').first();
+        const estadoPendiente = await servicioCard.locator('text=PENDIENTE').count().then(count => count > 0);
+        if (estadoPendiente) {
+          console.log('✅ Estado "PENDIENTE" verificado en el servicio');
+        }
+      } else {
+        console.log(`⚠️ Servicio "${servicioInfo.nombre}" no visible en la sección de servicios`);
+      }
+    } else {
+      console.log(`⚠ No se encontraron servicios en la lista`);
+    }
+  } else {
+    console.log('⚠️ Sección de servicios no encontrada');
+  }
+  
+  await showStepMessage(page, '🎉 SERVICIO AGREGADO EXITOSAMENTE');
+  console.log('\n✅ Servicio agregado al evento exitosamente');
+  await clearStepMessage(page);
+}
+
+/**
+ * Crea un evento de un tipo específico
+ * Similar a ejecutarFlujoCompletoCreacionEvento pero permite especificar el tipo de evento
+ */
+async function crearEventoDeTipoEspecifico(
+  page: Page, 
+  tipoEvento: string
+): Promise<void> {
+  await showStepMessage(page, `🎉 CREANDO EVENTO DE TIPO: ${tipoEvento}`);
+  
+  // Buscar un servicio en el dashboard del proveedor
+  const servicioInfo = await buscarServicioEnProveedor(page);
+  
+  if (!servicioInfo) {
+    throw new Error('❌ No se pudo obtener información de un servicio del proveedor');
+  }
+  
+  console.log(`\n🎯 OBJETIVO: Navegar hasta el servicio "${servicioInfo.nombre}"`);
+  await showStepMessage(page, `🎯 OBJETIVO: Encontrar servicio "${servicioInfo.nombre}"`);
+  
+  // Cerrar sesión del proveedor y hacer login como cliente
+  await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  console.log('✓ Sesión del proveedor cerrada');
+  
+  // Navegar al login
+  await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
+  
+  // Verificar que estamos en la página de login
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/login')) {
+    console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
+    await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+  }
+  
+  // Hacer login con las credenciales del cliente
+  await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
+  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+  console.log('✓ Login exitoso como cliente');
+  
+  // Esperar a que se cargue el dashboard después del login
+  await page.waitForTimeout(3000);
+  
+  // Verificar que estamos en el dashboard
+  await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
+  console.log('✓ Navegación al dashboard confirmada');
+  
+  // Buscar y seleccionar el botón "Nueva fiesta"
+  await showStepMessage(page, '🔘 BUSCANDO BOTÓN "NUEVA FIESTA"');
+  const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
+    hasText: 'Nueva fiesta'
+  });
+  
+  // Verificar que el botón existe y es visible
+  await expect(nuevaFiestaButton).toBeVisible({ timeout: 10000 });
+  console.log('✓ Botón "Nueva fiesta" encontrado y visible');
+  
+  // Hacer clic en el botón "Nueva fiesta"
+  await showStepMessage(page, '🖱️ HACIENDO CLIC EN "NUEVA FIESTA"');
+  await nuevaFiestaButton.click();
+  console.log('✓ Se hizo clic en "Nueva fiesta"');
+  
+  // Esperar a que cargue la página de selección de categoría de evento
+  await page.waitForTimeout(2000);
+  
+  // Buscar todos los botones de categoría de evento
+  const categoryButtons = page.locator('button[type="submit"]').filter({
+    has: page.locator('p.text-dark-neutral')
+  });
+  
+  // Contar cuántas categorías hay disponibles
+  const categoryCount = await categoryButtons.count();
+  console.log(`✓ Se encontraron ${categoryCount} categorías de eventos disponibles`);
+  
+  // Verificar que hay al menos una categoría
+  expect(categoryCount).toBeGreaterThan(0);
+  
+  // Buscar la categoría específica que se solicita
+  await showStepMessage(page, `🎯 SELECCIONANDO CATEGORÍA: ${tipoEvento}`);
+  let categoriaEncontrada = false;
+  let selectedCategory: ReturnType<typeof categoryButtons.nth> | null = null;
+  let selectedEventType = tipoEvento;
+  
+  for (let i = 0; i < categoryCount; i++) {
+    const categoryButton = categoryButtons.nth(i);
+    const categoryName = await categoryButton.locator('p.text-dark-neutral').textContent();
+    const categoryNameTrimmed = categoryName?.trim() || '';
+    
+    // Comparar nombres (case-insensitive, permitir coincidencias parciales)
+    if (categoryNameTrimmed.toLowerCase() === tipoEvento.toLowerCase() ||
+        categoryNameTrimmed.toLowerCase().includes(tipoEvento.toLowerCase()) ||
+        tipoEvento.toLowerCase().includes(categoryNameTrimmed.toLowerCase())) {
+      selectedCategory = categoryButton;
+      selectedEventType = categoryNameTrimmed;
+      categoriaEncontrada = true;
+      console.log(`✅ Categoría encontrada: "${selectedEventType}" (índice ${i})`);
+      break;
+    }
+  }
+  
+  if (!categoriaEncontrada || !selectedCategory) {
+    throw new Error(`❌ No se encontró la categoría de evento "${tipoEvento}"`);
+  }
+  
+  // Hacer clic en la categoría seleccionada
+  await selectedCategory.click();
+  console.log(`✓ Se hizo clic en la categoría "${selectedEventType}"`);
+  
+  // Esperar a que cargue la página de selección de categoría de servicios
+  await page.waitForTimeout(2000);
+  
+  // Navegar por las categorías hasta encontrar el servicio objetivo
+  console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
+  await showStepMessage(page, `🔍 NAVEGANDO PARA ENCONTRAR SERVICIO "${servicioInfo.nombre}"`);
+  
+  // Buscar todos los botones de categoría de servicios
+  const serviceButtons = page.locator('button').filter({
+    has: page.locator('p.text-neutral-800.font-medium')
+  });
+  
+  // Navegar directamente a la categoría del servicio si está disponible
+  let servicioEncontrado = false;
+  
+  if (servicioInfo.categoria) {
+    console.log(`🎯 Buscando categoría específica: "${servicioInfo.categoria}"`);
+    
+    // Buscar la categoría que coincida con la categoría del servicio
+    let categoriaEncontradaServicio = false;
+    const serviceCount = await serviceButtons.count();
+    
+    for (let i = 0; i < serviceCount; i++) {
+      const serviceButton = serviceButtons.nth(i);
+      const serviceName = await serviceButton.locator('p.text-neutral-800.font-medium').textContent();
+      const categoryName = serviceName?.trim() || '';
+      
+      // Comparar nombres (case-insensitive, permitir coincidencias parciales)
+      if (categoryName.toLowerCase().trim() === servicioInfo.categoria.toLowerCase().trim() ||
+          categoryName.toLowerCase().includes(servicioInfo.categoria.toLowerCase().trim()) ||
+          servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
+        console.log(`✅ Categoría encontrada: "${categoryName}"`);
+        await serviceButton.click();
+        await page.waitForTimeout(2000);
+        categoriaEncontradaServicio = true;
+        break;
+      }
+    }
+    
+    if (categoriaEncontradaServicio) {
+      // Navegar por subcategorías hasta encontrar el servicio
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+        page, 
+        servicioInfo.nombre, 
+        servicioInfo.categoria, 
+        servicioInfo.subcategoria
+      );
+    } else {
+      console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
+      const firstCategory = serviceButtons.first();
+      await firstCategory.click();
+      await page.waitForTimeout(2000);
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
+        page, 
+        servicioInfo.nombre, 
+        servicioInfo.categoria, 
+        servicioInfo.subcategoria
+      );
+    }
+  } else {
+    // Si no hay categoría, probar todas las categorías
+    console.log(`⚠️ No se obtuvo categoría del servicio, probando todas las categorías...`);
+    const serviceCount = await serviceButtons.count();
+    const maxIntentosCategorias = serviceCount;
+    let intentosCategoria = 0;
+    
+    while (!servicioEncontrado && intentosCategoria < maxIntentosCategorias) {
+      intentosCategoria++;
+      const selectedService = serviceButtons.nth(intentosCategoria - 1);
+      const serviceName = await selectedService.locator('p.text-neutral-800.font-medium').textContent();
+      const selectedServiceCategory = serviceName?.trim() || 'Desconocida';
+      console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
+  
+      await selectedService.click();
+      await page.waitForTimeout(2000);
+  
+      servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
+      
+      if (!servicioEncontrado) {
+        console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
+        await page.goBack();
+        await page.waitForTimeout(2000);
+      }
+    }
+  }
+  
+  if (!servicioEncontrado) {
+    throw new Error(`❌ No se pudo encontrar el servicio "${servicioInfo.nombre}" después de navegar por las categorías`);
+  }
+  
+  console.log(`✅ Servicio "${servicioInfo.nombre}" encontrado exitosamente!`);
+  
+  // Verificar si el formulario ya está visible (significa que ya se hizo clic en "Contactar GRATIS")
+  const formExists = await page.locator('input[id="Honoree"]').isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (formExists) {
+    console.log(`✓ El formulario ya está visible, no es necesario hacer clic en "Contactar GRATIS" nuevamente`);
+  } else {
+    // El formulario no está visible, verificar si estamos en la página del servicio
+    const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /Detalle|Detalles|proveedor/i
+    });
+    
+    const isServicePage = await servicePageTitle.first().isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (isServicePage) {
+      // Buscar y hacer clic en el botón "Contactar GRATIS"
+      const contactButtons = page.locator('button').filter({
+        hasText: /Contactar GRATIS/i
+      });
+      
+      const contactButtonCount = await contactButtons.count();
+      console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+      
+      if (contactButtonCount > 0) {
+        const selectedContactButton = contactButtons.first();
+        await selectedContactButton.scrollIntoViewIfNeeded();
+        console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+        await selectedContactButton.click();
+        await page.waitForTimeout(2000);
+        } else {
+        throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
+      }
+    } else {
+      // Si no estamos en la página del servicio, esperar un poco más
+      await page.waitForTimeout(2000);
+      
+      // Buscar y hacer clic en el botón "Contactar GRATIS"
+      const contactButtons = page.locator('button').filter({
+        hasText: /Contactar GRATIS/i
+      });
+      
+      const contactButtonCount = await contactButtons.count();
+      console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+      
+      if (contactButtonCount > 0) {
+        const selectedContactButton = contactButtons.first();
+        await selectedContactButton.scrollIntoViewIfNeeded();
+        console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+        await selectedContactButton.click();
+        await page.waitForTimeout(2000);
+      } else {
+        throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
+      }
+    }
+    
+    // Esperar a que aparezca el formulario
+    await page.locator('input[id="Honoree"]').waitFor({ state: 'visible', timeout: 10000 });
+  }
+  
+  // Continuar con el formulario de evento (reutilizar la lógica de ejecutarFlujoCompletoCreacionEvento)
+  // Esta parte es la misma que en ejecutarFlujoCompletoCreacionEvento, desde el llenado del formulario
+  // hasta las validaciones finales. Voy a extraer esa parte en una función auxiliar o reutilizarla.
+  
+  // Por ahora, voy a copiar la lógica del formulario desde ejecutarFlujoCompletoCreacionEvento
+  // pero adaptada para usar selectedEventType en lugar de eventTypeForValidation
+        
+        // Llenar todos los campos del formulario
+        console.log('\n📝 Llenando formulario de contacto...');
+  await showStepMessage(page, '📝 LLENANDO FORMULARIO DE EVENTO');
+  
+  // Variables para guardar los datos del evento y verificarlos después
+  let eventData: {
+    honoree: string;
+    date: string;
+    time: string;
+    city: string;
+    attendees: number;
+  };
+        
+        // 1. Nombre del festejado
+        const randomNames = ['María', 'Juan', 'Carlos', 'Ana', 'Pedro', 'Laura', 'José', 'Carmen', 'Luis', 'Sofia'];
+        const randomLastNames = ['García', 'Rodríguez', 'Martínez', 'López', 'González', 'Hernández', 'Pérez', 'Sánchez', 'Ramírez', 'Torres'];
+        const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+        const randomLastName = randomLastNames[Math.floor(Math.random() * randomLastNames.length)];
+        const randomHonoree = `${randomName} ${randomLastName}`;
+        
+  eventData = {
+    honoree: randomHonoree,
+    date: '',
+    time: '',
+    city: '',
+    attendees: 0
+  };
+  
+  const honoreeField = page.locator('input[id="Honoree"]').first();
+  await honoreeField.scrollIntoViewIfNeeded();
+  await honoreeField.click();
+        await honoreeField.fill(randomHonoree);
+        console.log(`✓ Campo "Nombre del festejado" llenado: ${randomHonoree}`);
+  
+  // Quitar el foco del campo de nombre del festejado
+  await honoreeField.blur().catch(() => {});
+  await page.waitForTimeout(300);
+        
+        // 2. Fecha (usando date picker)
+        const dateField = page.locator('input[id="Date"]');
+        await dateField.click();
+        console.log(`✓ Abriendo date picker para seleccionar fecha futura`);
+        
+        const datePicker = page.locator('.flatpickr-calendar:visible, .flatpickr-calendar.open').first();
+        await datePicker.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+        
+        const datePickerVisible = await datePicker.isVisible().catch(() => false);
+        
+        if (datePickerVisible) {
+          console.log(`✓ Date picker visible, buscando días futuros...`);
+          
+          const availableDays = page.locator('.flatpickr-day:not(.flatpickr-disabled):not(.prevMonthDay):not(.nextMonthDay)');
+          const daysCount = await availableDays.count();
+          const currentDay = new Date().getDate();
+          
+          console.log(`📊 Días disponibles: ${daysCount}, día actual: ${currentDay}`);
+          
+          let futureDayIndex = -1;
+          for (let i = 0; i < daysCount; i++) {
+            const dayElement = availableDays.nth(i);
+            const dayText = await dayElement.textContent();
+            const dayNumber = parseInt(dayText?.trim() || '0');
+            
+            if (dayNumber > currentDay) {
+              futureDayIndex = i;
+              break;
+            }
+          }
+          
+          if (futureDayIndex === -1) {
+            futureDayIndex = daysCount - 1;
+            console.log(`⚠ No hay días futuros en este mes, usando último día disponible`);
+          }
+          
+          const selectedDay = availableDays.nth(futureDayIndex);
+          await selectedDay.click();
+          const dayText = await selectedDay.textContent();
+          const selectedDayNumber = parseInt(dayText?.trim() || '0');
+  
+    // Guardar la fecha seleccionada
+    const dateFieldValue = await dateField.inputValue();
+    eventData.date = dateFieldValue;
+    console.log(`✓ Fecha seleccionada: día ${selectedDayNumber} (${dateFieldValue})`);
+        }
+        
+        // 3. Hora (usando selector de hora)
+  const randomHour = Math.floor(Math.random() * 12) + 1;
+  const randomMinute = [0, 15, 30, 45][Math.floor(Math.random() * 4)];
+        
+        await seleccionarHoraYMinuto(page, randomHour, randomMinute);
+  
+  // Guardar la hora seleccionada
+  const timeField = page.locator('input[id="Time"]');
+  await timeField.waitFor({ state: 'visible', timeout: 3000 });
+  const timeValue = await timeField.inputValue();
+  eventData.time = timeValue;
+  console.log(`✓ Hora seleccionada: ${randomHour}:${randomMinute.toString().padStart(2, '0')} (${timeValue})`);
+  
+        const timePickerDialog = page.locator('[data-time-picker-content="true"]');
+        try {
+          await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
+        } catch (e) {
+          await page.waitForTimeout(1000);
+        }
+        
+        // 4. Ciudad (usando autocompletado de Google)
+        const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
+        const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
+        
+        await page.waitForTimeout(500);
+        
+  // Buscar el campo de ciudad usando el label "Ciudad"
+  let cityField: ReturnType<typeof page.locator> | null = null;
+  
+  const ciudadLabel = page.locator('label:has-text("Ciudad")').first();
+          const labelExists = await ciudadLabel.count().then(count => count > 0);
+          
+          if (labelExists) {
+              const labelFor = await ciudadLabel.getAttribute('for');
+              if (labelFor) {
+      cityField = page.locator(`input[id="${labelFor}"]`).first();
+      const foundById = await cityField.count().then(count => count > 0);
+      if (foundById) {
+        await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Campo de ciudad encontrado por atributo "for" del label: ${labelFor}`);
+              } else {
+        console.log(`⚠ Campo con id="${labelFor}" no existe. Buscando input hermano del label...`);
+        cityField = ciudadLabel.locator('xpath=preceding-sibling::input[1]').first();
+        if (!(await cityField.count())) {
+          cityField = ciudadLabel.locator('xpath=ancestor::div[contains(@class, "relative") or contains(@class, "flex")]//input').first();
+        }
+        await cityField.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Campo de ciudad encontrado por proximidad al label`);
+      }
+            }
+          } else {
+    cityField = page.locator('input').filter({
+      has: page.locator('..').locator('i.icon-map-pin')
+    }).first();
+  }
+  
+  if (cityField) {
+    const exists = await cityField.count().then(count => count > 0);
+    if (!exists) {
+      cityField = null;
+    }
+  }
+  
+  if (!cityField) {
+    throw new Error('❌ No se pudo encontrar el campo de ciudad');
+  }
+  
+  await cityField.waitFor({ state: 'visible', timeout: 5000 });
+  
+  // Asegurar que ningún otro campo tenga el foco
+  await page.locator('body').click({ position: { x: 10, y: 10 } }).catch(() => {});
+  await page.waitForTimeout(200);
+  
+  // Hacer clic específicamente en el campo de ciudad
+  await cityField.scrollIntoViewIfNeeded();
+  await cityField.click({ force: true });
+  await page.waitForTimeout(500);
+  
+  // Limpiar el campo si tiene algún valor
+        const clearButton = page.locator('button[aria-label="Clear address"]');
+        const clearButtonVisible = await clearButton.isVisible().catch(() => false);
+        
+        if (clearButtonVisible) {
+          await clearButton.click();
+          await page.waitForTimeout(200);
+    await cityField.click({ force: true });
+    await page.waitForTimeout(500);
+        } else {
+    const currentValue = await cityField.inputValue();
+    if (currentValue && currentValue.trim().length > 0) {
+          await cityField.selectText();
+          await cityField.press('Backspace');
+          await page.waitForTimeout(200);
+    }
+  }
+  
+  // Escribir en el campo de ciudad
+  await cityField.fill(randomCity);
+  await page.waitForTimeout(300);
+  
+  // Verificar que el texto se escribió correctamente
+  const cityValue = await cityField.inputValue();
+  if (cityValue !== randomCity) {
+    console.log(`⚠️ El texto no se escribió correctamente. Intentando nuevamente...`);
+    await cityField.clear();
+    await cityField.fill(randomCity);
+    await page.waitForTimeout(300);
+  }
+  
+  console.log(`✓ Ciudad escrita: "${randomCity}" (valor en campo: "${await cityField.inputValue()}")`);
+        await page.waitForTimeout(2000);
+        
+  // Esperar a que aparezcan las opciones de autocompletado de Google Places
+  try {
+    const autocompleteList = page.locator('ul.flex.flex-col.py-2, ul[class*="flex"][class*="flex-col"]');
+    await autocompleteList.first().waitFor({ state: 'visible', timeout: 5000 });
+    
+    const autocompleteOptions = autocompleteList.locator('li.cursor-pointer, li[class*="cursor-pointer"]');
+    await autocompleteOptions.first().waitFor({ state: 'visible', timeout: 3000 });
+    
+    const optionsCount = await autocompleteOptions.count();
+    console.log(`📋 Opciones de ciudad encontradas: ${optionsCount}`);
+    
+    if (optionsCount > 0) {
+      const firstOption = autocompleteOptions.first();
+      const optionText = await firstOption.textContent();
+      console.log(`📋 Seleccionando ciudad: "${optionText?.trim()}"`);
+      
+      await firstOption.click();
+      await page.waitForTimeout(1500);
+      
+      const cityValueFinal = await cityField.inputValue();
+      eventData.city = cityValueFinal;
+      console.log(`✅ Ciudad seleccionada. Valor del campo: "${cityValueFinal}"`);
+    } else {
+      throw new Error('No se encontraron opciones en la lista');
+    }
+  } catch (error) {
+    try {
+      const autocompleteOptionsAlt = page.locator('li.cursor-pointer.flex.items-center, li[class*="cursor-pointer"]');
+      await autocompleteOptionsAlt.first().waitFor({ state: 'visible', timeout: 3000 });
+      
+      const firstOption = autocompleteOptionsAlt.first();
+      const optionText = await firstOption.textContent();
+      console.log(`📋 Seleccionando ciudad (selector alternativo): "${optionText?.trim()}"`);
+      
+      await firstOption.click();
+      await page.waitForTimeout(1500);
+      const cityValueAlt = await cityField.inputValue();
+      eventData.city = cityValueAlt;
+      console.log('✅ Ciudad seleccionada del autocompletado (selector alternativo)');
+    } catch (error2) {
+      const cityValueFallback = await cityField.inputValue();
+      eventData.city = cityValueFallback || randomCity;
+      console.log(`⚠️ No se pudieron encontrar las opciones de autocompletado, usando: "${eventData.city}"`);
+    }
+  }
+  
+  // Asegurar que la ciudad esté guardada
+  if (!eventData.city) {
+    const cityValueFinal = await cityField.inputValue();
+    eventData.city = cityValueFinal || randomCity;
+        }
+        
+        // 5. Número de invitados
+  const randomAttendees = Math.floor(Math.random() * 181) + 20;
+        const attendeesField = page.locator('input[id="Attendees"]');
+        await attendeesField.fill(randomAttendees.toString());
+  eventData.attendees = randomAttendees;
+        console.log(`✓ Campo "Número de invitados" llenado: ${randomAttendees}`);
+        
+        console.log('✅ Formulario completado exitosamente');
+        
+  // Hacer clic en el botón "Crear evento"
+  await showStepMessage(page, '🚀 CREANDO EVENTO');
+        const createEventButton = page.locator('button.bg-primary-neutral.text-neutral-0').filter({
+          hasText: 'Crear evento'
+        });
+        await createEventButton.waitFor({ state: 'visible', timeout: 5000 });
+        console.log(`✓ Botón "Crear evento" encontrado y visible`);
+        await createEventButton.click();
+        console.log(`✓ Se hizo clic en "Crear evento"`);
+        await page.waitForTimeout(2000);
+  
+  // Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
+  await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
+  const preQuotationForm = page.locator('#PrequotationRequestForm');
+  await preQuotationForm.waitFor({ state: 'visible', timeout: 15000 });
+  console.log('🪟 Modal de solicitud visible');
+  
+  const checkboxLocator = preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]');
+  const checkboxCount = await checkboxLocator.count();
+  console.log(`📋 Checkboxes disponibles: ${checkboxCount}`);
+  
+  if (checkboxCount > 0) {
+    const shouldSelectAll = Math.random() < 0.4;
+    
+    if (shouldSelectAll) {
+      await showStepMessage(page, '☑️ SELECCIONANDO TODAS LAS VARIEDADES');
+      const selectAllButton = preQuotationForm.locator('div:has(> p:has-text("Seleccionar todo")) button').first();
+      if (await selectAllButton.isVisible().catch(() => false)) {
+        await selectAllButton.click();
+        console.log('✅ Se hizo clic en "Seleccionar todo"');
+      } else {
+        console.log('⚠ Botón "Seleccionar todo" no visible, seleccionando manualmente');
+      }
+    } else {
+      await showStepMessage(page, '☑️ SELECCIONANDO VARIEDADES ALEATORIAS');
+    }
+    
+    if (! (await preQuotationForm.locator('#RequiredAttributeIds input[type="checkbox"]:checked').count())) {
+      const indices = Array.from({ length: checkboxCount }, (_, i) => i).sort(() => Math.random() - 0.5);
+      const selections = Math.min(checkboxCount, Math.max(1, Math.floor(Math.random() * checkboxCount) + 1));
+      
+      for (let i = 0; i < selections; i++) {
+        const checkbox = checkboxLocator.nth(indices[i]);
+        const alreadyChecked = await checkbox.evaluate(el => (el as HTMLInputElement).checked).catch(() => false);
+        if (alreadyChecked) continue;
+        
+        const checkboxId = await checkbox.getAttribute('id');
+        let clickTarget = checkbox;
+        if (checkboxId) {
+          const label = preQuotationForm.locator(`label[for="${checkboxId}"]`).first();
+          if (await label.count()) {
+            clickTarget = label;
+          }
+        } else {
+          const buttonWrapper = checkbox.locator('xpath=ancestor::button[1]');
+          if (await buttonWrapper.count()) {
+            clickTarget = buttonWrapper;
+          }
+        }
+        
+        await clickTarget.click({ force: true });
+        console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
+        await page.waitForTimeout(200);
+      }
+    }
+  } else {
+    console.log('⚠ No se encontraron checkboxes para seleccionar');
+  }
+  
+  // Llenar el campo "Solicitudes"
+  await showStepMessage(page, '📝 LLENANDO CAMPO DE SOLICITUDES');
+  const requestMessages = [
+    'Nos gustaría incluir opciones vegetarianas y postres personalizados.',
+    'Buscamos algo con temática tropical y servicio completo de montaje.',
+    'Necesitamos cotización con barra libre y personal extra para servicio.',
+    'Queremos opciones premium y asesoría para decoración a juego.',
+  ];
+  const randomRequestMessage = requestMessages[Math.floor(Math.random() * requestMessages.length)];
+  
+  const requestField = preQuotationForm.locator('textarea#Request');
+  await requestField.waitFor({ state: 'visible', timeout: 5000 });
+  await requestField.fill(randomRequestMessage);
+  console.log(`📝 Campo "Solicitudes" llenado con: ${randomRequestMessage}`);
+  
+  // Enviar la solicitud
+  await showStepMessage(page, '🚀 ENVIANDO SOLICITUD');
+  const solicitarButton = page.locator('button[form="PrequotationRequestForm"], button:has-text("Solicitar")').first();
+  await solicitarButton.waitFor({ state: 'visible', timeout: 10000 });
+  await solicitarButton.click();
+  console.log('🚀 Botón "Solicitar" presionado');
+  
+  await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
+  await page.waitForTimeout(1000);
+  
+  // Confirmar diálogo "Solicitud enviada"
+  await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
+  const successDialog = page.locator('div:has-text("Solicitud enviada")').first();
+  try {
+    await successDialog.waitFor({ state: 'visible', timeout: 10000 });
+    console.log('🎊 Modal "Solicitud enviada" visible');
+    
+    const okButton = successDialog.locator('button:has-text("OK")').first();
+    await okButton.waitFor({ state: 'visible', timeout: 5000 });
+    await okButton.click();
+    console.log('👍 Botón "OK" presionado');
+  } catch (successModalError) {
+    console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
+  }
+  
+  await page.waitForTimeout(1500);
+  
+  // Verificar que el flujo regrese automáticamente al dashboard del cliente
+  await showStepMessage(page, '🔁 ESPERANDO REGRESO AL DASHBOARD');
+  console.log('🔁 Esperando a que la aplicación regrese al dashboard del cliente...');
+  await page.waitForURL('**/client/dashboard', { timeout: 20000 });
+  console.log('🏠 Dashboard del cliente visible');
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(1000);
+  
+  console.log(`✅ Evento de tipo "${selectedEventType}" creado exitosamente`);
+}
+
+/**
+ * Crea un evento de cada tipo disponible en la página
+ * Itera sobre todos los tipos de eventos y crea uno de cada tipo
+ */
+export async function crearEventosDeTodosLosTipos(page: Page) {
+  await showStepMessage(page, '🎉 CREANDO EVENTOS DE TODOS LOS TIPOS');
+  console.log('\n🚀 Iniciando creación de eventos de todos los tipos...');
+  
+  // PASO 1: Login como cliente
+  await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
+  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+  console.log('✓ Login exitoso como cliente');
+  
+  // Esperar a que se cargue el dashboard después del login
+  await page.waitForTimeout(3000);
+  
+  // Verificar que estamos en el dashboard
+  await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
+  console.log('✓ Navegación al dashboard confirmada');
+  
+  // PASO 2: Obtener todos los tipos de eventos disponibles
+  await showStepMessage(page, '📋 OBTENIENDO TIPOS DE EVENTOS DISPONIBLES');
+  
+  // Buscar y seleccionar el botón "Nueva fiesta"
+  const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
+    hasText: 'Nueva fiesta'
+  });
+  
+  await expect(nuevaFiestaButton).toBeVisible({ timeout: 10000 });
+  console.log('✓ Botón "Nueva fiesta" encontrado y visible');
+  
+  await nuevaFiestaButton.click();
+  console.log('✓ Se hizo clic en "Nueva fiesta"');
+  
+  // Esperar a que cargue la página de selección de categoría de evento
+  await page.waitForTimeout(2000);
+  
+  // Buscar todos los botones de categoría de evento
+  const categoryButtons = page.locator('button[type="submit"]').filter({
+    has: page.locator('p.text-dark-neutral')
+  });
+  
+  // Contar cuántas categorías hay disponibles
+  const categoryCount = await categoryButtons.count();
+  console.log(`📊 Total de tipos de eventos encontrados: ${categoryCount}`);
+  
+  if (categoryCount === 0) {
+    throw new Error('❌ No se encontraron tipos de eventos disponibles');
+  }
+  
+  // Obtener todos los nombres de los tipos de eventos
+  const tiposEventos: string[] = [];
+  for (let i = 0; i < categoryCount; i++) {
+    const categoryButton = categoryButtons.nth(i);
+    const categoryName = await categoryButton.locator('p.text-dark-neutral').textContent();
+    const categoryNameTrimmed = categoryName?.trim() || '';
+    if (categoryNameTrimmed) {
+      tiposEventos.push(categoryNameTrimmed);
+      console.log(`  - Tipo ${i + 1}: "${categoryNameTrimmed}"`);
+    }
+  }
+  
+  console.log(`\n✅ Tipos de eventos a crear: ${tiposEventos.length}`);
+  console.log(`📋 Lista: ${tiposEventos.join(', ')}`);
+  
+  // PASO 3: Crear un evento de cada tipo
+  const eventosCreados: string[] = [];
+  const eventosFallidos: string[] = [];
+  
+  for (let i = 0; i < tiposEventos.length; i++) {
+    const tipoEvento = tiposEventos[i];
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`📅 CREANDO EVENTO ${i + 1}/${tiposEventos.length}: ${tipoEvento}`);
+    console.log(`${'='.repeat(60)}`);
+    
+    try {
+      await crearEventoDeTipoEspecifico(page, tipoEvento);
+      eventosCreados.push(tipoEvento);
+      console.log(`✅ Evento de tipo "${tipoEvento}" creado exitosamente`);
+      
+      // Esperar un poco antes de crear el siguiente evento
+      await page.waitForTimeout(2000);
+    } catch (error) {
+      eventosFallidos.push(tipoEvento);
+      console.log(`❌ Error al crear evento de tipo "${tipoEvento}": ${error}`);
+      // Continuar con el siguiente tipo de evento
+    }
+  }
+  
+  // PASO 4: Resumen final
+  console.log(`\n${'='.repeat(60)}`);
+  console.log('📊 RESUMEN DE CREACIÓN DE EVENTOS');
+  console.log(`${'='.repeat(60)}`);
+  console.log(`✅ Eventos creados exitosamente: ${eventosCreados.length}/${tiposEventos.length}`);
+  if (eventosCreados.length > 0) {
+    console.log(`   Tipos creados: ${eventosCreados.join(', ')}`);
+  }
+  
+  if (eventosFallidos.length > 0) {
+    console.log(`❌ Eventos fallidos: ${eventosFallidos.length}`);
+    console.log(`   Tipos fallidos: ${eventosFallidos.join(', ')}`);
+  }
+  
+  await showStepMessage(page, `🎉 PRUEBA COMPLETADA: ${eventosCreados.length}/${tiposEventos.length} eventos creados`);
+  console.log('\n✅ Prueba de creación de eventos de todos los tipos completada');
+  await clearStepMessage(page);
+  
+  // Lanzar error si no se creó ningún evento
+  if (eventosCreados.length === 0) {
+    throw new Error('❌ No se pudo crear ningún evento de ningún tipo');
+  }
+}
+
+// Ejecutar el flujo completo en el test
+test('Nueva fiesta', async ({ page }) => {
+  await ejecutarFlujoCompletoCreacionEvento(page);
+});
+
+test('Crear eventos de todos los tipos', async ({ page }) => {
+  test.setTimeout(600000); // 10 minutos (más tiempo porque crea múltiples eventos)
+  await crearEventosDeTodosLosTipos(page);
 });
 

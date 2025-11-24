@@ -12,6 +12,9 @@ const isProd = process.env.ENVIRONMENT === 'prod' || process.env.FIESTAMAS_PROD_
 export const DEFAULT_BASE_URL = isProd
   ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://staging.fiestamas.com')
   : (process.env.FIESTAMAS_BASE_URL ?? 'https://staging.fiestamas.com');
+// ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://fiestamas.com')
+//  : (process.env.FIESTAMAS_BASE_URL ?? 'https://fiestamas.com');
+
 
 // Credenciales (pueden ser las mismas o diferentes según el ambiente)
 export const PROVIDER_EMAIL = process.env.FIESTAMAS_PROVIDER_EMAIL ?? process.env.FIESTAMAS_PROD_PROVIDER_EMAIL ?? 'fiestamasqaprv@gmail.com';
