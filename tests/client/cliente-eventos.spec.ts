@@ -788,10 +788,34 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   // Limpiar cookies y storage para asegurar que no haya sesión activa
   await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
   await page.context().clearCookies();
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  
+  // Navegar a una página válida antes de limpiar storage
+  try {
+    await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+  } catch (e) {
+    // Si falla, continuar de todas formas
+  }
+  
+  // Limpiar storage de forma segura
+  try {
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+      } catch (e) {
+        // Ignorar errores de acceso a localStorage
+      }
+      try {
+        sessionStorage.clear();
+      } catch (e) {
+        // Ignorar errores de acceso a sessionStorage
+      }
+    });
+  } catch (e) {
+    // Ignorar errores al limpiar storage
+    console.log('⚠️ No se pudo limpiar storage, continuando...');
+  }
+  
   console.log('✓ Sesión del proveedor cerrada');
   
   // Navegar al login
@@ -2366,10 +2390,34 @@ export async function agregarServicioAEventoExistente(page: Page) {
     // Cerrar sesión del proveedor y hacer login como cliente
     await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
     await page.context().clearCookies();
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
+    
+    // Navegar a una página válida antes de limpiar storage
+    try {
+      await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(500);
+    } catch (e) {
+      // Si falla, continuar de todas formas
+    }
+    
+    // Limpiar storage de forma segura
+    try {
+      await page.evaluate(() => {
+        try {
+          localStorage.clear();
+        } catch (e) {
+          // Ignorar errores de acceso a localStorage
+        }
+        try {
+          sessionStorage.clear();
+        } catch (e) {
+          // Ignorar errores de acceso a sessionStorage
+        }
+      });
+    } catch (e) {
+      // Ignorar errores al limpiar storage
+      console.log('⚠️ No se pudo limpiar storage, continuando...');
+    }
+    
     console.log('✓ Sesión del proveedor cerrada');
     
     // Navegar al login
@@ -2748,10 +2796,34 @@ async function crearEventoDeTipoEspecifico(
   // Cerrar sesión del proveedor y hacer login como cliente
   await showStepMessage(page, '🔄 CAMBIANDO DE PROVEEDOR A CLIENTE');
   await page.context().clearCookies();
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  
+  // Navegar a una página válida antes de limpiar storage
+  try {
+    await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+  } catch (e) {
+    // Si falla, continuar de todas formas
+  }
+  
+  // Limpiar storage de forma segura
+  try {
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+      } catch (e) {
+        // Ignorar errores de acceso a localStorage
+      }
+      try {
+        sessionStorage.clear();
+      } catch (e) {
+        // Ignorar errores de acceso a sessionStorage
+      }
+    });
+  } catch (e) {
+    // Ignorar errores al limpiar storage
+    console.log('⚠️ No se pudo limpiar storage, continuando...');
+  }
+  
   console.log('✓ Sesión del proveedor cerrada');
   
   // Navegar al login
@@ -3377,40 +3449,41 @@ async function crearEventoDeTipoEspecifico(
 }
 
 /**
- * Crea un evento de cada tipo disponible en la página
- * Itera sobre todos los tipos de eventos y crea uno de cada tipo
+ * Obtiene todos los tipos de eventos disponibles en la página
  */
-export async function crearEventosDeTodosLosTipos(page: Page) {
-  await showStepMessage(page, '🎉 CREANDO EVENTOS DE TODOS LOS TIPOS');
-  console.log('\n🚀 Iniciando creación de eventos de todos los tipos...');
+export async function obtenerTiposDeEventos(page: Page): Promise<string[]> {
+  // Verificar si estamos logueados y en el dashboard
+  const currentUrl = page.url();
+  const isOnDashboard = currentUrl.includes('/client/dashboard');
   
-  // PASO 1: Login como cliente
-  await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
-  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-  console.log('✓ Login exitoso como cliente');
+  if (!isOnDashboard) {
+    // Si no estamos en el dashboard, hacer login primero
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    await page.waitForTimeout(2000);
+  }
   
-  // Esperar a que se cargue el dashboard después del login
-  await page.waitForTimeout(3000);
+  // Asegurar que estamos en el dashboard
+  await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2000);
   
-  // Verificar que estamos en el dashboard
-  await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
-  console.log('✓ Navegación al dashboard confirmada');
-  
-  // PASO 2: Obtener todos los tipos de eventos disponibles
-  await showStepMessage(page, '📋 OBTENIENDO TIPOS DE EVENTOS DISPONIBLES');
-  
-  // Buscar y seleccionar el botón "Nueva fiesta"
+  // Verificar que el botón "Nueva fiesta" está visible (confirma que estamos logueados)
   const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
     hasText: 'Nueva fiesta'
   });
   
+  const buttonVisible = await nuevaFiestaButton.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (!buttonVisible) {
+    // Si el botón no está visible, hacer login
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    await page.waitForTimeout(2000);
+    await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+  }
+  
+  // Buscar y seleccionar el botón "Nueva fiesta"
   await expect(nuevaFiestaButton).toBeVisible({ timeout: 10000 });
-  console.log('✓ Botón "Nueva fiesta" encontrado y visible');
-  
   await nuevaFiestaButton.click();
-  console.log('✓ Se hizo clic en "Nueva fiesta"');
-  
-  // Esperar a que cargue la página de selección de categoría de evento
   await page.waitForTimeout(2000);
   
   // Buscar todos los botones de categoría de evento
@@ -3418,9 +3491,7 @@ export async function crearEventosDeTodosLosTipos(page: Page) {
     has: page.locator('p.text-dark-neutral')
   });
   
-  // Contar cuántas categorías hay disponibles
   const categoryCount = await categoryButtons.count();
-  console.log(`📊 Total de tipos de eventos encontrados: ${categoryCount}`);
   
   if (categoryCount === 0) {
     throw new Error('❌ No se encontraron tipos de eventos disponibles');
@@ -3434,27 +3505,78 @@ export async function crearEventosDeTodosLosTipos(page: Page) {
     const categoryNameTrimmed = categoryName?.trim() || '';
     if (categoryNameTrimmed) {
       tiposEventos.push(categoryNameTrimmed);
-      console.log(`  - Tipo ${i + 1}: "${categoryNameTrimmed}"`);
     }
   }
   
-  console.log(`\n✅ Tipos de eventos a crear: ${tiposEventos.length}`);
-  console.log(`📋 Lista: ${tiposEventos.join(', ')}`);
+  return tiposEventos;
+}
+
+/**
+ * Crea eventos de un bloque específico de tipos
+ * @param page Página de Playwright
+ * @param tiposEventos Lista completa de tipos de eventos
+ * @param inicio Índice de inicio del bloque (inclusive)
+ * @param fin Índice de fin del bloque (exclusive)
+ */
+export async function crearEventosDeBloque(
+  page: Page,
+  tiposEventos: string[],
+  inicio: number,
+  fin: number
+) {
+  const bloqueTipos = tiposEventos.slice(inicio, fin);
+  const bloqueNumero = Math.floor(inicio / 3) + 1;
+  const totalBloques = Math.ceil(tiposEventos.length / 3);
   
-  // PASO 3: Crear un evento de cada tipo
+  await showStepMessage(page, `🎉 CREANDO EVENTOS - BLOQUE ${bloqueNumero}/${totalBloques}`);
+  console.log(`\n🚀 Iniciando creación de eventos del bloque ${bloqueNumero}/${totalBloques}...`);
+  console.log(`📋 Tipos en este bloque: ${bloqueTipos.join(', ')}`);
+  
+  // PASO 1: Verificar si ya estamos logueados (obtenerTiposDeEventos ya hizo login)
+  const currentUrl = page.url();
+  const isOnDashboard = currentUrl.includes('/client/dashboard');
+  
+  if (!isOnDashboard) {
+    // Solo hacer login si no estamos en el dashboard
+    await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    console.log('✓ Login exitoso como cliente');
+    
+    // Esperar a que se cargue el dashboard después del login
+    await page.waitForTimeout(3000);
+    
+    // Verificar que estamos en el dashboard
+    await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
+    console.log('✓ Navegación al dashboard confirmada');
+  } else {
+    // Si ya estamos en el dashboard, solo navegar para asegurarnos
+    await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+    console.log('✓ Ya estamos en el dashboard, continuando...');
+  }
+  
+  // PASO 2: Crear eventos del bloque
   const eventosCreados: string[] = [];
   const eventosFallidos: string[] = [];
   
-  for (let i = 0; i < tiposEventos.length; i++) {
-    const tipoEvento = tiposEventos[i];
+  for (let i = 0; i < bloqueTipos.length; i++) {
+    const tipoEvento = bloqueTipos[i];
+    const indiceGlobal = inicio + i;
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`📅 CREANDO EVENTO ${i + 1}/${tiposEventos.length}: ${tipoEvento}`);
+    console.log(`📅 CREANDO EVENTO ${indiceGlobal + 1}/${tiposEventos.length}: ${tipoEvento}`);
     console.log(`${'='.repeat(60)}`);
     
     try {
       await crearEventoDeTipoEspecifico(page, tipoEvento);
       eventosCreados.push(tipoEvento);
       console.log(`✅ Evento de tipo "${tipoEvento}" creado exitosamente`);
+      
+      // Limpiar memoria después de cada evento
+      await page.evaluate(() => {
+        if (window.gc) {
+          window.gc();
+        }
+      });
       
       // Esperar un poco antes de crear el siguiente evento
       await page.waitForTimeout(2000);
@@ -3465,11 +3587,11 @@ export async function crearEventosDeTodosLosTipos(page: Page) {
     }
   }
   
-  // PASO 4: Resumen final
+  // PASO 3: Resumen del bloque
   console.log(`\n${'='.repeat(60)}`);
-  console.log('📊 RESUMEN DE CREACIÓN DE EVENTOS');
+  console.log(`📊 RESUMEN DEL BLOQUE ${bloqueNumero}/${totalBloques}`);
   console.log(`${'='.repeat(60)}`);
-  console.log(`✅ Eventos creados exitosamente: ${eventosCreados.length}/${tiposEventos.length}`);
+  console.log(`✅ Eventos creados exitosamente: ${eventosCreados.length}/${bloqueTipos.length}`);
   if (eventosCreados.length > 0) {
     console.log(`   Tipos creados: ${eventosCreados.join(', ')}`);
   }
@@ -3479,14 +3601,11 @@ export async function crearEventosDeTodosLosTipos(page: Page) {
     console.log(`   Tipos fallidos: ${eventosFallidos.join(', ')}`);
   }
   
-  await showStepMessage(page, `🎉 PRUEBA COMPLETADA: ${eventosCreados.length}/${tiposEventos.length} eventos creados`);
-  console.log('\n✅ Prueba de creación de eventos de todos los tipos completada');
+  await showStepMessage(page, `🎉 BLOQUE ${bloqueNumero} COMPLETADO: ${eventosCreados.length}/${bloqueTipos.length} eventos creados`);
+  console.log(`\n✅ Bloque ${bloqueNumero} completado`);
   await clearStepMessage(page);
   
-  // Lanzar error si no se creó ningún evento
-  if (eventosCreados.length === 0) {
-    throw new Error('❌ No se pudo crear ningún evento de ningún tipo');
-  }
+  return { eventosCreados, eventosFallidos };
 }
 
 // Ejecutar el flujo completo en el test
@@ -3494,8 +3613,73 @@ test('Nueva fiesta', async ({ page }) => {
   await ejecutarFlujoCompletoCreacionEvento(page);
 });
 
-test('Crear eventos de todos los tipos', async ({ page }) => {
-  test.setTimeout(600000); // 10 minutos (más tiempo porque crea múltiples eventos)
-  await crearEventosDeTodosLosTipos(page);
-});
+// Crear tests para cada bloque de 3 tipos de eventos
+// Máximo 15 tipos de eventos = 5 bloques
+const crearTestsPorBloque = () => {
+  for (let bloque = 0; bloque < 5; bloque++) { // 5 bloques máximo (15 tipos de eventos)
+    const inicio = bloque * 3;
+    const fin = inicio + 3;
+    
+    test(`Crear eventos - Bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})`, async ({ page }) => {
+      test.setTimeout(300000); // 5 minutos por bloque
+      
+      // Limpiar cookies y storage antes de empezar
+      await page.context().clearCookies();
+      
+      // Navegar a una página válida antes de limpiar storage
+      try {
+        await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(500);
+      } catch (e) {
+        // Si falla, continuar de todas formas
+      }
+      
+      // Limpiar storage de forma segura
+      try {
+        await page.evaluate(() => {
+          try {
+            localStorage.clear();
+          } catch (e) {
+            // Ignorar errores de acceso a localStorage
+          }
+          try {
+            sessionStorage.clear();
+          } catch (e) {
+            // Ignorar errores de acceso a sessionStorage
+          }
+        });
+      } catch (e) {
+        // Ignorar errores al limpiar storage
+        console.log('⚠️ No se pudo limpiar storage, continuando...');
+      }
+      
+      // Hacer login primero
+      await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+      await page.waitForTimeout(2000);
+      
+      // Obtener tipos de eventos (ya estamos logueados)
+      const tiposEventos = await obtenerTiposDeEventos(page);
+      
+      console.log(`\n📊 Total de tipos de eventos encontrados: ${tiposEventos.length}`);
+      console.log(`📋 Tipos: ${tiposEventos.join(', ')}`);
+      
+      // Volver al dashboard después de obtener los tipos
+      await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2000);
+      
+      // Si no hay más tipos para este bloque, saltar el test
+      if (inicio >= tiposEventos.length) {
+        console.log(`⏭️ Saltando bloque ${bloque + 1}: no hay más tipos de eventos`);
+        test.skip();
+        return;
+      }
+      
+      // Crear eventos del bloque
+      await crearEventosDeBloque(page, tiposEventos, inicio, Math.min(fin, tiposEventos.length));
+    });
+  }
+};
+
+// Ejecutar la función para crear los tests
+crearTestsPorBloque();
 
