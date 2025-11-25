@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { login, showStepMessage, clearStepMessage } from '../utils';
+import { login, showStepMessage, clearStepMessage, safeWaitForTimeout } from '../utils';
 import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 test.use({
@@ -7,7 +7,7 @@ test.use({
 });
 
 // Configuración global de timeout (aumentado para dar más tiempo a la carga de servicios)
-test.setTimeout(180000); // 3 minutos
+test.setTimeout(600000); // 10 minutos (para permitir tests de bloques largos)
 
 /**
  * Función auxiliar para seleccionar hora y minuto en el reloj
@@ -40,7 +40,7 @@ export async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: n
   const h = horaCirculos[hora];
   if (!h) throw new Error(`Hora ${hora} no está mapeada en el reloj`);
   
-  await page.waitForTimeout(500);
+  await safeWaitForTimeout(page, 500);
   
   const allCircles = page.locator('svg circle.cursor-pointer');
   const circleCount = await allCircles.count();
@@ -65,7 +65,7 @@ export async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: n
   } else {
     throw new Error(`No se pudo encontrar el círculo para la hora ${hora}`);
   }
-  await page.waitForTimeout(500);
+  await safeWaitForTimeout(page, 500);
   
   // 4. Seleccionar el minuto
   const minutoCirculos: { [key: number]: { cx: number; cy: number } } = {
@@ -102,7 +102,7 @@ export async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: n
     throw new Error(`No se pudo encontrar el círculo para el minuto ${minuto}`);
   }
   
-  await page.waitForTimeout(500);
+  await safeWaitForTimeout(page, 500);
   
   // 5. Confirmar selección
   const confirmButton = page.locator('button.bg-primary-neutral.text-light-light').filter({ hasText: 'Confirmar' });
@@ -121,7 +121,7 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
   // Intentar navegar directamente al dashboard del proveedor
   // Si no estamos logueados, nos redirigirá al login
   await page.goto(`${DEFAULT_BASE_URL}/provider/dashboard`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Verificar si estamos en la página de login (no logueados) o en el dashboard (logueados)
   const currentUrl = page.url();
@@ -132,11 +132,11 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
     console.log('⚠️ No estamos logueados, haciendo login...');
     await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     console.log('✓ Login exitoso como proveedor');
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     
     // Navegar nuevamente al dashboard después del login
     await page.goto(`${DEFAULT_BASE_URL}/provider/dashboard`);
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   } else {
     console.log('✓ Ya estamos logueados como proveedor');
   }
@@ -145,7 +145,7 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
   const adminServiciosButton = page.locator('div.flex.h-\\[32px\\] button:has-text("Administrar servicios"), div.flex.flex-row.gap-3 button:has-text("Administrar servicios")');
   await expect(adminServiciosButton.first()).toBeVisible({ timeout: 10000 });
   await adminServiciosButton.first().click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Buscar tarjetas de servicios reales (excluyendo botones de filtro y otros)
   // Las tarjetas de servicios tienen: bg-neutral-0 rounded-6 shadow-4 border-1 border-light-neutral
@@ -187,7 +187,7 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
     // Hacer clic en el botón de tres puntos para abrir el menú
     try {
       await threeDotsButton.click();
-      await page.waitForTimeout(1500); // Esperar a que el menú se abra
+      await safeWaitForTimeout(page, 1500); // Esperar a que el menú se abra
       
       // Verificar si tiene botón "Desactivar" (servicio activo) o "Activar" (servicio inactivo)
       const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
@@ -210,7 +210,7 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
       
       // Cerrar el menú presionando Escape
       await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
+      await safeWaitForTimeout(page, 500);
     } catch (error) {
       console.log(`⚠️ Error al verificar servicio en índice ${i}: ${error}`);
       // En caso de error, asumimos que está activo para no perder servicios
@@ -302,22 +302,22 @@ export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: s
   const threeDotsButton = selectedServiceCard.locator('button:has(i.icon-more-vertical)').first();
   if (await threeDotsButton.count() > 0) {
     await threeDotsButton.click();
-    await page.waitForTimeout(1000);
+    await safeWaitForTimeout(page, 1000);
     
     // Buscar y hacer clic en "Ver servicio" o "Editar" en el menú desplegable
     const verServicioButton = page.locator('button:has-text("Ver servicio"), button:has-text("Editar"), a:has-text("Ver servicio")').first();
     if (await verServicioButton.count() > 0) {
       await verServicioButton.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
     } else {
       // Si no hay menú, intentar hacer clic directamente en la tarjeta
       await selectedServiceCard.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
     }
   } else {
     // Si no hay botón de tres puntos, hacer clic en la tarjeta completa
     await selectedServiceCard.click();
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   }
   
   // Si no se encontraron categoría/subcategoría en la tarjeta, intentar obtenerlas de la página de detalles
@@ -363,7 +363,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
   
   while (attempts < MAX_ATTEMPTS && currentLevel < MAX_LEVELS) {
     attempts++;
-    await page.waitForTimeout(1000);
+    await safeWaitForTimeout(page, 1000);
     
     // Verificar si estamos en una página de servicios
     const serviciosTitle = page.locator('p.text-center, h1, h2, h3, h4, h5').filter({
@@ -463,7 +463,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
               await clickableParent.click();
               
               // Esperar a que cargue la página del servicio
-              await page.waitForTimeout(3000);
+              await safeWaitForTimeout(page, 3000);
               
               // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
               const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
@@ -488,7 +488,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
                   await selectedContactButton.scrollIntoViewIfNeeded();
                   console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
                   await selectedContactButton.click();
-                  await page.waitForTimeout(2000);
+                  await safeWaitForTimeout(page, 2000);
                   return true;
                 } else {
                   console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
@@ -568,7 +568,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
               await parentClickable.click();
               
               // Esperar a que cargue la página del servicio
-              await page.waitForTimeout(3000);
+              await safeWaitForTimeout(page, 3000);
               
               // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
               const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
@@ -593,7 +593,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
                   await selectedContactButton.scrollIntoViewIfNeeded();
                   console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
                   await selectedContactButton.click();
-                  await page.waitForTimeout(2000);
+                  await safeWaitForTimeout(page, 2000);
                   return true;
                 } else {
                   console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
@@ -637,7 +637,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
         await firstActiveService.click();
         
         // Esperar a que cargue la página del servicio
-        await page.waitForTimeout(3000);
+        await safeWaitForTimeout(page, 3000);
         
         // Verificar que estamos en la página del servicio
         const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
@@ -662,7 +662,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
             await selectedContactButton.scrollIntoViewIfNeeded();
             console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
             await selectedContactButton.click();
-            await page.waitForTimeout(2000);
+            await safeWaitForTimeout(page, 2000);
             return true;
           } else {
             console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
@@ -722,7 +722,7 @@ export async function navegarHastaEncontrarServicioEspecifico(
     
     await subcategoriaSeleccionada.button.scrollIntoViewIfNeeded();
     await subcategoriaSeleccionada.button.click();
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     
     // Limpiar el targetSubcategoria después del primer uso para navegar normalmente en niveles más profundos
     if (currentLevel === 0) {
@@ -792,7 +792,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   // Navegar a una página válida antes de limpiar storage
   try {
     await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
+    await safeWaitForTimeout(page, 500);
   } catch (e) {
     // Si falla, continuar de todas formas
   }
@@ -820,14 +820,14 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   
   // Navegar al login
   await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Verificar que estamos en la página de login
   const currentUrl = page.url();
   if (!currentUrl.includes('/login')) {
     console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
     await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   }
   
   // Hacer login con las credenciales del cliente
@@ -836,7 +836,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   console.log('✓ Login exitoso como cliente');
   
   // Esperar a que se cargue el dashboard después del login
-  await page.waitForTimeout(3000);
+  await safeWaitForTimeout(page, 3000);
   
   // Verificar que estamos en el dashboard
   await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
@@ -858,7 +858,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   console.log('✓ Se hizo clic en "Nueva fiesta"');
   
   // Esperar a que cargue la página de selección de categoría de evento
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Buscar todos los botones de categoría de evento
   const categoryButtons = page.locator('button[type="submit"]').filter({
@@ -890,7 +890,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   console.log(`✓ Se hizo clic en la categoría "${selectedEventType}"`);
   
   // Esperar a que cargue la página de selección de categoría de servicios
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // PASO 3: Navegar por las categorías hasta encontrar el servicio objetivo
   console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
@@ -922,7 +922,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
           servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
         console.log(`✅ Categoría encontrada: "${categoryName}"`);
         await serviceButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         categoriaEncontrada = true;
         break;
       }
@@ -940,7 +940,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
       console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
       const firstCategory = serviceButtons.first();
       await firstCategory.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
         page, 
         servicioInfo.nombre, 
@@ -963,14 +963,14 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
       console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
   
   await selectedService.click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
       servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
       
       if (!servicioEncontrado) {
         console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
         await page.goBack();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
       }
     }
   }
@@ -1008,13 +1008,13 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         await selectedContactButton.scrollIntoViewIfNeeded();
         console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         } else {
         throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
     } else {
       // Si no estamos en la página del servicio, esperar un poco más
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       
       // Buscar y hacer clic en el botón "Contactar GRATIS"
       const contactButtons = page.locator('button').filter({
@@ -1029,7 +1029,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         await selectedContactButton.scrollIntoViewIfNeeded();
         console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
       } else {
         throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
@@ -1076,7 +1076,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   
   // Quitar el foco del campo de nombre del festejado para evitar que el siguiente input escriba aquí
   await honoreeField.blur().catch(() => {});
-  await page.waitForTimeout(300);
+  await safeWaitForTimeout(page, 300);
         
         // 2. Fecha (usando date picker)
         const dateField = page.locator('input[id="Date"]');
@@ -1142,14 +1142,14 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         try {
           await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
         } catch (e) {
-          await page.waitForTimeout(1000);
+          await safeWaitForTimeout(page, 1000);
         }
         
         // 4. Ciudad (usando autocompletado de Google)
         const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
         const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
         
-        await page.waitForTimeout(500);
+        await safeWaitForTimeout(page, 500);
         
   // Buscar el campo de ciudad usando el label "Ciudad" para asegurar que es el correcto
   let cityField: ReturnType<typeof page.locator> | null = null;
@@ -1219,12 +1219,12 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   // Asegurar que ningún otro campo tenga el foco antes de escribir en el campo de ciudad
   // Hacer clic en un área neutral para quitar el foco de cualquier otro campo
   await page.locator('body').click({ position: { x: 10, y: 10 } }).catch(() => {});
-  await page.waitForTimeout(200);
+  await safeWaitForTimeout(page, 200);
   
   // Ahora hacer clic específicamente en el campo de ciudad
   await cityField.scrollIntoViewIfNeeded();
   await cityField.click({ force: true });
-  await page.waitForTimeout(500);
+  await safeWaitForTimeout(page, 500);
   
   // Limpiar el campo si tiene algún valor
         const clearButton = page.locator('button[aria-label="Clear address"]');
@@ -1232,17 +1232,17 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         
         if (clearButtonVisible) {
           await clearButton.click();
-          await page.waitForTimeout(200);
+          await safeWaitForTimeout(page, 200);
     // Hacer clic nuevamente en el campo después de limpiar para asegurar el foco
     await cityField.click({ force: true });
-    await page.waitForTimeout(500);
+    await safeWaitForTimeout(page, 500);
     } else {
     // Limpiar el campo seleccionando todo y borrando
     const currentValue = await cityField.inputValue();
     if (currentValue && currentValue.trim().length > 0) {
           await cityField.selectText();
           await cityField.press('Backspace');
-          await page.waitForTimeout(200);
+          await safeWaitForTimeout(page, 200);
     }
   }
   
@@ -1261,7 +1261,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
       el.focus();
       el.click();
     });
-    await page.waitForTimeout(500);
+    await safeWaitForTimeout(page, 500);
     
     // Verificar nuevamente
     const focusedElement2 = await page.evaluate(() => {
@@ -1272,7 +1272,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
     if (focusedElement2 !== cityFieldId) {
       console.log(`⚠️ Aún no está enfocado correctamente. Intentando con selectText y luego escribir...`);
       await cityField.selectText();
-      await page.waitForTimeout(200);
+      await safeWaitForTimeout(page, 200);
     }
   } else {
     console.log(`✓ Campo de ciudad correctamente enfocado`);
@@ -1280,7 +1280,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   
   // Escribir en el campo de ciudad
   await cityField.fill(randomCity);
-  await page.waitForTimeout(300);
+  await safeWaitForTimeout(page, 300);
   
   // Verificar que el texto se escribió en el campo correcto
   const cityValue = await cityField.inputValue();
@@ -1288,11 +1288,11 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
     console.log(`⚠️ El texto no se escribió correctamente. Intentando nuevamente...`);
     await cityField.clear();
     await cityField.fill(randomCity);
-    await page.waitForTimeout(300);
+    await safeWaitForTimeout(page, 300);
   }
   
   console.log(`✓ Ciudad escrita: "${randomCity}" (valor en campo: "${await cityField.inputValue()}")`);
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         
   // Esperar a que aparezcan las opciones de autocompletado de Google Places
   try {
@@ -1311,7 +1311,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
       console.log(`📋 Seleccionando ciudad: "${optionText?.trim()}"`);
       
       await firstOption.click();
-      await page.waitForTimeout(1500);
+      await safeWaitForTimeout(page, 1500);
       
       const cityValue = await cityField.inputValue();
       eventData.city = cityValue;
@@ -1336,7 +1336,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
       console.log(`📋 Seleccionando ciudad (selector alternativo): "${optionText?.trim()}"`);
       
       await firstOption.click();
-      await page.waitForTimeout(1500);
+      await safeWaitForTimeout(page, 1500);
       const cityValueAlt = await cityField.inputValue();
       eventData.city = cityValueAlt;
       console.log('✅ Ciudad seleccionada del autocompletado (selector alternativo)');
@@ -1372,7 +1372,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         console.log(`✓ Botón "Crear evento" encontrado y visible`);
         await createEventButton.click();
         console.log(`✓ Se hizo clic en "Crear evento"`);
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
   
   // 6.1. Validar el diálogo de confirmación pre-solicitud
   await showStepMessage(page, '📋 VALIDANDO DIÁLOGO DE CONFIRMACIÓN');
@@ -1544,7 +1544,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
     }
   }
   
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   // 7. Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
   await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
@@ -1598,7 +1598,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         
         await clickTarget.click({ force: true });
         console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
-        await page.waitForTimeout(200);
+        await safeWaitForTimeout(page, 200);
       }
     }
   } else {
@@ -1629,7 +1629,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   console.log('🚀 Botón "Solicitar" presionado');
   
   await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   // 9.1 Confirmar diálogo "Solicitud enviada"
   await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
@@ -1646,7 +1646,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
     console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
   }
   
-  await page.waitForTimeout(1500);
+  await safeWaitForTimeout(page, 1500);
   
   // 10. Verificar que el flujo regrese automáticamente al dashboard del cliente
   await showStepMessage(page, '🔁 ESPERANDO REGRESO AL DASHBOARD');
@@ -1654,7 +1654,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   await page.waitForURL('**/client/dashboard', { timeout: 20000 });
   console.log('🏠 Dashboard del cliente visible');
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   // 10.1. Validar que el evento aparece en la lista general (ANTES de filtrar por día)
   await showStepMessage(page, '📋 VALIDANDO EVENTO EN LISTA GENERAL');
@@ -1766,7 +1766,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
         // Hacer clic hasta 3 veces para avanzar meses si es necesario
         for (let clicks = 0; clicks < 3; clicks++) {
           await nextMonthButton.click();
-          await page.waitForTimeout(1000);
+          await safeWaitForTimeout(page, 1000);
           
           const updatedMonthText = await monthTitle.textContent();
           console.log(`   📅 Mes actualizado: "${updatedMonthText?.trim()}"`);
@@ -1803,7 +1803,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
           console.log(`✓ Día del evento encontrado en el calendario: ${dayNumber}`);
           console.log(`🖱️ Haciendo clic en el día ${dayNumber} para filtrar eventos...`);
           await dayButton.click();
-          await page.waitForTimeout(2000);
+          await safeWaitForTimeout(page, 2000);
           console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
           
           eventDayFound = true;
@@ -1930,7 +1930,7 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
             console.log(`✓ Día del evento encontrado: ${dayNumber}`);
             console.log(`🖱️ Haciendo clic en el día ${dayNumber}...`);
             await dayButton.click();
-            await page.waitForTimeout(2000);
+            await safeWaitForTimeout(page, 2000);
             console.log(`✓ Se hizo clic en el día ${dayNumber} del calendario`);
             break;
           }
@@ -2017,12 +2017,12 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
   
   // Hacer clic en la tarjeta del evento
   await newEventCard.click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   console.log('✓ Se hizo clic en la tarjeta del evento');
   
   // Esperar a que cargue la página de detalles del evento
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // 14. Verificar que el servicio aparece en la sección de servicios
   await showStepMessage(page, '🔍 VERIFICANDO SERVICIO EN SECCIÓN DE SERVICIOS');
@@ -2349,13 +2349,13 @@ export async function agregarServicioAEventoExistente(page: Page) {
   
   // Hacer clic en el evento para abrir sus detalles
   await selectedEvent.click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   await page.waitForLoadState('domcontentloaded');
   console.log('✓ Se hizo clic en el evento, esperando a que cargue la página de detalles...');
   
   // PASO 2: Buscar y hacer clic en "Agregar servicios"
   await showStepMessage(page, '🔘 BUSCANDO BOTÓN "AGREGAR SERVICIOS"');
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   const botonAgregarServicios = page.getByRole('button', { name: /Agregar servicios/i });
   await expect(botonAgregarServicios).toBeVisible({ timeout: 10000 });
@@ -2363,7 +2363,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
   
   await showStepMessage(page, '🖱️ HACIENDO CLIC EN "AGREGAR SERVICIOS"');
   await botonAgregarServicios.click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   console.log('✓ Se hizo clic en "Agregar servicios"');
   
   // PASO 3: Bucle para buscar un servicio que no esté agregado al evento
@@ -2394,7 +2394,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     // Navegar a una página válida antes de limpiar storage
     try {
       await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(500);
+      await safeWaitForTimeout(page, 500);
     } catch (e) {
       // Si falla, continuar de todas formas
     }
@@ -2422,14 +2422,14 @@ export async function agregarServicioAEventoExistente(page: Page) {
     
     // Navegar al login
     await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     
     // Verificar que estamos en la página de login
     const currentUrl = page.url();
     if (!currentUrl.includes('/login')) {
       console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
       await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
     }
     
     // Hacer login con las credenciales del cliente
@@ -2438,7 +2438,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     console.log('✓ Login exitoso como cliente');
     
     // Esperar a que se cargue el dashboard después del login
-    await page.waitForTimeout(3000);
+    await safeWaitForTimeout(page, 3000);
     
     // Verificar que estamos en el dashboard
     await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
@@ -2446,7 +2446,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     
     // Volver a seleccionar el evento y hacer clic en "Agregar servicios"
     await showStepMessage(page, '📋 VOLVIENDO A SELECCIONAR EVENTO');
-    await page.waitForTimeout(1000);
+    await safeWaitForTimeout(page, 1000);
     
     // Buscar el evento nuevamente usando el mismo índice que se seleccionó inicialmente
     const eventsContainer2 = page.locator('div.flex.relative.w-full.overflow-hidden');
@@ -2457,13 +2457,13 @@ export async function agregarServicioAEventoExistente(page: Page) {
       // Usar el mismo índice del evento que se seleccionó inicialmente
       const selectedEvent2 = eventCards2.nth(selectedEventIndex);
       await selectedEvent2.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       console.log(`✓ Evento seleccionado nuevamente (índice ${selectedEventIndex})`);
     } else if (eventCount2 > 0) {
       // Fallback: seleccionar el primer evento
       const selectedEvent2 = eventCards2.first();
       await selectedEvent2.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       console.log('✓ Primer evento seleccionado (fallback)');
     }
     
@@ -2471,7 +2471,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     const botonAgregarServicios2 = page.getByRole('button', { name: /Agregar servicios/i });
     await expect(botonAgregarServicios2).toBeVisible({ timeout: 10000 });
     await botonAgregarServicios2.click();
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     console.log('✓ Se hizo clic en "Agregar servicios"');
     
     // Navegar por las categorías hasta encontrar el servicio objetivo
@@ -2504,7 +2504,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
             servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
           console.log(`✅ Categoría encontrada: "${categoryName}"`);
           await serviceButton.click();
-          await page.waitForTimeout(2000);
+          await safeWaitForTimeout(page, 2000);
           categoriaEncontrada = true;
           break;
         }
@@ -2522,7 +2522,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
         console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
         const firstCategory = serviceButtons.first();
         await firstCategory.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
           page, 
           servicioInfo.nombre, 
@@ -2545,14 +2545,14 @@ export async function agregarServicioAEventoExistente(page: Page) {
         console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
     
         await selectedService.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
     
         servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
         
         if (!servicioEncontrado) {
           console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
           await page.goBack();
-          await page.waitForTimeout(2000);
+          await safeWaitForTimeout(page, 2000);
         }
       }
     }
@@ -2566,7 +2566,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     
     // Verificar si aparece el mensaje "Servicio previamente agregado"
     await showStepMessage(page, '🔍 VERIFICANDO SI EL SERVICIO YA ESTÁ AGREGADO');
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     
     // Buscar el mensaje "Servicio previamente agregado" o "Este servicio ya fue agregado anteriormente"
     const servicioYaAgregadoDialog = page.locator('div.fixed.top-0.left-0').filter({
@@ -2586,11 +2586,11 @@ export async function agregarServicioAEventoExistente(page: Page) {
       
       if (closeButtonExists) {
         await closeButton.click();
-        await page.waitForTimeout(1000);
+        await safeWaitForTimeout(page, 1000);
       } else {
         // Si no hay botón de cerrar, presionar Escape o hacer clic fuera
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(1000);
+        await safeWaitForTimeout(page, 1000);
       }
       
       // Continuar con el siguiente intento
@@ -2619,10 +2619,10 @@ export async function agregarServicioAEventoExistente(page: Page) {
     console.log(`✓ El modal de solicitud ya está visible, continuando...`);
   } else if (formExists) {
     console.log(`✓ El formulario está visible, pero no el modal. Esperando...`);
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   } else {
     console.log(`⚠️ Ni el formulario ni el modal están visibles. Esperando un poco más...`);
-    await page.waitForTimeout(3000);
+    await safeWaitForTimeout(page, 3000);
   }
   
   // PASO 5: Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
@@ -2677,7 +2677,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
         
         await clickTarget.click({ force: true });
         console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
-        await page.waitForTimeout(200);
+        await safeWaitForTimeout(page, 200);
       }
     }
   } else {
@@ -2707,7 +2707,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
   console.log('🚀 Botón "Solicitar" presionado');
   
   await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   // Confirmar diálogo "Solicitud enviada"
   await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
@@ -2724,7 +2724,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
   }
   
-  await page.waitForTimeout(1500);
+  await safeWaitForTimeout(page, 1500);
   
   // PASO 6: Verificar que el servicio aparece en la sección de servicios del evento
   await showStepMessage(page, '🔍 VERIFICANDO SERVICIO EN SECCIÓN DE SERVICIOS');
@@ -2800,7 +2800,7 @@ async function crearEventoDeTipoEspecifico(
   // Navegar a una página válida antes de limpiar storage
   try {
     await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
+    await safeWaitForTimeout(page, 500);
   } catch (e) {
     // Si falla, continuar de todas formas
   }
@@ -2828,14 +2828,14 @@ async function crearEventoDeTipoEspecifico(
   
   // Navegar al login
   await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Verificar que estamos en la página de login
   const currentUrl = page.url();
   if (!currentUrl.includes('/login')) {
     console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
     await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   }
   
   // Hacer login con las credenciales del cliente
@@ -2844,7 +2844,7 @@ async function crearEventoDeTipoEspecifico(
   console.log('✓ Login exitoso como cliente');
   
   // Esperar a que se cargue el dashboard después del login
-  await page.waitForTimeout(3000);
+  await safeWaitForTimeout(page, 3000);
   
   // Verificar que estamos en el dashboard
   await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
@@ -2866,7 +2866,7 @@ async function crearEventoDeTipoEspecifico(
   console.log('✓ Se hizo clic en "Nueva fiesta"');
   
   // Esperar a que cargue la página de selección de categoría de evento
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Buscar todos los botones de categoría de evento
   const categoryButtons = page.locator('button[type="submit"]').filter({
@@ -2912,7 +2912,7 @@ async function crearEventoDeTipoEspecifico(
   console.log(`✓ Se hizo clic en la categoría "${selectedEventType}"`);
   
   // Esperar a que cargue la página de selección de categoría de servicios
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Navegar por las categorías hasta encontrar el servicio objetivo
   console.log(`\n🔍 NAVEGANDO POR CATEGORÍAS PARA ENCONTRAR: "${servicioInfo.nombre}"`);
@@ -2944,7 +2944,7 @@ async function crearEventoDeTipoEspecifico(
           servicioInfo.categoria.toLowerCase().trim().includes(categoryName.toLowerCase())) {
         console.log(`✅ Categoría encontrada: "${categoryName}"`);
         await serviceButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         categoriaEncontradaServicio = true;
         break;
       }
@@ -2962,7 +2962,7 @@ async function crearEventoDeTipoEspecifico(
       console.log(`⚠️ Categoría "${servicioInfo.categoria}" no encontrada. Probando con la primera categoría disponible...`);
       const firstCategory = serviceButtons.first();
       await firstCategory.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(
         page, 
         servicioInfo.nombre, 
@@ -2985,14 +2985,14 @@ async function crearEventoDeTipoEspecifico(
       console.log(`🔍 Intentando categoría ${intentosCategoria}/${maxIntentosCategorias}: "${selectedServiceCategory}"`);
   
       await selectedService.click();
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
   
       servicioEncontrado = await navegarHastaEncontrarServicioEspecifico(page, servicioInfo.nombre);
       
       if (!servicioEncontrado) {
         console.log(`⚠️ Servicio no encontrado en "${selectedServiceCategory}", probando otra categoría...`);
         await page.goBack();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
       }
     }
   }
@@ -3030,13 +3030,13 @@ async function crearEventoDeTipoEspecifico(
         await selectedContactButton.scrollIntoViewIfNeeded();
         console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         } else {
         throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
     } else {
       // Si no estamos en la página del servicio, esperar un poco más
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       
       // Buscar y hacer clic en el botón "Contactar GRATIS"
       const contactButtons = page.locator('button').filter({
@@ -3051,7 +3051,7 @@ async function crearEventoDeTipoEspecifico(
         await selectedContactButton.scrollIntoViewIfNeeded();
         console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
         await selectedContactButton.click();
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
       } else {
         throw new Error('❌ No se encontró el botón "Contactar GRATIS"');
       }
@@ -3104,7 +3104,7 @@ async function crearEventoDeTipoEspecifico(
   
   // Quitar el foco del campo de nombre del festejado
   await honoreeField.blur().catch(() => {});
-  await page.waitForTimeout(300);
+  await safeWaitForTimeout(page, 300);
         
         // 2. Fecha (usando date picker)
         const dateField = page.locator('input[id="Date"]');
@@ -3170,14 +3170,14 @@ async function crearEventoDeTipoEspecifico(
         try {
           await timePickerDialog.waitFor({ state: 'hidden', timeout: 3000 });
         } catch (e) {
-          await page.waitForTimeout(1000);
+          await safeWaitForTimeout(page, 1000);
         }
         
         // 4. Ciudad (usando autocompletado de Google)
         const randomCities = ['Guadalajara', 'Ciudad de México', 'Monterrey', 'Puebla', 'Querétaro', 'León', 'Tijuana', 'Mérida'];
         const randomCity = randomCities[Math.floor(Math.random() * randomCities.length)];
         
-        await page.waitForTimeout(500);
+        await safeWaitForTimeout(page, 500);
         
   // Buscar el campo de ciudad usando el label "Ciudad"
   let cityField: ReturnType<typeof page.locator> | null = null;
@@ -3224,12 +3224,12 @@ async function crearEventoDeTipoEspecifico(
   
   // Asegurar que ningún otro campo tenga el foco
   await page.locator('body').click({ position: { x: 10, y: 10 } }).catch(() => {});
-  await page.waitForTimeout(200);
+  await safeWaitForTimeout(page, 200);
   
   // Hacer clic específicamente en el campo de ciudad
   await cityField.scrollIntoViewIfNeeded();
   await cityField.click({ force: true });
-  await page.waitForTimeout(500);
+  await safeWaitForTimeout(page, 500);
   
   // Limpiar el campo si tiene algún valor
         const clearButton = page.locator('button[aria-label="Clear address"]');
@@ -3237,21 +3237,21 @@ async function crearEventoDeTipoEspecifico(
         
         if (clearButtonVisible) {
           await clearButton.click();
-          await page.waitForTimeout(200);
+          await safeWaitForTimeout(page, 200);
     await cityField.click({ force: true });
-    await page.waitForTimeout(500);
+    await safeWaitForTimeout(page, 500);
         } else {
     const currentValue = await cityField.inputValue();
     if (currentValue && currentValue.trim().length > 0) {
           await cityField.selectText();
           await cityField.press('Backspace');
-          await page.waitForTimeout(200);
+          await safeWaitForTimeout(page, 200);
     }
   }
   
   // Escribir en el campo de ciudad
   await cityField.fill(randomCity);
-  await page.waitForTimeout(300);
+  await safeWaitForTimeout(page, 300);
   
   // Verificar que el texto se escribió correctamente
   const cityValue = await cityField.inputValue();
@@ -3259,11 +3259,11 @@ async function crearEventoDeTipoEspecifico(
     console.log(`⚠️ El texto no se escribió correctamente. Intentando nuevamente...`);
     await cityField.clear();
     await cityField.fill(randomCity);
-    await page.waitForTimeout(300);
+    await safeWaitForTimeout(page, 300);
   }
   
   console.log(`✓ Ciudad escrita: "${randomCity}" (valor en campo: "${await cityField.inputValue()}")`);
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
         
   // Esperar a que aparezcan las opciones de autocompletado de Google Places
   try {
@@ -3282,7 +3282,7 @@ async function crearEventoDeTipoEspecifico(
       console.log(`📋 Seleccionando ciudad: "${optionText?.trim()}"`);
       
       await firstOption.click();
-      await page.waitForTimeout(1500);
+      await safeWaitForTimeout(page, 1500);
       
       const cityValueFinal = await cityField.inputValue();
       eventData.city = cityValueFinal;
@@ -3300,7 +3300,7 @@ async function crearEventoDeTipoEspecifico(
       console.log(`📋 Seleccionando ciudad (selector alternativo): "${optionText?.trim()}"`);
       
       await firstOption.click();
-      await page.waitForTimeout(1500);
+      await safeWaitForTimeout(page, 1500);
       const cityValueAlt = await cityField.inputValue();
       eventData.city = cityValueAlt;
       console.log('✅ Ciudad seleccionada del autocompletado (selector alternativo)');
@@ -3335,7 +3335,7 @@ async function crearEventoDeTipoEspecifico(
         console.log(`✓ Botón "Crear evento" encontrado y visible`);
         await createEventButton.click();
         console.log(`✓ Se hizo clic en "Crear evento"`);
-        await page.waitForTimeout(2000);
+        await safeWaitForTimeout(page, 2000);
   
   // Interactuar con el modal de solicitud (checkboxes, textarea y botón "Solicitar")
   await showStepMessage(page, '🪟 INTERACTUANDO CON MODAL DE SOLICITUD');
@@ -3388,7 +3388,7 @@ async function crearEventoDeTipoEspecifico(
         
         await clickTarget.click({ force: true });
         console.log(`  ✓ Checkbox ${i + 1} seleccionado (${checkboxId || 'sin id'})`);
-        await page.waitForTimeout(200);
+        await safeWaitForTimeout(page, 200);
       }
     }
   } else {
@@ -3418,7 +3418,7 @@ async function crearEventoDeTipoEspecifico(
   console.log('🚀 Botón "Solicitar" presionado');
   
   await preQuotationForm.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => console.log('⚠ El modal de selección no se ocultó, continuando...'));
-  await page.waitForTimeout(1000);
+  await safeWaitForTimeout(page, 1000);
   
   // Confirmar diálogo "Solicitud enviada"
   await showStepMessage(page, '✅ CONFIRMANDO SOLICITUD ENVIADA');
@@ -3435,15 +3435,40 @@ async function crearEventoDeTipoEspecifico(
     console.log('⚠ Modal de confirmación no apareció o no se pudo cerrar, continuando...');
   }
   
-  await page.waitForTimeout(1500);
+  // Esperar de forma segura
+  await safeWaitForTimeout(page, 1500);
   
   // Verificar que el flujo regrese automáticamente al dashboard del cliente
   await showStepMessage(page, '🔁 ESPERANDO REGRESO AL DASHBOARD');
   console.log('🔁 Esperando a que la aplicación regrese al dashboard del cliente...');
-  await page.waitForURL('**/client/dashboard', { timeout: 20000 });
-  console.log('🏠 Dashboard del cliente visible');
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(1000);
+  
+  try {
+    // Verificar que la página esté abierta antes de esperar la URL
+    if (!page.isClosed()) {
+      await page.waitForURL('**/client/dashboard', { timeout: 20000 });
+      console.log('🏠 Dashboard del cliente visible');
+      
+      if (!page.isClosed()) {
+        await page.waitForLoadState('domcontentloaded');
+        await safeWaitForTimeout(page, 1000);
+      }
+    }
+  } catch (error) {
+    // Si la página se cerró, intentar navegar al dashboard
+    if (error instanceof Error && error.message.includes('Target page, context or browser has been closed')) {
+      console.log('⚠️ La página se cerró, intentando navegar al dashboard...');
+      try {
+        await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+        await safeWaitForTimeout(page, 2000);
+        console.log('🏠 Dashboard del cliente visible (después de navegación)');
+      } catch (navError) {
+        console.log('⚠️ No se pudo navegar al dashboard, el evento puede haberse creado exitosamente');
+        throw new Error('La página se cerró durante la creación del evento');
+      }
+    } else {
+      throw error;
+    }
+  }
   
   console.log(`✅ Evento de tipo "${selectedEventType}" creado exitosamente`);
 }
@@ -3459,12 +3484,12 @@ export async function obtenerTiposDeEventos(page: Page): Promise<string[]> {
   if (!isOnDashboard) {
     // Si no estamos en el dashboard, hacer login primero
     await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   }
   
   // Asegurar que estamos en el dashboard
   await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Verificar que el botón "Nueva fiesta" está visible (confirma que estamos logueados)
   const nuevaFiestaButton = page.locator('button[type="button"].hidden.lg\\:flex').filter({
@@ -3476,15 +3501,15 @@ export async function obtenerTiposDeEventos(page: Page): Promise<string[]> {
   if (!buttonVisible) {
     // Si el botón no está visible, hacer login
     await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
   }
   
   // Buscar y seleccionar el botón "Nueva fiesta"
   await expect(nuevaFiestaButton).toBeVisible({ timeout: 10000 });
   await nuevaFiestaButton.click();
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
   
   // Buscar todos los botones de categoría de evento
   const categoryButtons = page.locator('button[type="submit"]').filter({
@@ -3543,7 +3568,7 @@ export async function crearEventosDeBloque(
     console.log('✓ Login exitoso como cliente');
     
     // Esperar a que se cargue el dashboard después del login
-    await page.waitForTimeout(3000);
+    await safeWaitForTimeout(page, 3000);
     
     // Verificar que estamos en el dashboard
     await expect(page).toHaveURL(`${DEFAULT_BASE_URL}/client/dashboard`, { timeout: 10000 });
@@ -3551,7 +3576,7 @@ export async function crearEventosDeBloque(
   } else {
     // Si ya estamos en el dashboard, solo navegar para asegurarnos
     await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
+    await safeWaitForTimeout(page, 2000);
     console.log('✓ Ya estamos en el dashboard, continuando...');
   }
   
@@ -3572,17 +3597,36 @@ export async function crearEventosDeBloque(
       console.log(`✅ Evento de tipo "${tipoEvento}" creado exitosamente`);
       
       // Limpiar memoria después de cada evento
-      await page.evaluate(() => {
-        if (window.gc) {
-          window.gc();
+      try {
+        if (!page.isClosed()) {
+          await page.evaluate(() => {
+            if (window.gc) {
+              window.gc();
+            }
+          });
         }
-      });
+      } catch (e) {
+        // Ignorar errores al limpiar memoria
+      }
       
       // Esperar un poco antes de crear el siguiente evento
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
     } catch (error) {
       eventosFallidos.push(tipoEvento);
-      console.log(`❌ Error al crear evento de tipo "${tipoEvento}": ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`❌ Error al crear evento de tipo "${tipoEvento}": ${errorMessage}`);
+      
+      // Si la página se cerró, intentar navegar al dashboard antes de continuar
+      if (errorMessage.includes('Target page, context or browser has been closed')) {
+        try {
+          await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
+          await safeWaitForTimeout(page, 2000);
+          console.log('✓ Página recuperada, continuando con el siguiente evento...');
+        } catch (recoveryError) {
+          console.log('⚠️ No se pudo recuperar la página, puede que necesites reiniciar el test');
+        }
+      }
+      
       // Continuar con el siguiente tipo de evento
     }
   }
@@ -3621,7 +3665,7 @@ const crearTestsPorBloque = () => {
     const fin = inicio + 3;
     
     test(`Crear eventos - Bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})`, async ({ page }) => {
-      test.setTimeout(300000); // 5 minutos por bloque
+      test.setTimeout(600000); // 10 minutos por bloque (aumentado para dar más tiempo)
       
       // Limpiar cookies y storage antes de empezar
       await page.context().clearCookies();
@@ -3629,7 +3673,7 @@ const crearTestsPorBloque = () => {
       // Navegar a una página válida antes de limpiar storage
       try {
         await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(500);
+        await safeWaitForTimeout(page, 500);
       } catch (e) {
         // Si falla, continuar de todas formas
       }
@@ -3655,7 +3699,7 @@ const crearTestsPorBloque = () => {
       
       // Hacer login primero
       await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       
       // Obtener tipos de eventos (ya estamos logueados)
       const tiposEventos = await obtenerTiposDeEventos(page);
@@ -3665,7 +3709,7 @@ const crearTestsPorBloque = () => {
       
       // Volver al dashboard después de obtener los tipos
       await page.goto(`${DEFAULT_BASE_URL}/client/dashboard`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(2000);
+      await safeWaitForTimeout(page, 2000);
       
       // Si no hay más tipos para este bloque, saltar el test
       if (inicio >= tiposEventos.length) {

@@ -460,32 +460,11 @@ La validación incluye manejo básico de errores:
 
 ## 🔄 Funcionalidades Pendientes de Implementación
 
-Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las funcionalidades típicas de un perfil de usuario, las siguientes funcionalidades podrían implementarse:
+Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las funcionalidades típicas de un perfil de usuario, las siguientes funcionalidades podrían implementarse.
 
-### 1. Eliminación de Foto de Perfil
+> Nota: El perfil del cliente no incluye gestión de domicilios; esa sección solo existe en el perfil de proveedor.
 
-**Funcionalidades sugeridas**:
-- Validar que se puede eliminar la foto actual
-- Validar que después de eliminar se muestra la inicial por defecto
-- Validar que el botón de cámara sigue disponible
-
-### 2. Configuración de Preferencias
-
-**Funcionalidades sugeridas**:
-- Validar configuración de notificaciones
-- Validar preferencias de idioma
-- Validar preferencias de privacidad
-- Validar guardado de preferencias
-
-### 3. Gestión de Direcciones
-
-**Funcionalidades sugeridas**:
-- Validar que se pueden agregar direcciones
-- Validar que se pueden editar direcciones
-- Validar que se pueden eliminar direcciones
-- Validar dirección predeterminada
-
-### 4. Historial y Actividad
+### 1. Historial y Actividad
 
 **Funcionalidades sugeridas**:
 - Validar visualización de eventos pasados
@@ -507,13 +486,10 @@ Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las f
 - [x] Validación de botones de acción
 - [x] Validación de estructura básica de la página
 - [x] Edición de datos personales
-- [x] Gestión de foto de perfil (subir)
+- [x] Gestión de foto de perfil (subir y eliminar)
 - [x] Cambio de contraseña (validación de formulario)
 
 ### 🔄 Pendiente de Implementación
-- [ ] Eliminación de foto de perfil
-- [ ] Configuración de preferencias
-- [ ] Gestión de direcciones
 - [ ] Historial y actividad
 - [ ] Validación de mensajes de éxito/error en formularios
 
@@ -555,9 +531,8 @@ tests/client/profile.spec.ts
 │   ├── test('Validar elementos del perfil')
 │   ├── test('Editar datos personales')
 │   ├── test('Foto de perfil')
-│   ├── test('Configuración de preferencias')
 │   ├── test('Cambio de contraseña')
-│   └── test('Gestión de direcciones')
+│   └── test('Historial y actividad')
 ```
 
 ## 🔗 Enlaces Relacionados
@@ -636,13 +611,11 @@ Validaciones de Perfil y Configuración
    - Gestión de foto de perfil
 
 2. **Media prioridad**:
-   - Configuración de preferencias
    - Cambio de contraseña
-   - Gestión de direcciones
-
-3. **Baja prioridad**:
    - Historial y actividad
    - Validaciones avanzadas de formularios
+
+3. **Baja prioridad**:
    - Integración con otras funcionalidades
 
 ### Mejores Prácticas
@@ -672,17 +645,15 @@ Validaciones de Perfil y Configuración
 - **Navegación**: ✅ 100% Implementada
 - **Elementos del perfil**: ✅ 100% Implementada
 - **Edición de datos personales**: ✅ 100% Implementada
-- **Gestión de foto de perfil**: ⚠️ 50% Implementada (subir ✅, eliminar ❌)
+- **Gestión de foto de perfil**: ✅ 100% Implementada (subir y eliminar)
 - **Cambio de contraseña**: ✅ 100% Implementada (validación de formulario)
-- **Edición de datos**: ❌ No implementada
-- **Foto de perfil**: ❌ No implementada
 - **Configuración**: ❌ No implementada
 
 ### Cobertura Objetivo
 - **Navegación**: ✅ 100% (alcanzado)
 - **Elementos del perfil**: ✅ 100% (alcanzado)
 - **Edición de datos personales**: ✅ 100% (alcanzado)
-- **Gestión de foto de perfil**: ⚠️ 50% (subir ✅, eliminar pendiente)
+- **Gestión de foto de perfil**: ✅ 100% (alcanzado - subir y eliminar)
 - **Cambio de contraseña**: ✅ 100% (alcanzado - validación de formulario)
 
 ## 🔄 Cambios Recientes
@@ -719,17 +690,30 @@ Validaciones de Perfil y Configuración
 
 ### Implementación de Gestión de Foto de Perfil
 - **Fecha**: Última actualización
-- **Funcionalidad**: Gestión de foto de perfil (subir y eliminar)
-- **Estado**: Parcialmente completada
+- **Funcionalidad**: Gestión completa de foto de perfil (subir y eliminar)
+- **Estado**: Completada
   - ✅ **Subir foto de perfil**: Implementada
-  - ❌ **Eliminar foto de perfil**: Pendiente de implementación
+  - ✅ **Eliminar foto de perfil**: Implementada
 - **Características implementadas**:
   - Apertura de menú de foto de perfil
-  - Selección de opción "Cambiar foto"
-  - Subida de archivo de imagen
+  - Selección de opción "Cambiar foto" o "Eliminar foto"
+  - Subida de archivo de imagen cuando es necesario
   - Guardado de foto
-  - Validación de que el botón sigue disponible
-- **Notas**: Usa archivo `tests/profile.png` si está disponible, maneja casos donde el menú no aparece
+  - Confirmación de eliminación con validación de iniciales
+  - Validación de que el botón de cámara sigue disponible
+- **Notas**: Usa archivo `tests/profile.png` si está disponible, maneja casos donde el menú no aparece y contempla confirmaciones de eliminación
+
+### Implementación de la prueba "Eliminar foto de perfil"
+- **Fecha**: Última actualización
+- **Objetivo**: Validar la eliminación de la imagen actual del cliente garantizando que el flujo siempre tenga una foto disponible antes de eliminar.
+- **Pasos clave**:
+  1. Navegar al perfil y localizar el contenedor del avatar.
+  2. Si no existe una foto previa, se sube automáticamente una imagen de prueba antes de continuar.
+  3. Abrir el menú contextual y seleccionar la opción "Eliminar foto" (o similar).
+  4. Confirmar la eliminación (incluye manejo de modales de confirmación).
+  5. Validar que desaparece la imagen y se muestran las iniciales por defecto.
+  6. Verificar que el botón de cámara continúa disponible para futuras acciones.
+- **Resultados**: La gestión de la foto alcanza una cobertura del 100% al cubrir subida y eliminación en entornos reales.
 
 ### Implementación de Cambio de Contraseña
 - **Fecha**: Última actualización
