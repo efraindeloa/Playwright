@@ -6,7 +6,7 @@
 - **Archivo de pruebas**: `tests/client/dashboard.spec.ts`
 - **Tipo de prueba**: Suite de pruebas End-to-End (E2E)
 - **Framework**: Playwright
-- **Timeout por defecto**: 60 segundos por prueba
+- **Timeout por defecto**: 60 segundos por prueba (algunas pruebas tienen timeouts extendidos)
 - **Viewport**: 1400x720 (configurable por prueba)
 
 ## 🎯 Objetivo
@@ -16,63 +16,170 @@ Esta suite de pruebas valida el funcionamiento completo del dashboard del client
 1. **Validación de elementos visuales** y funcionales del dashboard
 2. **Navegación** entre secciones (chats, favoritos, perfil)
 3. **Interacciones con servicios** (búsqueda, filtrado, ordenamiento)
-4. **Funcionalidad del calendario** (filtrado por día)
+4. **Funcionalidad del calendario** (filtrado por día, navegación entre meses, eventos marcados)
 5. **Gestión de eventos** (visualización, creación, agregar servicios)
-6. **Integración con Fiestachat** (conversaciones y notificaciones)
+6. **Integración con Fiestachat** (conversaciones, notificaciones, navegación)
+7. **Validación completa de secciones** (barra superior, eventos, servicios, calendario)
 
 ## 📊 Resumen de Pruebas
 
 ### Tests Implementados
 
-La suite contiene **9 pruebas** organizadas en un `test.describe` que comparten configuración común:
+La suite contiene **19 pruebas** organizadas en un `test.describe` que comparten configuración común. Las pruebas están organizadas siguiendo el flujo típico del usuario:
 
-1. **`test('Validar secciones dashboard')`**
+#### Pruebas de Validación de Secciones del Dashboard
+
+1. **`test('Mostrar Todas Las Secciones Principales Del Dashboard')`**
    - Valida que todas las secciones principales del dashboard son visibles
+   - Valida mensaje de bienvenida, sección "Elige tu fiesta", botones principales, calendario (desktop) y sección Fiestachat
    - Timeout: 60 segundos
 
-2. **`test('Barra superior navega a chats, favoritos y perfil')`**
-   - Verifica que la navegación superior funciona correctamente
-   - Timeout: 60 segundos
+2. **`test('Mostrar Todos Los Elementos De La Barra Superior')`**
+   - Valida logo de Fiestamas (desktop y móvil)
+   - Valida enlaces de navegación: Chats (con contador de mensajes), Búsqueda, Favoritos, Perfil
+   - Valida menú de opciones (móvil)
+   - Valida funcionalidad de cada elemento
+   - Timeout: 120 segundos (2 minutos)
 
-3. **`test('Crear nueva fiesta')`**
-   - Ejecuta el flujo completo de creación de evento
-   - Reutiliza `ejecutarFlujoCompletoCreacionEvento` de `cliente-eventos.spec.ts`
+3. **`test('Mostrar Todos Los Elementos De La Sección Elige Tu Fiesta')`**
+   - Valida título "Elige tu fiesta"
+   - Valida scroll horizontal
+   - Valida tarjetas de eventos: nombre, fecha, hora, presupuesto, avance (porcentaje y barra), días restantes, color identificador
+   - Valida botón "Nueva fiesta" (desktop y móvil)
+   - Timeout: 120 segundos (2 minutos)
+
+4. **`test('Mostrar Todos Los Elementos De La Sección De Servicios')`**
+   - Valida botón "Agregar servicios"
+   - Valida botón "Ordenar por" con menú desplegable (Nuevo, Pendiente, Contratado, Cancelado)
+   - Valida filtros laterales (desktop): categorías, contador de servicios, botón "Ver más"
+   - Valida sugerencias: Lugares, Entretenimiento, Mesa de regalos
+   - Valida tarjetas de servicios: imagen, nombre, categoría/subcategoría, descripción, precio, información del negocio, badge "NUEVO", color identificador del evento
    - Timeout: 180 segundos (3 minutos)
 
-4. **`test('"Agregar servicios" está visible y funcional')`**
-   - Valida el botón "Agregar servicios" y ejecuta el flujo completo
-   - Reutiliza `agregarServicioAEventoExistente` de `cliente-eventos.spec.ts`
-   - Timeout: 180 segundos (3 minutos)
-
-5. **`test('"Ordenar por" funciona correctamente')`**
-   - Valida que el botón "Ordenar por" es visible y funcional
-   - Timeout: 60 segundos
-
-6. **`test('Filtros de servicios funcionan correctamente')`**
-   - Valida los filtros de servicios en el sidebar (solo desktop)
-   - Timeout: 60 segundos
-
-7. **`test('La sección de eventos muestra las fiestas del cliente')`**
-   - Valida que los eventos del cliente se muestran correctamente
-   - Timeout: 60 segundos
-
-8. **`test('Fiestachat muestra conversaciones')`**
-   - Valida que la sección Fiestachat muestra conversaciones
-   - Timeout: 60 segundos
-
-9. **`test('El calendario filtra eventos al seleccionar un día (desktop)')`**
-   - Valida la funcionalidad de filtrado del calendario
+5. **`test('Mostrar Todos Los Elementos Del Calendario En Vista Desktop')`**
+   - Valida vista mensual
+   - Valida navegación entre meses (anterior y siguiente)
+   - Valida días de la semana (Dom, Lun, Mar, Mie, Jue, Vie, Sab)
+   - Valida eventos marcados en el calendario (puntos de colores)
+   - Valida filtrado de eventos al seleccionar un día
+   - Optimizado para procesar máximo 100 días y limitar validación a 5 eventos
    - Solo se ejecuta en desktop (viewport ≥ 1024px)
+   - Timeout: 120 segundos (2 minutos)
+
+6. **`test('Mostrar Todos Los Elementos De La Sección Fiestachat')`**
+   - Valida título "¡Fiestachat!"
+   - Valida subtítulo "La línea directa a tu evento"
+   - Valida contenedor destacado con información sobre el chat
+   - Valida elementos interactivos (botones, enlaces)
+   - Valida conversaciones disponibles
+   - Solo se ejecuta en desktop (viewport ≥ 1024px)
+   - Timeout: 120 segundos (2 minutos)
+
+#### Pruebas de Navegación
+
+7. **`test('Navegar Correctamente Desde La Barra Superior A Chats Favoritos Y Perfil')`**
+   - Verifica que la navegación superior funciona correctamente
+   - Valida contador de mensajes en Chats
+   - Valida navegación a Chats, Favoritos (solo desktop) y Perfil
+   - Verifica URLs correctas después de navegar
    - Timeout: 60 segundos
 
-**Total de tests**: 9 tests
+#### Pruebas de Chats y Notificaciones
+
+8. **`test('Mostrar Las Conversaciones En La Sección Fiestachat')`**
+   - Valida que la sección Fiestachat muestra conversaciones
+   - Cuenta las conversaciones encontradas
+   - Timeout: 60 segundos
+
+9. **`test('Navegar A La Página De Cotización Al Hacer Clic En Una Notificación')`**
+   - Busca notificaciones en la sección Fiestachat
+   - Hace clic en una notificación
+   - Verifica que navega a la página de cotización correspondiente
+   - Valida que la URL contiene el ID de la cotización
+   - Solo se ejecuta en desktop (viewport ≥ 1024px)
+   - Timeout: 120 segundos (2 minutos)
+
+#### Pruebas de Eventos
+
+10. **`test('Mostrar Las Fiestas Del Cliente En La Sección De Eventos')`**
+    - Valida que los eventos del cliente se muestran correctamente
+    - Busca eventos por patrón de fecha
+    - Valida estructura de tarjetas de eventos
+    - Timeout: 60 segundos
+
+#### Pruebas de Servicios
+
+11. **`test('Mostrar El Botón Agregar Servicios y probar su funcionalidad')`**
+    - Valida el botón "Agregar servicios" y ejecuta el flujo completo
+    - Reutiliza `agregarServicioAEventoExistente` de `cliente-eventos.spec.ts`
+    - Timeout: 180 segundos (3 minutos)
+
+12. **`test('Ordenar Servicios Correctamente')`**
+    - Valida que el botón "Ordenar por" es visible y funcional
+    - Valida que el menú desplegable se abre correctamente
+    - Valida opciones del menú: Nuevo, Pendiente, Contratado, Cancelado
+    - Valida funcionalidad de filtrado por cada opción
+    - Timeout: 60 segundos
+
+13. **`test('Aplicar Filtros De Servicios Correctamente')`**
+    - Valida los filtros de servicios en el sidebar (solo desktop)
+    - Valida secciones "Servicios" y "Sugerencias"
+    - Cuenta sugerencias disponibles
+    - Timeout: 60 segundos
+
+14. **`test('Buscar Servicios Y Mostrar Resultados Correctamente')`**
+    - Valida el flujo completo de búsqueda de servicios
+    - Hace clic en el icono de búsqueda del dashboard (navega a home)
+    - Hace clic en el icono de búsqueda del home (abre diálogo)
+    - Escribe un término de búsqueda
+    - Valida que se muestran resultados
+    - Valida elementos de las tarjetas de servicios (nombre, imagen, precio, rating)
+    - Maneja caso de "no se encontraron resultados"
+    - Timeout: 120 segundos (2 minutos)
+
+#### Pruebas de Calendario
+
+15. **`test('Mostrar Todos Los Elementos Del Calendario En Vista Desktop')`**
+    - Incluye validación de filtrado por día (ver prueba #5)
+    - Optimizado para evitar timeouts
+
+#### Pruebas de Creación de Eventos
+
+16. **`test('Crear Una Nueva Fiesta')`**
+    - Ejecuta el flujo completo de creación de evento
+    - Reutiliza `ejecutarFlujoCompletoCreacionEvento` de `cliente-eventos.spec.ts`
+    - Timeout: 180 segundos (3 minutos)
+
+#### Pruebas de Perfil
+
+17. **`test('Mostrar Todos Los Elementos De La Página De Perfil')`**
+    - Valida elementos básicos de la página de perfil
+    - Timeout: 60 segundos
+
+18. **`test('Editar Los Datos Personales Del Usuario')`**
+    - Valida funcionalidad de edición de datos personales
+    - Timeout: 60 segundos
+
+19. **`test('Actualizar La Foto De Perfil')`**
+    - Valida funcionalidad de subir foto de perfil
+    - Timeout: 60 segundos
+
+20. **`test('Eliminar La Foto De Perfil')`**
+    - Valida funcionalidad de eliminar foto de perfil
+    - Timeout: 60 segundos
+
+21. **`test('Cambiar La Contraseña Del Usuario')`**
+    - Valida funcionalidad de cambio de contraseña
+    - Timeout: 60 segundos
+
+**Total de tests**: 19 tests (14 de dashboard + 5 de perfil)
 
 ## 🔄 Flujos de Prueba
 
 ### Configuración Compartida (`beforeEach`)
 
 Antes de cada prueba:
-1. **Inicia sesión como cliente** usando `login()`
+1. **Inicia sesión como cliente** usando `login()` (con verificación de autenticación previa)
 2. **Navega al dashboard** (`/client/dashboard`)
 3. **Espera a que cargue completamente** (`networkidle`)
 4. **Verifica el mensaje de bienvenida** ("Bienvenido")
@@ -83,89 +190,210 @@ Antes de cada prueba:
 **Objetivo**: Validar que todas las secciones principales del dashboard son visibles
 
 **Flujo**:
-1. **Valida mensaje de bienvenida**:
-   - Busca texto "Bienvenido" en la página
-   - Verifica que es visible
-
-2. **Valida sección "Elige tu fiesta"**:
-   - Busca el título "Elige tu fiesta"
-   - Verifica que es visible
-
-3. **Valida botón "Nueva fiesta"**:
-   - Detecta el viewport (desktop ≥1024px o móvil)
-   - Desktop: Busca botón con clase `hidden.lg:flex`
-   - Móvil: Busca botón con clase `lg:hidden`
-   - Tiene fallback para encontrar el botón si los selectores principales fallan
-   - Verifica que es visible
-
-4. **Valida botón "Agregar servicios"**:
-   - Busca botón con texto "Agregar servicios"
-   - Verifica que es visible
-
-5. **Valida botón "Ordenar por"**:
-   - Busca botón con texto "Ordenar por"
-   - Verifica que es visible
-
-6. **Valida calendario (solo desktop)**:
-   - Solo valida si viewport ≥ 1024px
-   - Busca contenedor con días de la semana (Dom, Lun, Mar, etc.)
-   - Busca contenedor con nombres de meses (Noviembre, Diciembre, Enero, etc.)
-   - Verifica que es visible
-
-7. **Valida sección "¡Fiestachat!"**:
-   - Busca contenedor específico con clase `flex.flex-col.p-5.gap-[10px].bg-light-light`
-   - Verifica título "¡Fiestachat!"
-   - Verifica subtítulo "La línea directa a tu evento"
-   - Tiene fallback para buscar directamente (excluyendo overlay)
+1. **Valida mensaje de bienvenida**: Busca texto "Bienvenido" en la página
+2. **Valida sección "Elige tu fiesta"**: Busca el título "Elige tu fiesta"
+3. **Valida botón "Nueva fiesta"**: Detecta viewport y busca el botón apropiado (desktop o móvil)
+4. **Valida botón "Agregar servicios"**: Busca botón con texto "Agregar servicios"
+5. **Valida botón "Ordenar por"**: Busca botón con texto "Ordenar por"
+6. **Valida calendario (solo desktop)**: Solo valida si viewport ≥ 1024px
+7. **Valida sección "¡Fiestachat!"**: Busca contenedor específico con título y subtítulo
 
 **Características**:
 - Detección automática de viewport
 - Múltiples estrategias de búsqueda (selectores principales + fallbacks)
 - Validación condicional según viewport (calendario solo desktop)
 
-### Test 2: Barra Superior Navega a Chats, Favoritos y Perfil
+### Test 2: Validar Elementos Completos de la Barra Superior
+
+**Objetivo**: Validar todos los elementos de la barra superior y su funcionalidad
+
+**Flujo**:
+1. **Valida logo de Fiestamas**:
+   - Busca logo en desktop y móvil
+   - Valida que es visible
+   - Valida funcionalidad: clic navega al dashboard/home
+
+2. **Valida enlace de Chats**:
+   - Busca botón/enlace de Chats
+   - Valida contador de mensajes (si existe)
+   - Valida funcionalidad: clic navega a `/client/chats`
+
+3. **Valida botón de Búsqueda**:
+   - Busca botón de búsqueda
+   - Valida que es visible
+   - Valida funcionalidad: clic abre modal/buscador
+
+4. **Valida enlace de Favoritos (solo desktop)**:
+   - Solo si viewport ≥ 1024px
+   - Busca botón/enlace de Favoritos
+   - Valida funcionalidad: clic navega a `/client/favorites`
+
+5. **Valida enlace de Perfil**:
+   - Busca botón/enlace de Perfil
+   - Valida funcionalidad: clic navega a `/client/profile`
+
+6. **Valida menú móvil (solo móvil)**:
+   - Solo si viewport < 1024px
+   - Busca botón de menú móvil
+   - Valida funcionalidad: clic abre menú
+
+**Características**:
+- Validación completa de todos los elementos de navegación
+- Validación de contador de mensajes en Chats
+- Validación condicional según viewport
+
+### Test 3: Validar Elementos Completos de la Sección "Elige tu fiesta"
+
+**Objetivo**: Validar todos los elementos de la sección de eventos
+
+**Flujo**:
+1. **Valida título**: Busca y valida "Elige tu fiesta"
+2. **Valida scroll horizontal**: Busca contenedor con `overflow-x-auto` y valida funcionalidad
+3. **Valida tarjetas de eventos**:
+   - Busca todas las tarjetas de eventos
+   - Para cada tarjeta valida:
+     - Nombre del evento
+     - Fecha y hora (formato DD MMM YYYY, HH:MM)
+     - Presupuesto (formato de moneda)
+     - Avance (porcentaje y barra de progreso)
+     - Días restantes
+     - Color identificador (border-left-color)
+4. **Valida botón "Nueva fiesta"**:
+   - Desktop: busca botón con clase `hidden.lg:flex`
+   - Móvil: busca botón con clase `lg:hidden`
+   - Valida funcionalidad: clic navega a creación de evento
+
+**Características**:
+- Validación exhaustiva de cada elemento de las tarjetas
+- Validación de formato de fechas, horas y monedas
+- Validación de scroll horizontal
+- Validación condicional según viewport
+
+### Test 4: Validar Elementos Completos de la Sección de Servicios
+
+**Objetivo**: Validar todos los elementos de la sección de servicios
+
+**Flujo**:
+1. **Valida botón "Agregar servicios"**: Visible y habilitado
+2. **Valida botón "Ordenar por"**:
+   - Visible y habilitado
+   - Clic abre menú desplegable
+   - Valida opciones: Nuevo, Pendiente, Contratado, Cancelado
+   - Valida funcionalidad de cada opción
+
+3. **Valida filtros laterales (desktop)**:
+   - Solo si viewport ≥ 1280px
+   - Valida sección "Servicios" con categorías
+   - Valida contador de servicios por categoría
+   - Valida botón "Ver más" (si aplica)
+
+4. **Valida sugerencias**:
+   - Busca sección "Sugerencias"
+   - Valida sugerencias: Lugares, Entretenimiento, Mesa de regalos
+   - Valida funcionalidad de cada sugerencia
+
+5. **Valida tarjetas de servicios**:
+   - Busca todas las tarjetas de servicios
+   - Para cada tarjeta valida:
+     - Imagen del servicio
+     - Nombre del servicio
+     - Categoría/Subcategoría
+     - Descripción
+     - Precio desde (formato de moneda)
+     - Información del negocio (nombre, ubicación)
+     - Badge "NUEVO" (si aplica)
+     - Color identificador del evento asociado
+
+**Características**:
+- Validación exhaustiva de cada elemento de las tarjetas
+- Validación de menú desplegable "Ordenar por"
+- Validación condicional según viewport (filtros solo desktop)
+
+### Test 5: Validar Elementos Completos del Calendario (Desktop)
+
+**Objetivo**: Validar todos los elementos del calendario y su funcionalidad
+
+**Flujo**:
+1. **Valida existencia del calendario**:
+   - Múltiples estrategias de búsqueda (por días de la semana, por mes, por estructura)
+   - Valida que es visible
+
+2. **Valida vista mensual**:
+   - Busca y valida mes actual (Noviembre, Diciembre, etc.)
+   - Valida formato correcto del mes
+
+3. **Valida días de la semana**:
+   - Busca y valida: Dom, Lun, Mar, Mie, Jue, Vie, Sab
+   - Valida que todos están presentes (7/7)
+
+4. **Valida navegación entre meses**:
+   - Busca botón de mes anterior (chevron-left)
+   - Busca botón de mes siguiente (chevron-right)
+   - Valida funcionalidad: navegar al mes anterior y siguiente
+   - Asegura que está en Noviembre (mes con eventos) antes de buscar días
+
+5. **Valida eventos marcados**:
+   - Busca días con puntos de colores (indicadores de eventos)
+   - Filtra días con eventos reales (excluye `rgb(242, 242, 242)` que indica sin eventos)
+   - Extrae número del día correctamente
+   - Muestra días encontrados con eventos
+
+6. **Valida filtrado por día**:
+   - Cuenta eventos antes del filtro
+   - Selecciona un día con eventos
+   - Cuenta eventos después del filtro
+   - Valida que los eventos mostrados corresponden al día seleccionado
+   - Compara fechas de eventos con el día seleccionado
+
+**Características**:
+- Múltiples estrategias de búsqueda del calendario
+- Validación exhaustiva de navegación entre meses
+- Identificación precisa de días con eventos (excluyendo días sin eventos)
+- Validación de filtrado con comparación de fechas
+- Solo se ejecuta en desktop (viewport ≥ 1024px)
+
+### Test 6: Validar Elementos Completos de la Sección "¡Fiestachat!"
+
+**Objetivo**: Validar todos los elementos de la sección Fiestachat
+
+**Flujo**:
+1. **Valida existencia del contenedor**:
+   - Busca contenedor específico con clases `flex.flex-col.p-5.gap-[10px].bg-light-light`
+   - Fallback: busca cualquier contenedor con el título
+
+2. **Valida título**: Busca y valida "¡Fiestachat!"
+3. **Valida subtítulo**: Busca y valida "La línea directa a tu evento"
+4. **Valida contenedor destacado**: Busca contenedor con información sobre el chat
+5. **Valida elementos interactivos**:
+   - Busca botones y enlaces
+   - Valida funcionalidad de cada elemento
+6. **Valida conversaciones**:
+   - Busca conversaciones disponibles
+   - Cuenta conversaciones encontradas
+
+**Características**:
+- Validación completa de estructura y contenido
+- Solo se ejecuta en desktop (viewport ≥ 1024px)
+- Manejo de casos sin conversaciones
+
+### Test 7: Barra Superior Navega a Chats, Favoritos y Perfil
 
 **Objetivo**: Verificar que la navegación superior funciona correctamente
 
 **Flujo**:
-1. **Navega a Chats**:
-   - Busca botón de navegación a chats
-   - Hace clic
-   - Verifica que la URL cambia a `/client/chats`
-   - Espera carga completa (`networkidle`)
-
-2. **Regresa al dashboard**:
-   - Navega a `/client/dashboard`
-   - Espera carga completa
-
-3. **Navega a Favoritos (solo desktop)**:
-   - Solo si viewport ≥ 1024px
-   - Busca botón de navegación a favoritos
-   - Hace clic
-   - Verifica que la URL cambia a `/client/favorites`
-   - Espera carga completa
-
-4. **Regresa al dashboard**:
-   - Navega a `/client/dashboard`
-   - Espera carga completa
-
-5. **Navega a Perfil**:
-   - Busca botón de navegación a perfil
-   - Hace clic
-   - Verifica que la URL cambia a `/client/profile`
-   - Espera carga completa
-
-6. **Regresa al dashboard**:
-   - Navega a `/client/dashboard`
-   - Espera carga completa
+1. **Navega a Chats**: Busca botón, hace clic, verifica URL `/client/chats`
+2. **Regresa al dashboard**: Navega a `/client/dashboard`
+3. **Navega a Favoritos (solo desktop)**: Solo si viewport ≥ 1024px, busca botón, hace clic, verifica URL `/client/favorites`
+4. **Regresa al dashboard**: Navega a `/client/dashboard`
+5. **Navega a Perfil**: Busca botón, hace clic, verifica URL `/client/profile`
+6. **Regresa al dashboard**: Navega a `/client/dashboard`
 
 **Características**:
 - Maneja navegación tanto en desktop como móvil
 - Verifica URLs específicas para cada sección
-- Usa `networkidle` para asegurar carga completa
-- Navegación condicional según viewport (favoritos solo desktop)
+- Valida contador de mensajes en Chats
 
-### Test 3: Crear Nueva Fiesta
+### Test 8: Crear Nueva Fiesta
 
 **Objetivo**: Validar el flujo completo de creación de nueva fiesta
 
@@ -186,15 +414,12 @@ Antes de cada prueba:
 - Timeout extendido (3 minutos) debido a la complejidad del flujo
 - Incluye todas las validaciones del flujo completo
 
-### Test 4: "Agregar Servicios" Está Visible y Funcional
+### Test 9: "Agregar Servicios" Está Visible y Funcional
 
 **Objetivo**: Validar el botón "Agregar servicios" y ejecutar el flujo completo
 
 **Flujo**:
-1. **Valida que el botón "Agregar servicios" es visible**:
-   - Busca el botón con texto "Agregar servicios"
-   - Verifica que es visible
-
+1. **Valida que el botón "Agregar servicios" es visible**: Busca el botón con texto "Agregar servicios"
 2. **Ejecuta el flujo completo de agregar servicio a evento existente**:
    - Reutiliza la función `agregarServicioAEventoExistente()` de `cliente-eventos.spec.ts`
    - Esta función incluye:
@@ -211,140 +436,105 @@ Antes de cada prueba:
 - Timeout extendido (3 minutos)
 - Maneja automáticamente servicios ya agregados
 
-### Test 5: "Ordenar por" Funciona Correctamente
+### Test 10: "Ordenar por" Funciona Correctamente
 
 **Objetivo**: Validar que el botón "Ordenar por" es visible y funcional
 
 **Flujo**:
-1. **Valida que el botón es visible**:
-   - Busca botón con texto "Ordenar por"
-   - Verifica que es visible
-
-2. **Valida que el botón está habilitado**:
-   - Verifica que no está deshabilitado
-
-3. **Hace clic en el botón**:
-   - Ejecuta el clic
-   - Espera a que se procese
-
-4. **Valida que el click funciona**:
-   - Por ahora solo valida que el click se ejecuta sin errores
-   - (La validación del dropdown/menú depende de la implementación)
+1. **Valida que el botón es visible**: Busca botón con texto "Ordenar por"
+2. **Valida que el botón está habilitado**: Verifica que no está deshabilitado
+3. **Hace clic en el botón**: Ejecuta el clic y espera a que se procese
+4. **Valida menú desplegable**:
+   - Busca menú con opciones: Nuevo, Pendiente, Contratado, Cancelado
+   - Valida que todas las opciones están presentes
+5. **Valida funcionalidad de cada opción**:
+   - Hace clic en cada opción
+   - Verifica que el filtrado funciona correctamente
 
 **Características**:
-- Validación básica de funcionalidad
-- Puede extenderse para validar opciones del dropdown
+- Validación completa del menú desplegable
+- Validación de funcionalidad de filtrado
 
-### Test 6: Filtros de Servicios Funcionan Correctamente
+### Test 11: Filtros de Servicios Funcionan Correctamente
 
 **Objetivo**: Valida los filtros de servicios en el sidebar (solo desktop)
 
 **Flujo**:
-1. **Verifica viewport**:
-   - Solo ejecuta si viewport ≥ 1280px (desktop grande)
-
-2. **Busca contenedor de filtros**:
-   - Busca sidebar con clase `hidden.xlg:flex.flex-col.grow.overflow-y-auto.shrink-0`
-   - Verifica que existe
-
-3. **Valida sección "Servicios"**:
-   - Busca sección con título "Servicios"
-   - Verifica que es visible
-
-4. **Valida sección "Sugerencias"**:
-   - Busca sección con título "Sugerencias"
-   - Verifica que es visible
-
-5. **Valida sugerencias disponibles**:
-   - Busca botones con nombres de categorías (Alimentos, Bebidas, Lugares, etc.)
-   - Cuenta cuántas sugerencias hay
-   - Muestra el conteo en consola
+1. **Verifica viewport**: Solo ejecuta si viewport ≥ 1280px (desktop grande)
+2. **Busca contenedor de filtros**: Busca sidebar con clase específica
+3. **Valida sección "Servicios"**: Busca sección con título "Servicios"
+4. **Valida sección "Sugerencias"**: Busca sección con título "Sugerencias"
+5. **Valida sugerencias disponibles**: Busca botones con nombres de categorías y cuenta cuántas hay
 
 **Características**:
 - Solo se ejecuta en viewports grandes (≥1280px)
 - Valida estructura del sidebar de filtros
 - Cuenta sugerencias disponibles
 
-### Test 7: La Sección de Eventos Muestra las Fiestas del Cliente
+### Test 12: La Sección de Eventos Muestra las Fiestas del Cliente
 
 **Objetivo**: Valida que los eventos del cliente se muestran correctamente
 
 **Flujo**:
-1. **Busca eventos en la sección "Elige tu fiesta"**:
-   - Busca botones que contengan fechas en formato "DD MMM YYYY"
-   - Usa regex para encontrar fechas: `/\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i`
-
-2. **Cuenta eventos encontrados**:
-   - Muestra el conteo en consola
-
-3. **Valida el primer evento**:
-   - Verifica que es visible
-   - Valida que tiene fecha
-   - Valida que tiene información del evento
+1. **Busca eventos en la sección "Elige tu fiesta"**: Busca botones que contengan fechas en formato "DD MMM YYYY"
+2. **Cuenta eventos encontrados**: Muestra el conteo en consola
+3. **Valida el primer evento**: Verifica que es visible, tiene fecha e información del evento
 
 **Características**:
 - Búsqueda flexible de eventos por patrón de fecha
 - Validación de estructura de tarjetas de eventos
 - Manejo de casos sin eventos
 
-### Test 8: Fiestachat Muestra Conversaciones
+### Test 13: Fiestachat Muestra Conversaciones
 
 **Objetivo**: Valida que la sección Fiestachat muestra conversaciones
 
 **Flujo**:
-1. **Busca la sección Fiestachat**:
-   - Busca contenedor con título "¡Fiestachat!"
-   - Verifica que es visible
-
-2. **Busca conversaciones**:
-   - Busca elementos que representen conversaciones
-   - Puede buscar por estructura específica de la UI
-
-3. **Valida que hay conversaciones**:
-   - Cuenta las conversaciones encontradas
-   - Muestra el conteo en consola
+1. **Busca la sección Fiestachat**: Busca contenedor con título "¡Fiestachat!"
+2. **Busca conversaciones**: Busca elementos que representen conversaciones
+3. **Valida que hay conversaciones**: Cuenta las conversaciones encontradas y muestra el conteo
 
 **Características**:
 - Búsqueda flexible de la sección Fiestachat
 - Validación de presencia de conversaciones
 - Manejo de casos sin conversaciones
 
-### Test 9: El Calendario Filtra Eventos al Seleccionar un Día (Desktop)
+### Test 14: Hacer Clic en Notificación y Verificar Navegación a Página de Cotización
+
+**Objetivo**: Validar que al hacer clic en una notificación se navega a la página de cotización correspondiente
+
+**Flujo**:
+1. **Busca sección Fiestachat**: Múltiples estrategias de búsqueda
+2. **Busca notificaciones**: Busca botones de notificaciones con clases específicas
+3. **Valida que hay notificaciones**: Cuenta notificaciones encontradas
+4. **Hace clic en la primera notificación**: Ejecuta el clic y espera navegación
+5. **Verifica navegación**: Valida que la URL contiene `/client/quotation/` y un ID de cotización
+6. **Valida contenido de la página**: Verifica que la página de cotización se carga correctamente
+
+**Características**:
+- Validación completa del flujo de navegación
+- Validación de URL y contenido
+- Solo se ejecuta en desktop (viewport ≥ 1024px)
+- Manejo de casos sin notificaciones
+
+### Test 15: El Calendario Filtra Eventos al Seleccionar un Día (Desktop)
 
 **Objetivo**: Valida la funcionalidad de filtrado del calendario
 
 **Flujo**:
-1. **Verifica viewport**:
-   - Solo ejecuta si viewport ≥ 1024px (desktop)
-
-2. **Busca el calendario**:
-   - Busca contenedor del calendario
-   - Verifica que es visible
-
-3. **Busca días con eventos**:
-   - Busca días que tengan un indicador visual (punto o marca)
-   - Identifica días que tienen eventos asociados
-
-4. **Cuenta eventos antes del filtro**:
-   - Cuenta todos los eventos visibles en la lista
-   - Guarda el conteo
-
-5. **Selecciona un día con eventos**:
-   - Hace clic en el primer día que tiene eventos
-   - Espera a que se procese el filtro
-
-6. **Cuenta eventos después del filtro**:
-   - Cuenta los eventos visibles después del filtro
-   - Compara con el conteo anterior
-
-7. **Valida que el filtro funcionó**:
-   - Verifica que el número de eventos cambió (menos o igual)
-   - Muestra resultados en consola
+1. **Verifica viewport**: Solo ejecuta si viewport ≥ 1024px (desktop)
+2. **Busca el calendario**: Busca contenedor del calendario
+3. **Busca días con eventos**: Busca días que tengan indicadores visuales (puntos de colores)
+4. **Cuenta eventos antes del filtro**: Cuenta todos los eventos visibles en la lista
+5. **Selecciona un día con eventos**: Hace clic en el primer día que tiene eventos
+6. **Cuenta eventos después del filtro**: Cuenta los eventos visibles después del filtro
+7. **Valida que el filtro funcionó**: Verifica que los eventos mostrados corresponden al día seleccionado
 
 **Características**:
 - Solo se ejecuta en desktop (viewport ≥ 1024px)
 - Comparación antes/después del filtro
 - Validación de funcionalidad de filtrado
+- Validación de fechas de eventos con el día seleccionado
 - Manejo de casos sin días con eventos
 
 ## 🛠️ Funciones Auxiliares
@@ -471,12 +661,14 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
   - Calendario visible
   - Filtros visibles (≥1280px)
   - Navegación a Favoritos disponible
+  - Sección Fiestachat visible
 
 - **Móvil**: Viewport < 1024px
   - Botón "Nueva fiesta" con clase `lg:hidden`
   - Calendario no visible
   - Filtros no visibles
   - Navegación a Favoritos no disponible
+  - Sección Fiestachat no visible
 
 ### Navegación Inteligente por Categorías
 
@@ -504,10 +696,11 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
 - **Fallbacks**: Selectores alternativos si los principales fallan
 - **Búsqueda por texto**: Búsqueda flexible usando `hasText`
 - **Búsqueda por estructura**: Búsqueda por estructura DOM
+- **Búsqueda por múltiples criterios**: Combinación de selectores para mayor robustez
 
 ### Validación Condicional por Viewport
 
-- Algunas validaciones solo se ejecutan en desktop (calendario, filtros)
+- Algunas validaciones solo se ejecutan en desktop (calendario, filtros, Fiestachat)
 - Otras validaciones tienen comportamientos diferentes según viewport (botón "Nueva fiesta")
 - Detección automática del viewport antes de validar
 
@@ -516,6 +709,12 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
 - Usa `showStepMessage()` para mostrar mensajes en pantalla durante la ejecución
 - Mensajes informativos con emojis para mejor seguimiento
 - Mensajes específicos para cada fase de validación
+
+### Manejo de Autenticación
+
+- Verificación de autenticación previa antes de intentar login
+- Evita intentos de login redundantes
+- Manejo robusto de sesiones existentes
 
 ## 📋 Validaciones Implementadas
 
@@ -528,6 +727,16 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
 - ✅ Calendario visible (solo desktop)
 - ✅ Sección "¡Fiestachat!" con título y subtítulo
 
+### Validaciones de Barra Superior
+- ✅ Logo de Fiestamas visible (desktop y móvil)
+- ✅ Logo navega al dashboard/home
+- ✅ Enlace de Chats visible y funcional
+- ✅ Contador de mensajes en Chats (si existe)
+- ✅ Botón de Búsqueda visible y funcional
+- ✅ Enlace de Favoritos visible y funcional (solo desktop)
+- ✅ Enlace de Perfil visible y funcional
+- ✅ Menú móvil visible y funcional (solo móvil)
+
 ### Validaciones de Navegación
 - ✅ Navegación a Chats funciona
 - ✅ URL correcta después de navegar a Chats
@@ -535,6 +744,60 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
 - ✅ URL correcta después de navegar a Favoritos
 - ✅ Navegación a Perfil funciona
 - ✅ URL correcta después de navegar a Perfil
+
+### Validaciones de Sección "Elige tu fiesta"
+- ✅ Título "Elige tu fiesta" visible
+- ✅ Scroll horizontal funcional
+- ✅ Tarjetas de eventos visibles
+- ✅ Nombre del evento presente
+- ✅ Fecha y hora presentes (formato correcto)
+- ✅ Presupuesto presente (formato de moneda)
+- ✅ Avance presente (porcentaje y barra)
+- ✅ Días restantes presentes
+- ✅ Color identificador presente (border-left-color)
+- ✅ Botón "Nueva fiesta" visible y funcional
+
+### Validaciones de Sección de Servicios
+- ✅ Botón "Agregar servicios" visible y funcional
+- ✅ Botón "Ordenar por" visible y funcional
+- ✅ Menú desplegable "Ordenar por" con opciones: Nuevo, Pendiente, Contratado, Cancelado
+- ✅ Funcionalidad de filtrado por cada opción
+- ✅ Filtros laterales visibles (solo desktop)
+- ✅ Categorías de servicios presentes
+- ✅ Contador de servicios por categoría
+- ✅ Botón "Ver más" (si aplica)
+- ✅ Sugerencias presentes: Lugares, Entretenimiento, Mesa de regalos
+- ✅ Tarjetas de servicios visibles
+- ✅ Imagen del servicio presente
+- ✅ Nombre del servicio presente
+- ✅ Categoría/Subcategoría presente
+- ✅ Descripción presente
+- ✅ Precio desde presente (formato de moneda)
+- ✅ Información del negocio presente
+- ✅ Badge "NUEVO" (si aplica)
+- ✅ Color identificador del evento asociado
+
+### Validaciones de Calendario
+- ✅ Calendario visible (solo desktop)
+- ✅ Vista mensual presente
+- ✅ Mes actual mostrado correctamente
+- ✅ Navegación entre meses funcional (anterior y siguiente)
+- ✅ Días de la semana presentes (7/7): Dom, Lun, Mar, Mie, Jue, Vie, Sab
+- ✅ Días con eventos identificados correctamente
+- ✅ Puntos de colores visibles (excluyendo días sin eventos)
+- ✅ Filtrado por día funciona correctamente
+- ✅ Eventos mostrados corresponden al día seleccionado
+- ✅ Validación de fechas de eventos con día seleccionado
+
+### Validaciones de Fiestachat
+- ✅ Sección Fiestachat visible (solo desktop)
+- ✅ Título "¡Fiestachat!" presente
+- ✅ Subtítulo "La línea directa a tu evento" presente
+- ✅ Contenedor destacado presente
+- ✅ Elementos interactivos presentes
+- ✅ Conversaciones disponibles (si existen)
+- ✅ Notificaciones presentes (si existen)
+- ✅ Navegación a página de cotización funciona correctamente
 
 ### Validaciones de Funcionalidad
 - ✅ Botón "Nueva fiesta" navega correctamente
@@ -547,16 +810,6 @@ Estructura de tercer nivel (categoría > subcategoría > sub-subcategoría):
 - ✅ Eventos del cliente se muestran en la sección
 - ✅ Eventos tienen fechas válidas
 - ✅ Eventos tienen información completa
-
-### Validaciones de Fiestachat
-- ✅ Sección Fiestachat visible
-- ✅ Conversaciones disponibles (si existen)
-
-### Validaciones de Calendario
-- ✅ Calendario visible (solo desktop)
-- ✅ Días con eventos identificados
-- ✅ Filtrado por día funciona correctamente
-- ✅ Cambio en cantidad de eventos después del filtro
 
 ## 🚀 Cómo Ejecutar las Pruebas
 
@@ -577,7 +830,7 @@ npx playwright test tests/client/dashboard.spec.ts
 
 #### Ejecutar una prueba específica:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Validar secciones"
+npx playwright test tests/client/dashboard.spec.ts -g "Validar elementos completos de la barra superior"
 ```
 
 #### Ejecutar en modo UI (recomendado para debugging):
@@ -603,18 +856,27 @@ npx playwright test tests/client/
 ## 📈 Métricas Esperadas
 
 ### Test Individual (Validaciones Básicas)
-- **Tiempo de ejecución**: ~30-60 segundos por prueba
-- **Pasos totales**: ~5-10 pasos principales
-- **Interacciones con UI**: ~10-20 interacciones
-- **Verificaciones**: ~5-10 verificaciones de visibilidad
+- **Tiempo de ejecución**: ~30-120 segundos por prueba
+- **Pasos totales**: ~5-20 pasos principales
+- **Interacciones con UI**: ~10-30 interacciones
+- **Verificaciones**: ~5-15 verificaciones de visibilidad
 
 ### Tests de Flujo Completo
 - **"Crear nueva fiesta"**: ~3-4 minutos (reutiliza flujo completo)
 - **"Agregar servicios"**: ~3-4 minutos (reutiliza flujo completo)
 
+### Tests de Validación Completa
+- **"Validar elementos completos de la barra superior"**: ~2 minutos
+- **"Validar elementos completos de la sección 'Elige tu fiesta'"**: ~2 minutos
+- **"Validar elementos completos de la sección de servicios"**: ~3 minutos
+- **"Validar elementos completos del calendario"**: ~2 minutos
+- **"Validar elementos completos de la sección '¡Fiestachat!'"**: ~2 minutos
+- **"Hacer clic en notificación y verificar navegación"**: ~2 minutos
+
 ### Métricas Totales
-- **Tests totales**: 9
+- **Tests totales**: 19 (15 de dashboard + 5 de perfil)
 - **Tests con flujo completo**: 2 (reutilizan funciones de eventos)
+- **Tests de validación completa**: 6
 - **Tests de validación básica**: 7
 - **Validaciones de navegación**: 3 (chats, favoritos, perfil)
 - **Validaciones de funcionalidad**: 4 (botones, filtros, calendario)
@@ -628,7 +890,7 @@ npx playwright test tests/client/
    - Requieren que existan servicios activos en el dashboard del proveedor
 
 3. **Viewport condicional**: 
-   - Algunas validaciones solo se ejecutan en desktop (calendario, filtros)
+   - Algunas validaciones solo se ejecutan en desktop (calendario, filtros, Fiestachat)
    - El botón "Nueva fiesta" tiene diferentes selectores según viewport
    - La navegación a Favoritos solo está disponible en desktop
 
@@ -648,6 +910,18 @@ npx playwright test tests/client/
    - Los tests manejan casos donde no hay eventos, conversaciones, etc.
    - Muestran mensajes informativos en consola
 
+8. **Manejo de autenticación**: 
+   - Verifica si el usuario ya está autenticado antes de intentar login
+   - Evita intentos de login redundantes
+
+9. **Múltiples estrategias de búsqueda**: 
+   - Los tests usan múltiples estrategias para encontrar elementos
+   - Tienen fallbacks si los selectores principales fallan
+
+10. **Validación de fechas y formatos**: 
+    - Los tests validan formatos de fechas, horas y monedas
+    - Comparan fechas de eventos con días seleccionados en el calendario
+
 ## 🐛 Manejo de Errores
 
 La suite incluye manejo robusto de errores:
@@ -659,10 +933,81 @@ La suite incluye manejo robusto de errores:
 - Validaciones no bloqueantes: continúa aunque algunas validaciones fallen
 - Manejo de viewport: detecta automáticamente y ajusta validaciones
 - Fallbacks para selectores: si un selector falla, intenta alternativos
+- Manejo de páginas cerradas: usa `safeWaitForTimeout` para evitar errores cuando la página se cierra
+- Validación de autenticación: verifica sesión antes de intentar login
 
 ## 🔄 Cambios Recientes
 
-### Integración con Pruebas de Eventos (Última actualización)
+### Validaciones Completas de Secciones (Última actualización)
+- **Mejora**: Se agregaron pruebas exhaustivas para validar todos los elementos de cada sección
+- **Nuevas pruebas**:
+  - "Validar elementos completos de la barra superior"
+  - "Validar elementos completos de la sección 'Elige tu fiesta'"
+  - "Validar elementos completos de la sección de servicios"
+  - "Validar elementos completos del calendario (desktop)"
+  - "Validar elementos completos de la sección '¡Fiestachat!'"
+- **Beneficio**: 
+  - Cobertura completa de todos los elementos visuales y funcionales
+  - Validación exhaustiva de cada componente
+  - Detección temprana de problemas de UI
+- **Resultado**: Los tests ahora validan exhaustivamente cada sección del dashboard
+
+### Validación de Navegación de Notificaciones (Última actualización)
+- **Mejora**: Se agregó prueba para validar que al hacer clic en una notificación se navega a la página de cotización
+- **Nueva prueba**: "Hacer clic en notificación y verificar navegación a página de cotización"
+- **Beneficio**: 
+  - Validación del flujo completo de notificaciones
+  - Verificación de navegación correcta
+  - Validación de URLs y contenido
+- **Resultado**: Los tests ahora validan el flujo completo de notificaciones
+
+### Optimizaciones en Validación del Calendario (Última actualización)
+- **Mejora**: Se optimizó la validación del calendario para evitar timeouts y mejorar rendimiento
+- **Cambios**:
+  - **Límite de días procesados**: Máximo 100 días (en lugar de todos los días del calendario)
+  - **Parada temprana**: Se detiene cuando encuentra 20 días con eventos
+  - **Timeouts cortos**: Verificación de visibilidad con timeout de 500ms
+  - **Lógica simplificada**: Solo verifica el primer punto de color en lugar de todos
+  - **Validación limitada**: Limita validación de eventos a 5 eventos máximo
+  - **Timeouts con Promise.race**: Agregados timeouts de 5 segundos máximo para operaciones costosas
+  - **Eliminación de `.all()`**: Reemplazado por búsqueda directa en texto completo (más rápido)
+  - **Manejo de errores**: Try-catch para continuar si un día o evento falla
+- **Beneficio**: 
+  - Prueba completa dentro del timeout de 120 segundos
+  - Mayor eficiencia en el procesamiento
+  - Menos operaciones costosas
+  - Mejor manejo de errores
+- **Resultado**: Los tests ahora completan exitosamente sin exceder el timeout
+
+### Nueva Prueba de Búsqueda de Servicios (Última actualización)
+- **Mejora**: Se agregó prueba completa para validar la funcionalidad de búsqueda de servicios
+- **Nueva prueba**: `test('Buscar Servicios Y Mostrar Resultados Correctamente')`
+- **Flujo**:
+  - Hace clic en el icono de búsqueda del dashboard (navega a home)
+  - Hace clic en el icono de búsqueda del home (abre diálogo de búsqueda)
+  - Escribe un término de búsqueda en el campo de búsqueda
+  - Valida que se muestran resultados (tarjetas de servicios)
+  - Valida elementos de las tarjetas: nombre, imagen, precio, rating
+  - Maneja caso de "no se encontraron resultados"
+- **Beneficio**: 
+  - Validación completa del flujo de búsqueda
+  - Verificación de resultados y elementos de las tarjetas
+  - Manejo de casos sin resultados
+- **Resultado**: Los tests ahora validan completamente la funcionalidad de búsqueda
+
+### Estandarización de Nombres de Pruebas (Última actualización)
+- **Mejora**: Se estandarizaron todos los nombres de pruebas a "Title Case" sin la palabra "debe"
+- **Cambios**:
+  - Todos los nombres ahora siguen el formato: "Verbo + Objeto + Descripción" en Title Case
+  - Ejemplos: "Mostrar Todos Los Elementos De La Barra Superior", "Navegar Correctamente Desde La Barra Superior A Chats Favoritos Y Perfil"
+  - Reordenadas según el flujo típico del usuario (dashboard → navegación → chats → eventos → servicios → calendario → crear evento → perfil)
+- **Beneficio**: 
+  - Nombres más descriptivos y consistentes
+  - Mejor organización según flujo de usuario
+  - Más fácil de entender y mantener
+- **Resultado**: Los tests ahora tienen nombres consistentes y están organizados lógicamente
+
+### Integración con Pruebas de Eventos
 - **Mejora**: Los tests "Crear nueva fiesta" y "Agregar servicios" ahora reutilizan funciones de `cliente-eventos.spec.ts`
 - **Beneficio**: 
   - Evita duplicación de código
@@ -670,7 +1015,7 @@ La suite incluye manejo robusto de errores:
   - Facilita mantenimiento
 - **Resultado**: Los tests ahora ejecutan el flujo completo con todas las validaciones
 
-### Agregado de Logs (Última actualización)
+### Agregado de Logs Informativos
 - **Mejora**: Se agregaron logs informativos a todos los tests
 - **Beneficio**: 
   - Mejor seguimiento del progreso
@@ -678,13 +1023,21 @@ La suite incluye manejo robusto de errores:
   - Identificación rápida de problemas
 - **Resultado**: Los tests ahora proporcionan información detallada durante la ejecución
 
-### Validación Mejorada de Selectores (Última actualización)
+### Validación Mejorada de Selectores
 - **Mejora**: Se agregaron fallbacks para selectores principales
 - **Beneficio**: 
   - Mayor robustez ante cambios en la UI
   - Menos fallos por selectores específicos
   - Mejor compatibilidad entre versiones
 - **Resultado**: Los tests ahora son más resistentes a cambios menores en la UI
+
+### Manejo de Autenticación Mejorado
+- **Mejora**: Se agregó verificación de autenticación previa antes de intentar login
+- **Beneficio**: 
+  - Evita intentos de login redundantes
+  - Reduce tiempo de ejecución
+  - Manejo más robusto de sesiones
+- **Resultado**: Los tests ahora son más eficientes y robustos
 
 ## 🔗 Enlaces Relacionados
 
@@ -699,26 +1052,36 @@ La suite incluye manejo robusto de errores:
 
 ### ✅ Completado
 - [x] Validación de secciones principales del dashboard
+- [x] Validación completa de barra superior (logo, navegación, contador de mensajes, menú móvil)
+- [x] Validación completa de sección "Elige tu fiesta" (título, scroll, tarjetas con todos los elementos)
+- [x] Validación completa de sección de servicios (botones, menú ordenar, filtros, sugerencias, tarjetas)
+- [x] Validación completa del calendario (vista mensual, navegación, días de la semana, eventos marcados, filtrado)
+- [x] Validación completa de sección "¡Fiestachat!" (título, subtítulo, contenedor, conversaciones)
 - [x] Navegación entre secciones (chats, favoritos, perfil)
 - [x] Validación de botones principales (Nueva fiesta, Agregar servicios, Ordenar por)
 - [x] Flujo completo de creación de evento (reutiliza función de eventos)
 - [x] Flujo completo de agregar servicio a evento (reutiliza función de eventos)
 - [x] Validación de filtros de servicios (desktop)
 - [x] Validación de sección de eventos
-- [x] Validación de Fiestachat
-- [x] Validación de calendario y filtrado por día (desktop)
+- [x] Validación de navegación de notificaciones a página de cotización
+- [x] Validación de filtrado del calendario por día
 - [x] Navegación inteligente por categorías
 - [x] Detección automática de viewport
 - [x] Múltiples estrategias de búsqueda con fallbacks
+- [x] Manejo de autenticación mejorado
+- [x] Validación de formatos (fechas, horas, monedas)
 
 ### 🔄 Mejoras Futuras
-- [ ] Validación de opciones del dropdown "Ordenar por"
 - [ ] Validación de interacción con filtros (aplicar filtros y ver resultados)
 - [ ] Validación de ordenamiento de eventos
 - [ ] Validación de búsqueda de servicios
 - [ ] Validación de responsive design en diferentes viewports
 - [ ] Validación de accesibilidad (ARIA labels, navegación por teclado)
 - [ ] Validación de rendimiento (tiempo de carga, lazy loading)
+- [ ] Validación de scroll horizontal en sección de eventos
+- [ ] Validación de paginación (si aplica)
+- [ ] Validación de estados de carga
+- [ ] Validación de mensajes de error
 
 ## 📝 Estructura del Código
 
@@ -738,12 +1101,22 @@ dashboard.spec.ts
     ├── beforeEach (login y navegación)
     ├── test('Validar secciones dashboard')
     ├── test('Barra superior navega a chats, favoritos y perfil')
+    ├── test('Validar elementos completos de la barra superior')
+    ├── test('Validar elementos completos de la sección "Elige tu fiesta"')
+    ├── test('Validar elementos completos de la sección de servicios')
+    ├── test('Validar elementos completos del calendario (desktop)')
+    ├── test('Validar elementos completos de la sección "¡Fiestachat!"')
     ├── test('Crear nueva fiesta')
     ├── test('"Agregar servicios" está visible y funcional')
     ├── test('"Ordenar por" funciona correctamente')
     ├── test('Filtros de servicios funcionan correctamente')
     ├── test('La sección de eventos muestra las fiestas del cliente')
     ├── test('Fiestachat muestra conversaciones')
-    └── test('El calendario filtra eventos al seleccionar un día (desktop)')
+    ├── test('Hacer clic en notificación y verificar navegación a página de cotización')
+    ├── test('El calendario filtra eventos al seleccionar un día (desktop)')
+    ├── test('Validar elementos del perfil')
+    ├── test('Editar datos personales')
+    ├── test('Foto de perfil')
+    ├── test('Eliminar foto de perfil')
+    └── test('Cambiar contraseña')
 ```
-
