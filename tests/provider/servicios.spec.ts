@@ -1338,7 +1338,7 @@ test('Activar servicio', async ({ page }) => {
 
   // Reabrir el menú para verificar
   await threeDotsButton.click();
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(2000);
 
   // Verificar que ahora tiene el botón "Desactivar"
   const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();

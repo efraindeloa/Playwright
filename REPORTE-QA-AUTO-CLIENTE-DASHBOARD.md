@@ -127,16 +127,6 @@ La suite contiene **19 pruebas** organizadas en un `test.describe` que comparten
     - Cuenta sugerencias disponibles
     - Timeout: 60 segundos
 
-14. **`test('Buscar Servicios Y Mostrar Resultados Correctamente')`**
-    - Valida el flujo completo de búsqueda de servicios
-    - Hace clic en el icono de búsqueda del dashboard (navega a home)
-    - Hace clic en el icono de búsqueda del home (abre diálogo)
-    - Escribe un término de búsqueda
-    - Valida que se muestran resultados
-    - Valida elementos de las tarjetas de servicios (nombre, imagen, precio, rating)
-    - Maneja caso de "no se encontraron resultados"
-    - Timeout: 120 segundos (2 minutos)
-
 #### Pruebas de Calendario
 
 15. **`test('Mostrar Todos Los Elementos Del Calendario En Vista Desktop')`**
@@ -979,22 +969,6 @@ La suite incluye manejo robusto de errores:
   - Mejor manejo de errores
 - **Resultado**: Los tests ahora completan exitosamente sin exceder el timeout
 
-### Nueva Prueba de Búsqueda de Servicios (Última actualización)
-- **Mejora**: Se agregó prueba completa para validar la funcionalidad de búsqueda de servicios
-- **Nueva prueba**: `test('Buscar Servicios Y Mostrar Resultados Correctamente')`
-- **Flujo**:
-  - Hace clic en el icono de búsqueda del dashboard (navega a home)
-  - Hace clic en el icono de búsqueda del home (abre diálogo de búsqueda)
-  - Escribe un término de búsqueda en el campo de búsqueda
-  - Valida que se muestran resultados (tarjetas de servicios)
-  - Valida elementos de las tarjetas: nombre, imagen, precio, rating
-  - Maneja caso de "no se encontraron resultados"
-- **Beneficio**: 
-  - Validación completa del flujo de búsqueda
-  - Verificación de resultados y elementos de las tarjetas
-  - Manejo de casos sin resultados
-- **Resultado**: Los tests ahora validan completamente la funcionalidad de búsqueda
-
 ### Estandarización de Nombres de Pruebas (Última actualización)
 - **Mejora**: Se estandarizaron todos los nombres de pruebas a "Title Case" sin la palabra "debe"
 - **Cambios**:
@@ -1056,6 +1030,7 @@ La suite incluye manejo robusto de errores:
 - [x] Validación completa de sección "Elige tu fiesta" (título, scroll, tarjetas con todos los elementos)
 - [x] Validación completa de sección de servicios (botones, menú ordenar, filtros, sugerencias, tarjetas)
 - [x] Validación completa del calendario (vista mensual, navegación, días de la semana, eventos marcados, filtrado)
+- [x] Optimización del calendario para evitar timeouts (límite de días, parada temprana, timeouts cortos)
 - [x] Validación completa de sección "¡Fiestachat!" (título, subtítulo, contenedor, conversaciones)
 - [x] Navegación entre secciones (chats, favoritos, perfil)
 - [x] Validación de botones principales (Nueva fiesta, Agregar servicios, Ordenar por)
@@ -1070,11 +1045,15 @@ La suite incluye manejo robusto de errores:
 - [x] Múltiples estrategias de búsqueda con fallbacks
 - [x] Manejo de autenticación mejorado
 - [x] Validación de formatos (fechas, horas, monedas)
+- [x] Estandarización de nombres de pruebas (Title Case, sin "debe")
+- [x] Reorganización de pruebas según flujo de usuario
 
 ### 🔄 Mejoras Futuras
 - [ ] Validación de interacción con filtros (aplicar filtros y ver resultados)
 - [ ] Validación de ordenamiento de eventos
-- [ ] Validación de búsqueda de servicios
+- [ ] Validación de búsqueda de servicios (flujo completo con diálogo y resultados)
+- [ ] Validación de filtros avanzados en búsqueda de servicios
+- [ ] Validación de ordenamiento en resultados de búsqueda
 - [ ] Validación de responsive design en diferentes viewports
 - [ ] Validación de accesibilidad (ARIA labels, navegación por teclado)
 - [ ] Validación de rendimiento (tiempo de carga, lazy loading)
@@ -1099,24 +1078,23 @@ dashboard.spec.ts
 │   └── verificarSiHayServicios()
 └── test.describe('Dashboard de cliente')
     ├── beforeEach (login y navegación)
-    ├── test('Validar secciones dashboard')
-    ├── test('Barra superior navega a chats, favoritos y perfil')
-    ├── test('Validar elementos completos de la barra superior')
-    ├── test('Validar elementos completos de la sección "Elige tu fiesta"')
-    ├── test('Validar elementos completos de la sección de servicios')
-    ├── test('Validar elementos completos del calendario (desktop)')
-    ├── test('Validar elementos completos de la sección "¡Fiestachat!"')
-    ├── test('Crear nueva fiesta')
-    ├── test('"Agregar servicios" está visible y funcional')
-    ├── test('"Ordenar por" funciona correctamente')
-    ├── test('Filtros de servicios funcionan correctamente')
-    ├── test('La sección de eventos muestra las fiestas del cliente')
-    ├── test('Fiestachat muestra conversaciones')
-    ├── test('Hacer clic en notificación y verificar navegación a página de cotización')
-    ├── test('El calendario filtra eventos al seleccionar un día (desktop)')
-    ├── test('Validar elementos del perfil')
-    ├── test('Editar datos personales')
-    ├── test('Foto de perfil')
-    ├── test('Eliminar foto de perfil')
-    └── test('Cambiar contraseña')
+    ├── test('Mostrar Todas Las Secciones Principales Del Dashboard')
+    ├── test('Mostrar Todos Los Elementos De La Barra Superior')
+    ├── test('Navegar Correctamente Desde La Barra Superior A Chats Favoritos Y Perfil')
+    ├── test('Mostrar Las Conversaciones En La Sección Fiestachat')
+    ├── test('Mostrar Todos Los Elementos De La Sección Fiestachat')
+    ├── test('Navegar A La Página De Cotización Al Hacer Clic En Una Notificación')
+    ├── test('Mostrar Las Fiestas Del Cliente En La Sección De Eventos')
+    ├── test('Mostrar Todos Los Elementos De La Sección Elige Tu Fiesta')
+    ├── test('Mostrar Todos Los Elementos De La Sección De Servicios')
+    ├── test('Mostrar El Botón Agregar Servicios y probar su funcionalidad')
+    ├── test('Ordenar Servicios Correctamente')
+    ├── test('Aplicar Filtros De Servicios Correctamente')
+    ├── test('Mostrar Todos Los Elementos Del Calendario En Vista Desktop')
+    ├── test('Crear Una Nueva Fiesta')
+    ├── test('Mostrar Todos Los Elementos De La Página De Perfil')
+    ├── test('Editar Los Datos Personales Del Usuario')
+    ├── test('Actualizar La Foto De Perfil')
+    ├── test('Eliminar La Foto De Perfil')
+    └── test('Cambiar La Contraseña Del Usuario')
 ```
