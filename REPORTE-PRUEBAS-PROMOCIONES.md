@@ -8,7 +8,7 @@
 **Framework de Pruebas:** Playwright  
 **Fecha de Generación:** 2025  
 **Versión del Reporte:** 1.1  
-**Última Actualización:** Refactorización de validaciones y constantes
+**Última Actualización:** Diciembre 2025 - Actualización del formulario con nuevos campos (servicio, descripción, oferta corta) y validaciones adicionales
 
 ---
 
@@ -18,7 +18,7 @@ Este documento describe el conjunto completo de pruebas automatizadas implementa
 
 ### Estadísticas Generales
 
-- **Total de Pruebas:** 9 casos de prueba
+- **Total de Pruebas:** 14 casos de prueba
 - **Cobertura Funcional:** 100% de las funcionalidades principales
 - **Timeout Global:** 60 segundos por prueba
 - **Timeout Específico:** 90 segundos para pruebas de edición y eliminación
@@ -90,10 +90,13 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 1. Navegar a "Administrar promociones"
 2. Hacer clic en "Crear promoción"
 3. Completar formulario:
-   - Título: Generado dinámicamente con timestamp (`Promo de prueba YYYY-MM-DDTHH-mm-ss`)
+   - Título: Generado dinámicamente con timestamp (máximo 30 caracteres, formato `Promo de prueba YYYYMMDD-HHMMSS`)
    - Fecha de inicio: Día actual
    - Fecha de fin: 30 días después del día actual
-   - Imagen: Archivo `C:/Temp/transparent.png`
+   - **Servicio**: Selección de un servicio del dropdown "Mis servicios"
+   - **Descripción de la promoción**: Texto descriptivo de la promoción
+   - **Oferta corta**: Texto corto (máximo 10 caracteres) con contador visual
+   - Imagen: Archivo `C:/Temp/images.jpeg`
 4. Hacer clic en "Finalizar"
 5. Verificar que la promoción aparece en el listado
 
@@ -105,15 +108,147 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 - ✅ Título de la promoción es visible con timeout de 20 segundos
 
 **Datos de Prueba:**
-- Título: Dinámico con formato `Promo de prueba [timestamp]`
+- Título: Dinámico con formato `Promo de prueba [timestamp]` (máximo 30 caracteres)
 - Fechas: Calculadas automáticamente desde la fecha actual
-- Imagen: Archivo local en `C:/Temp/transparent.png`
+- Servicio: Seleccionado del dropdown "Mis servicios"
+- Descripción: Texto descriptivo de la promoción
+- Oferta corta: Texto corto (máximo 10 caracteres)
+- Imagen: Archivo local en `C:/Temp/images.jpeg`
 
 ---
 
-### 2. Ordenar Promociones
+### 2. Validar Campos Obligatorios Vacíos
 
 **ID:** TC-PROM-002  
+**Prioridad:** Alta  
+**Timeout:** 60 segundos  
+**Descripción:** Valida que los campos obligatorios muestran mensajes de error cuando están vacíos.
+
+**Precondiciones:**
+- Usuario autenticado como Proveedor
+- Acceso a la página de creación de promociones
+
+**Pasos de Ejecución:**
+1. Navegar a "Administrar promociones"
+2. Hacer clic en "Crear promoción"
+3. Intentar enviar el formulario sin llenar campos obligatorios
+4. Validar mensajes de error para cada campo obligatorio
+
+**Validaciones:**
+- ✅ Mensaje de error para título vacío: "Ingresa un título"
+- ✅ Mensaje de error para fecha de inicio vacía: "Ingresa una fecha de inicio"
+- ✅ Mensaje de error para fecha fin vacía: "Ingresa una fecha fin"
+- ✅ Mensaje de error para servicio no seleccionado: "Selecciona un servicio"
+- ✅ Mensaje de error para descripción vacía: "Ingresa una descripción"
+- ✅ Mensaje de error para oferta corta vacía: "Ingresa un título corto"
+
+---
+
+### 3. Validar Límite de Caracteres en Oferta Corta
+
+**ID:** TC-PROM-003  
+**Prioridad:** Media  
+**Timeout:** 60 segundos  
+**Descripción:** Valida que el campo "Oferta corta" tiene un límite de 10 caracteres y muestra un contador visual.
+
+**Precondiciones:**
+- Usuario autenticado
+- Acceso al formulario de creación de promociones
+
+**Pasos de Ejecución:**
+1. Navegar a "Administrar promociones"
+2. Hacer clic en "Crear promoción"
+3. Localizar el campo "Oferta corta"
+4. Validar que tiene `maxlength="10"`
+5. Validar que existe un contador visual (ej: "0/10")
+6. Ingresar texto y validar que el contador se actualiza
+
+**Validaciones:**
+- ✅ Campo tiene atributo `maxlength="10"`
+- ✅ Contador visual está presente (formato: "X/10")
+- ✅ Contador se actualiza al escribir
+- ✅ No se pueden ingresar más de 10 caracteres
+
+---
+
+### 4. Validar Fecha de Fin en el Pasado
+
+**ID:** TC-PROM-004  
+**Prioridad:** Alta  
+**Timeout:** 60 segundos  
+**Descripción:** Valida que no se puede establecer una fecha de fin en el pasado.
+
+**Precondiciones:**
+- Usuario autenticado
+- Acceso al formulario de creación de promociones
+
+**Pasos de Ejecución:**
+1. Navegar a "Administrar promociones"
+2. Hacer clic en "Crear promoción"
+3. Establecer fecha de inicio: Día actual
+4. Intentar establecer fecha de fin: Ayer (día anterior)
+5. Validar que aparece mensaje de error
+
+**Validaciones:**
+- ✅ El sistema detecta fecha de fin en el pasado
+- ✅ Se muestra mensaje de error apropiado
+- ✅ El formulario no se puede enviar con fecha inválida
+
+---
+
+### 5. Validar Fecha Inicio Mayor que Fecha Fin
+
+**ID:** TC-PROM-005  
+**Prioridad:** Alta  
+**Timeout:** 60 segundos  
+**Descripción:** Valida que la fecha de inicio no puede ser mayor que la fecha de fin.
+
+**Precondiciones:**
+- Usuario autenticado
+- Acceso al formulario de creación de promociones
+
+**Pasos de Ejecución:**
+1. Navegar a "Administrar promociones"
+2. Hacer clic en "Crear promoción"
+3. Establecer fecha de fin: Día actual
+4. Intentar establecer fecha de inicio: Mañana (día siguiente)
+5. Validar que aparece mensaje de error
+
+**Validaciones:**
+- ✅ El sistema detecta que fecha inicio > fecha fin
+- ✅ Se muestra mensaje de error apropiado
+- ✅ El formulario no se puede enviar con fechas inválidas
+
+---
+
+### 6. Validar Servicios No Disponibles
+
+**ID:** TC-PROM-006  
+**Prioridad:** Baja  
+**Timeout:** 60 segundos  
+**Descripción:** Valida el comportamiento cuando no hay servicios disponibles para seleccionar.
+
+**Precondiciones:**
+- Usuario autenticado
+- Acceso al formulario de creación de promociones
+- Usuario sin servicios registrados (o estado vacío)
+
+**Pasos de Ejecución:**
+1. Navegar a "Administrar promociones"
+2. Hacer clic en "Crear promoción"
+3. Abrir el dropdown "Mis servicios"
+4. Validar mensaje de estado vacío si no hay servicios
+
+**Validaciones:**
+- ✅ Dropdown se abre correctamente
+- ✅ Si no hay servicios, se muestra mensaje de estado vacío apropiado
+- ✅ El campo muestra que no hay opciones disponibles
+
+---
+
+### 7. Ordenar Promociones
+
+**ID:** TC-PROM-007  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la funcionalidad de ordenamiento de promociones en el listado.
@@ -150,9 +285,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 3. Filtrar Promociones
+### 8. Filtrar Promociones
 
-**ID:** TC-PROM-003  
+**ID:** TC-PROM-008  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Valida la funcionalidad de filtrado de promociones por rango de fechas.
@@ -198,9 +333,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 4. Buscar Promociones
+### 9. Buscar Promociones
 
-**ID:** TC-PROM-004  
+**ID:** TC-PROM-009  
 **Prioridad:** Media  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la funcionalidad de búsqueda de promociones por texto.
@@ -254,9 +389,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 5. Editar Promoción
+### 10. Editar Promoción
 
-**ID:** TC-PROM-005  
+**ID:** TC-PROM-010  
 **Prioridad:** Crítica  
 **Timeout:** 90 segundos  
 **Descripción:** Valida la funcionalidad de edición de promociones existentes.
@@ -274,6 +409,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
    - Título: `Promo Editada [timestamp]`
    - Fecha de inicio: Día actual
    - Fecha de fin: 15 días después del día actual
+   - **Servicio**: Actualizar si está vacío
+   - **Descripción**: Actualizar descripción de la promoción
+   - **Oferta corta**: Actualizar oferta corta (máximo 10 caracteres)
 6. Eliminar la imagen actual
 7. Subir nueva imagen (`C:/Temp/images.jpeg`)
 8. Hacer clic en "Finalizar"
@@ -297,9 +435,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 6. Eliminar Promoción
+### 11. Eliminar Promoción
 
-**ID:** TC-PROM-006  
+**ID:** TC-PROM-011  
 **Prioridad:** Crítica  
 **Timeout:** 90 segundos  
 **Descripción:** Verifica la funcionalidad de eliminación de promociones con validación explícita.
@@ -342,9 +480,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 7. Navegar a Chats desde Promociones
+### 12. Navegar a Chats desde Promociones
 
-**ID:** TC-PROM-007  
+**ID:** TC-PROM-012  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el módulo de chats.
@@ -379,9 +517,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 8. Navegar a Perfil desde Promociones
+### 13. Navegar a Perfil desde Promociones
 
-**ID:** TC-PROM-008  
+**ID:** TC-PROM-013  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el perfil del usuario.
@@ -416,9 +554,9 @@ El archivo utiliza constantes centralizadas al inicio para facilitar el mantenim
 
 ---
 
-### 9. Navegar a Dashboard desde Promociones
+### 14. Navegar a Dashboard desde Promociones
 
-**ID:** TC-PROM-009  
+**ID:** TC-PROM-014  
 **Prioridad:** Baja  
 **Timeout:** 60 segundos  
 **Descripción:** Verifica la navegación desde la página de promociones hacia el dashboard principal del proveedor.

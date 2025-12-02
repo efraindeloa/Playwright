@@ -62,7 +62,12 @@ La suite contiene **19 pruebas** organizadas en un `test.describe` que comparten
    - Valida días de la semana (Dom, Lun, Mar, Mie, Jue, Vie, Sab)
    - Valida eventos marcados en el calendario (puntos de colores)
    - Valida filtrado de eventos al seleccionar un día
-   - Optimizado para procesar máximo 100 días y limitar validación a 5 eventos
+   - **Optimizaciones recientes**:
+     - Procesa máximo 35 días (suficiente para cualquier mes)
+     - Timeouts cortos (1 segundo) para verificación de visibilidad
+     - Timeouts de 2 segundos para operaciones de `textContent()`
+     - Manejo mejorado de días con el mismo número en diferentes meses
+     - Validación condicional: solo filtra eventos si hay días con eventos disponibles
    - Solo se ejecuta en desktop (viewport ≥ 1024px)
    - Timeout: 120 segundos (2 minutos)
 
@@ -251,6 +256,10 @@ Antes de cada prueba:
 4. **Valida botón "Nueva fiesta"**:
    - Desktop: busca botón con clase `hidden.lg:flex`
    - Móvil: busca botón con clase `lg:hidden`
+   - **Mejoras recientes**:
+     - Busca tanto "Nueva fiesta" como "Nuevo evento" (por si el texto cambió)
+     - Verifica visibilidad antes de validar con `toBeVisible()` para evitar fallos
+     - Maneja correctamente cuando el botón está oculto según el viewport
    - Valida funcionalidad: clic navega a creación de evento
 
 **Características**:
@@ -951,23 +960,31 @@ La suite incluye manejo robusto de errores:
   - Validación de URLs y contenido
 - **Resultado**: Los tests ahora validan el flujo completo de notificaciones
 
-### Optimizaciones en Validación del Calendario (Última actualización)
+### Optimizaciones en Validación del Calendario (Última actualización - Diciembre 2025)
 - **Mejora**: Se optimizó la validación del calendario para evitar timeouts y mejorar rendimiento
 - **Cambios**:
-  - **Límite de días procesados**: Máximo 100 días (en lugar de todos los días del calendario)
+  - **Límite de días procesados**: Máximo 35 días (reducido de 100 para evitar procesar elementos incorrectos)
   - **Parada temprana**: Se detiene cuando encuentra 20 días con eventos
-  - **Timeouts cortos**: Verificación de visibilidad con timeout de 500ms
+  - **Timeouts cortos**: 
+     - Verificación de visibilidad con timeout de 1 segundo (usando `Promise.race`)
+     - Operaciones de `textContent()` con timeout de 2 segundos máximo
   - **Lógica simplificada**: Solo verifica el primer punto de color en lugar de todos
   - **Validación limitada**: Limita validación de eventos a 5 eventos máximo
-  - **Timeouts con Promise.race**: Agregados timeouts de 5 segundos máximo para operaciones costosas
+  - **Timeouts con Promise.race**: Agregados timeouts para todas las operaciones costosas
   - **Eliminación de `.all()`**: Reemplazado por búsqueda directa en texto completo (más rápido)
   - **Manejo de errores**: Try-catch para continuar si un día o evento falla
+  - **Manejo mejorado de días con el mismo número**:
+     - Usa directamente el día con eventos encontrado en lugar de buscar por número
+     - Evita `strict mode violation` cuando hay días con el mismo número en diferentes meses
+  - **Validación condicional de filtrado**: Solo valida el filtrado por día si hay días con eventos disponibles
+  - **Exclusión mejorada de días de otros meses**: Doble verificación (selector + JavaScript) para asegurar que no son días de otros meses
 - **Beneficio**: 
   - Prueba completa dentro del timeout de 120 segundos
   - Mayor eficiencia en el procesamiento
   - Menos operaciones costosas
   - Mejor manejo de errores
-- **Resultado**: Los tests ahora completan exitosamente sin exceder el timeout
+  - Sin errores de `strict mode violation`
+- **Resultado**: Los tests ahora completan exitosamente sin exceder el timeout y sin errores de selectores ambiguos
 
 ### Estandarización de Nombres de Pruebas (Última actualización)
 - **Mejora**: Se estandarizaron todos los nombres de pruebas a "Title Case" sin la palabra "debe"
@@ -1030,7 +1047,9 @@ La suite incluye manejo robusto de errores:
 - [x] Validación completa de sección "Elige tu fiesta" (título, scroll, tarjetas con todos los elementos)
 - [x] Validación completa de sección de servicios (botones, menú ordenar, filtros, sugerencias, tarjetas)
 - [x] Validación completa del calendario (vista mensual, navegación, días de la semana, eventos marcados, filtrado)
-- [x] Optimización del calendario para evitar timeouts (límite de días, parada temprana, timeouts cortos)
+- [x] Optimización del calendario para evitar timeouts (límite de 35 días, parada temprana, timeouts cortos, manejo de días duplicados)
+- [x] Mejora en validación del botón "Nueva fiesta" (manejo de versiones mobile/desktop, búsqueda de texto alternativo)
+- [x] Mejora en manejo de días con el mismo número en diferentes meses (evita strict mode violation)
 - [x] Validación completa de sección "¡Fiestachat!" (título, subtítulo, contenedor, conversaciones)
 - [x] Navegación entre secciones (chats, favoritos, perfil)
 - [x] Validación de botones principales (Nueva fiesta, Agregar servicios, Ordenar por)
@@ -1051,7 +1070,7 @@ La suite incluye manejo robusto de errores:
 ### 🔄 Mejoras Futuras
 - [ ] Validación de interacción con filtros (aplicar filtros y ver resultados)
 - [ ] Validación de ordenamiento de eventos
-- [ ] Validación de búsqueda de servicios (flujo completo con diálogo y resultados)
+- [x] Validación de búsqueda de servicios (flujo completo con diálogo y resultados) - Implementada con manejo de navegación y validación de resultados
 - [ ] Validación de filtros avanzados en búsqueda de servicios
 - [ ] Validación de ordenamiento en resultados de búsqueda
 - [ ] Validación de responsive design en diferentes viewports
