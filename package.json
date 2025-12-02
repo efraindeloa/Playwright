@@ -22,11 +22,15 @@
   "description": "",
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "@types/imap": "^0.8.42",
     "@types/node": "^24.5.2",
     "pixelmatch": "^7.1.0",
     "png-js": "^1.0.0"
   },
   "dependencies": {
+    "imap": "^0.8.19",
+    "imapflow": "^1.1.1",
+    "mailparser": "^3.9.0",
     "pngjs": "^7.0.0"
   }
 }

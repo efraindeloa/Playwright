@@ -1,9 +1,12 @@
 import { test, Page } from '@playwright/test';
+import path from 'path';
+import fs from 'fs';
 import {
   DEFAULT_BASE_URL,
   DEFAULT_ACCOUNT_PASSWORD,
   REGISTRATION_EMAIL_DEFAULT
 } from '../config';
+import { waitForVerificationCode } from '../utils/gmail-helper';
 
 // Configurar viewport para que la página se muestre correctamente
 test.use({
@@ -104,77 +107,40 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   const isOnVerificationPage = await firstCodeInput.isVisible({ timeout: 2000 }).catch(() => false);
   
   if (isOnVerificationPage) {
-    // Esperar a que el usuario ingrese el código de verificación
-    console.log('\n⏸️  Por favor ingresa el código de verificación');
-    console.log('   El test esperará hasta que detecte que el último dígito del código fue ingresado.\n');
+    // Obtener el código de verificación automáticamente desde Gmail
+    console.log('\n📧 Obteniendo código de verificación desde Gmail...');
+    console.log(`   Email: ${email}`);
     
-    // Localizar el último input de código de verificación (VerificationCode_5)
-    const lastCodeInput = page.locator('input[id="VerificationCode_5"]');
-    
-    // Esperar hasta que el último input tenga un valor numérico
-    const maxWaitTime = 300000; // 5 minutos
-    const checkInterval = 20000; // Verificar cada 2 segundos (menos intrusivo)
-    const startTime = Date.now();
-    let codeEntered = false;
-    let lastStatusMessage = Date.now();
-    
-    console.log('   Esperando a que se ingrese el código de verificación...\n');
-    console.log('   Puedes ingresar el código ahora. El test verificará cada 2 segundos.\n');
-    
-    // Bucle que espera hasta que el último input tenga un valor
-    while (Date.now() - startTime < maxWaitTime && !codeEntered) {
-      try {
-        // Verificar que el input existe y está visible
-        const isInputVisible = await lastCodeInput.isVisible({ timeout: 1000 }).catch(() => false);
-        
-        if (isInputVisible) {
-          // Usar getAttribute('value') en lugar de inputValue() para ser menos intrusivo
-          // Esto evita interferir con la entrada del usuario
-          const inputValue = await lastCodeInput.getAttribute('value').catch(() => '') || '';
-          
-          // Verificar si el valor es un número (no vacío y es un dígito)
-          if (inputValue && /^\d$/.test(inputValue.trim())) {
-            codeEntered = true;
-            console.log('\n✓ Código de verificación ingresado completamente. Continuando...\n');
-            break;
-          }
-        }
-        
-        // Mostrar mensaje de espera cada 10 segundos
-        if (Date.now() - lastStatusMessage > 10000) {
-          const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-          console.log(`   ⏳ Esperando código de verificación... (${elapsedSeconds}s transcurridos)`);
-          lastStatusMessage = Date.now();
-        }
-      } catch (error) {
-        // Si hay un error, continuar esperando sin mostrar mensaje para no interferir
+    try {
+      // Obtener el código de verificación desde Gmail (timeout: 2 minutos)
+      const verificationCode = await waitForVerificationCode(email, 120000);
+      
+      if (!verificationCode || verificationCode.length !== 6) {
+        throw new Error(`Código de verificación inválido: ${verificationCode}`);
       }
       
-      // Esperar antes de verificar nuevamente (intervalo más largo para no interferir)
-      await page.waitForTimeout(checkInterval);
-    }
-    
-    // Si después del bucle no se ingresó el código, fallar
-    if (!codeEntered) {
-      // Verificar si el input todavía está vacío (usar getAttribute para ser menos intrusivo)
-      const lastInputValue = await lastCodeInput.getAttribute('value').catch(() => '') || '';
-      const isInputEmpty = !lastInputValue || !/^\d$/.test(lastInputValue.trim());
+      console.log(`✅ Código de verificación obtenido: ${verificationCode}`);
       
-      if (isInputEmpty) {
-        console.error('\n❌ ERROR CRÍTICO: El código de verificación NO fue ingresado completamente.');
-        console.error('   El último dígito del código no tiene un valor numérico.');
-        console.error('   La prueba FALLA porque no se puede continuar sin el código completo.');
-        throw new Error('❌ FALLO: Código de verificación no ingresado completamente. El último dígito no tiene un valor numérico.');
-      } else {
-        console.error('\n❌ ERROR CRÍTICO: Timeout esperando el código de verificación.');
-        console.error('   No se pudo detectar que el código fue ingresado correctamente.');
-        console.error('   La prueba FALLA porque no se puede continuar.');
-        throw new Error('❌ FALLO: Timeout esperando código de verificación. El código no fue ingresado o validado correctamente.');
+      // Ingresar el código automáticamente en los campos
+      const codeDigits = verificationCode.split('');
+      for (let i = 0; i < 6; i++) {
+        const codeInput = page.locator(`input[id="VerificationCode_${i}"]`);
+        await codeInput.waitFor({ state: 'visible', timeout: 10000 });
+        await codeInput.fill(codeDigits[i]);
+        await page.waitForTimeout(200); // Pequeña pausa entre dígitos
       }
+      
+      console.log('✓ Código de verificación ingresado automáticamente en todos los campos');
+      
+      // Esperar un momento para que se procese el código
+      await page.waitForTimeout(2000);
+      
+    } catch (error) {
+      console.error('\n❌ ERROR: No se pudo obtener el código de verificación desde Gmail');
+      console.error(`   Error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('   La prueba fallará porque no se puede continuar sin el código.');
+      throw new Error(`❌ FALLO: No se pudo obtener el código de verificación desde Gmail. ${error instanceof Error ? error.message : String(error)}`);
     }
-    
-    // Esperar un momento para que se procese el código
-    await page.waitForTimeout(2000);
   } else {
     console.log('⚠️  No se detectó la página de código de verificación. Asumiendo que ya se ingresó el código.');
   }
@@ -257,10 +223,194 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   await siguientePasswordButton.click();
   console.log('✓ Botón "Siguiente" del formulario de contraseña presionado');
   
-  // Esperar a que aparezca el formulario de datos personales
+  // Esperar a que aparezca el siguiente formulario (Step 4: Datos del negocio)
   await page.waitForTimeout(2000);
   
-  // Paso 9: Ingresar el nombre
+  // Paso 9: Verificar que estamos en el formulario de datos del negocio (Step_4)
+  const businessNameInput = page.locator('input[id="BusinessName"]');
+  const isBusinessFormVisible = await businessNameInput.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (isBusinessFormVisible) {
+    console.log('✓ Formulario de datos del negocio detectado');
+    
+    // Paso 9.0: Agregar foto de perfil (opcional pero lo probamos)
+    const profilePictureInput = page.locator('input[id="UserProfilePicture"]');
+    const isProfilePictureVisible = await profilePictureInput.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (isProfilePictureVisible) {
+      try {
+        // Intentar usar profile.png si existe, si no, usar infantil.jpg como alternativa
+        const profilePath = path.join(__dirname, '../profile.png');
+        const alternativePath = path.join(__dirname, '../infantil.jpg');
+        
+        let filePath: string = '';
+        if (fs.existsSync(profilePath)) {
+          filePath = profilePath;
+        } else if (fs.existsSync(alternativePath)) {
+          filePath = alternativePath;
+        } else {
+          // No se encontró imagen de prueba, continuar sin foto
+        }
+        
+        if (filePath) {
+          await profilePictureInput.setInputFiles(filePath);
+          console.log(`✓ Foto de perfil agregada: ${path.basename(filePath)}`);
+          await page.waitForTimeout(1000); // Esperar a que se procese la imagen
+        }
+      } catch (error) {
+        // Error al agregar foto, continuar sin foto (es opcional)
+      }
+    }
+    
+    // Paso 9.1: Ingresar nombre del negocio
+    await businessNameInput.waitFor({ state: 'visible', timeout: 10000 });
+    await businessNameInput.fill('Fiestas Carlos');
+    console.log('✓ Nombre del negocio ingresado: Fiestas Carlos');
+    
+    await page.waitForTimeout(500);
+    
+    // Paso 9.2: Ingresar dirección del negocio y seleccionar de la lista
+    // IMPORTANTE: El campo de dirección NO tiene id="BusinessAddress", solo el label tiene for="BusinessAddress"
+    // El campo tiene data-gtm-form-interact-field-id="16" y está dentro del formulario BusinessDataForm
+    let businessAddressInput: ReturnType<typeof page.locator>;
+    let isAddressVisible = false;
+    
+    // Estrategia 1: Buscar por el atributo data-gtm-form-interact-field-id="16" (más específico y único)
+    businessAddressInput = page.locator('input[data-gtm-form-interact-field-id="16"]');
+    isAddressVisible = await businessAddressInput.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!isAddressVisible) {
+      // Estrategia 2: Buscar el input asociado al label con for="BusinessAddress"
+      // El label y el input están en el mismo div contenedor
+      const addressLabel = page.locator('label[for="BusinessAddress"]');
+      const labelExists = await addressLabel.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (labelExists) {
+        // Buscar el input que está en el mismo div contenedor que el label
+        // El label está dentro de un div, y el input está en el mismo nivel o dentro del mismo div padre
+        businessAddressInput = addressLabel.locator('..').locator('input').first();
+        isAddressVisible = await businessAddressInput.isVisible({ timeout: 2000 }).catch(() => false);
+        
+        if (!isAddressVisible) {
+          // Intentar buscar el input que está después del label en el mismo contenedor padre
+          businessAddressInput = addressLabel.locator('..').locator('..').locator('input').filter({
+            hasNot: page.locator('[id="BusinessName"]')
+          }).first();
+          isAddressVisible = await businessAddressInput.isVisible({ timeout: 2000 }).catch(() => false);
+        }
+      }
+    }
+    
+    if (!isAddressVisible) {
+      // Estrategia 3: Buscar dentro del formulario BusinessDataForm, excluyendo el campo BusinessName
+      // Buscar inputs que NO tengan id="BusinessName"
+      businessAddressInput = page.locator('form[id="BusinessDataForm"]').locator('input').filter({
+        hasNot: page.locator('[id="BusinessName"]')
+      }).first();
+      isAddressVisible = await businessAddressInput.isVisible({ timeout: 2000 }).catch(() => false);
+    }
+    
+    if (isAddressVisible) {
+      await businessAddressInput.waitFor({ state: 'visible', timeout: 10000 });
+      
+      // Verificación crítica: asegurarse de que NO es el campo de nombre del negocio
+      const inputId = await businessAddressInput.getAttribute('id').catch(() => null);
+      const valorActual = await businessAddressInput.inputValue().catch(() => '');
+      
+      // Verificar que no es el campo de nombre del negocio
+      if (inputId === 'BusinessName' || valorActual === 'Fiestas Carlos') {
+        // Buscar el campo correcto: el que tiene data-gtm-form-interact-field-id="16"
+        businessAddressInput = page.locator('input[data-gtm-form-interact-field-id="16"]');
+        const correctoVisible = await businessAddressInput.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (!correctoVisible) {
+          // Último recurso: buscar el segundo input del formulario (después de BusinessName)
+          const todosLosInputs = page.locator('form[id="BusinessDataForm"]').locator('input');
+          const cantidadInputs = await todosLosInputs.count();
+          
+          if (cantidadInputs >= 2) {
+            businessAddressInput = todosLosInputs.nth(1);
+            const segundoInputVisible = await businessAddressInput.isVisible({ timeout: 2000 }).catch(() => false);
+            if (!segundoInputVisible) {
+              throw new Error('❌ FALLO: No se pudo encontrar el campo de dirección correcto después de múltiples intentos');
+            }
+          } else {
+            throw new Error('❌ FALLO: No se encontraron suficientes inputs en el formulario para identificar el campo de dirección');
+          }
+        }
+      }
+      
+      // Escribir una dirección para que aparezcan las sugerencias de Google
+      const direccionEscrita = 'Av. Insurgentes Sur 1647, Ciudad de México';
+      await businessAddressInput.fill(direccionEscrita);
+      console.log(`✓ Dirección escrita: "${direccionEscrita}"`);
+      console.log('⏳ Esperando sugerencias de Google Places...');
+      
+      // Esperar a que aparezcan las opciones de Google Places (intentar hasta 5 veces)
+      let opcionesVisible = false;
+      let todasLasOpciones = page.locator('ul li.cursor-pointer');
+      
+      for (let intento = 1; intento <= 5; intento++) {
+        await page.waitForTimeout(2000); // Esperar a que aparezcan las sugerencias
+        
+        opcionesVisible = await todasLasOpciones.first().isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (opcionesVisible) {
+          break;
+        }
+      }
+      
+      if (!opcionesVisible) {
+        throw new Error('❌ FALLO: No aparecieron opciones de dirección de Google Places. La prueba no puede continuar sin seleccionar una dirección válida.');
+      }
+      
+      // Obtener todas las opciones disponibles
+      const cantidadOpciones = await todasLasOpciones.count();
+      
+      if (cantidadOpciones === 0) {
+        throw new Error('❌ FALLO: No se encontraron opciones de dirección para seleccionar. La prueba no puede continuar sin seleccionar una dirección válida.');
+      }
+      
+      // Seleccionar la primera opción
+      const primeraOpcion = todasLasOpciones.first();
+      const textoOpcion = await primeraOpcion.textContent();
+      
+      // Guardar el valor antes de hacer clic para verificar que cambió
+      const valorAntes = await businessAddressInput.inputValue();
+      
+      await primeraOpcion.click();
+      await page.waitForTimeout(2000);
+      
+      // Verificar que la dirección cambió después de seleccionar
+      const valorDespues = await businessAddressInput.inputValue();
+      
+      if (valorDespues === valorAntes || valorDespues === direccionEscrita) {
+        // Intentar hacer clic nuevamente o verificar si hay algún error
+        await page.waitForTimeout(1000);
+        const valorFinal = await businessAddressInput.inputValue();
+        if (valorFinal === direccionEscrita || valorFinal === valorAntes) {
+          throw new Error(`❌ FALLO: La dirección no se seleccionó correctamente. Valor final: "${valorFinal}". La prueba no puede continuar sin una dirección válida seleccionada.`);
+        }
+      }
+      
+      console.log(`✓ Dirección seleccionada: "${textoOpcion?.trim()}"`);
+    } else {
+      throw new Error('❌ FALLO: Campo de dirección no encontrado. La prueba no puede continuar sin este campo.');
+    }
+    
+    // Paso 9.3: Hacer clic en "Siguiente" del formulario de datos del negocio
+    const siguienteBusinessButton = page.locator('button[type="submit"][form="BusinessDataForm"]').filter({
+      hasText: 'Siguiente'
+    });
+    await siguienteBusinessButton.waitFor({ state: 'visible', timeout: 10000 });
+    await siguienteBusinessButton.click();
+    console.log('✓ Botón "Siguiente" del formulario de datos del negocio presionado');
+    
+    // Esperar a que aparezca el formulario de datos de contacto
+    await page.waitForTimeout(2000);
+  }
+  
+  // Paso 10: Ingresar el nombre (en el formulario de datos de contacto - Step_5)
   const nameInput = page.locator('input[id="Name"]');
   await nameInput.waitFor({ state: 'visible', timeout: 10000 });
   await nameInput.fill('Carlos');
@@ -269,7 +419,7 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
   
-  // Paso 10: Ingresar el apellido
+  // Paso 11: Ingresar el apellido
   const lastNameInput = page.locator('input[id="LastName"]');
   await lastNameInput.waitFor({ state: 'visible', timeout: 10000 });
   await lastNameInput.fill('González');
@@ -278,67 +428,162 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
   
-  // Paso 11: Ingresar el número de teléfono
-  const phoneInput = page.locator('input[id="PhoneNumber"]');
-  await phoneInput.waitFor({ state: 'visible', timeout: 10000 });
-  await phoneInput.fill('5559876543');
-  console.log('✓ Teléfono ingresado: 5559876543');
+  // Paso 12: Ingresar el número de teléfono personal
+  const personalPhoneInput = page.locator('input[id="PersonalPhoneNumber"]');
+  await personalPhoneInput.waitFor({ state: 'visible', timeout: 10000 });
+  await personalPhoneInput.fill('5559876543');
+  console.log('✓ Teléfono personal ingresado: 5559876543');
   
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
   
-  // Paso 11.1: Esperar a que se complete la verificación de Cloudflare Turnstile
-  console.log('⏳ Esperando a que se complete la verificación de Cloudflare Turnstile...');
-  
-  try {
-    // Verificar si aparece el mensaje de verificación humana
-    const humanCheckMsg = page.getByText('Por favor verifica que eres humano', { exact: false });
-    const humanCheckVisible = await humanCheckMsg.isVisible({ timeout: 5000 }).catch(() => false);
-    
-    if (humanCheckVisible) {
-      console.log('⚠ Mensaje de verificación humana detectado, esperando a que se complete...');
-      
-      // Esperar a que el mensaje desaparezca o que aparezca "Success!" del Turnstile
-      await humanCheckMsg.waitFor({ state: 'hidden', timeout: 60000 }).catch(() => {
-        console.log('⚠ El mensaje de verificación no desapareció en 60 segundos');
-      });
-      
-      // Esperar a que aparezca "Success!" en el widget Turnstile
-      const successText = page.locator('#success-text');
-      const successVisible = await successText.waitFor({ state: 'visible', timeout: 60000 }).catch(() => false);
-      
-      if (successVisible) {
-        console.log('✓ Verificación completada exitosamente (Success! visible)');
-      } else {
-        console.log('⚠ No se pudo confirmar la verificación, pero continuando...');
-      }
-    } else {
-      // Si no hay mensaje de verificación, esperar directamente a que aparezca "Success!"
-      console.log('✓ No hay mensaje de verificación, verificando estado del Turnstile...');
-      const successText = page.locator('#success-text');
-      const successVisible = await successText.waitFor({ state: 'visible', timeout: 10000 }).catch(() => false);
-      
-      if (successVisible) {
-        console.log('✓ Turnstile ya está validado (Success! visible)');
-      } else {
-        console.log('ℹ Turnstile aún no validado, continuando de todos modos');
-      }
-    }
-  } catch (e) {
-    console.log('⚠ Error al esperar validación Turnstile, continuando:', e);
+  // Paso 13: Ingresar el teléfono del negocio (opcional pero lo llenamos)
+  const landlineInput = page.locator('input[id="Landline"]');
+  const isLandlineVisible = await landlineInput.isVisible({ timeout: 3000 }).catch(() => false);
+  if (isLandlineVisible) {
+    await landlineInput.fill('5551234567');
+    console.log('✓ Teléfono del negocio ingresado: 5551234567');
+    await page.waitForTimeout(500);
   }
   
-  // Dar un momento adicional después de la verificación
-  await page.waitForTimeout(1000);
-
-  // Paso 12: Hacer clic en el botón "Finalizar"
-  const finalizarButton = page.locator('button[type="submit"][form="RegisterPersonalDataForm"]').filter({
-    hasText: 'Finalizar'
+  // Paso 14: Hacer clic en el botón "Siguiente" del formulario de datos de contacto
+  const siguienteContactButton = page.locator('button[type="submit"][form="BusinessContactDataForm"]').filter({
+    hasText: 'Siguiente'
   });
+  const isSiguienteVisible = await siguienteContactButton.isVisible({ timeout: 3000 }).catch(() => false);
   
-  await finalizarButton.waitFor({ state: 'visible', timeout: 10000 });
-  await finalizarButton.click();
-  console.log('✓ Botón "Finalizar" presionado');
+  if (isSiguienteVisible) {
+    await siguienteContactButton.waitFor({ state: 'visible', timeout: 10000 });
+    await siguienteContactButton.click();
+    console.log('✓ Botón "Siguiente" del formulario de datos de contacto presionado');
+    await page.waitForTimeout(2000);
+  }
+  
+  // Paso 15: Llenar aleatoriamente campos del formulario de presencia digital (Step_6)
+  const businessRFCInput = page.locator('input[id="BusinessRFC"]');
+  const facebookInput = page.locator('input[id="Facebook"]');
+  const instagramInput = page.locator('input[id="Instagram"]');
+  const tiktokInput = page.locator('input[id="Tiktok"]');
+  const websiteInput = page.locator('input[id="WebSite"]');
+  
+  // Verificar que estamos en el formulario de presencia digital
+  const isSocialFormVisible = await businessRFCInput.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  if (isSocialFormVisible) {
+    console.log('✓ Formulario de presencia digital detectado');
+    
+    // Generar valores aleatorios para los campos
+    const camposParaLlenar: Array<{ input: typeof businessRFCInput, valor: string, nombre: string }> = [];
+    
+    // RFC (opcional) - 50% de probabilidad de llenarlo
+    if (Math.random() > 0.5) {
+      const rfc = `ABC${Math.floor(Math.random() * 90000000000) + 10000000000}`.substring(0, 13);
+      camposParaLlenar.push({ input: businessRFCInput, valor: rfc, nombre: 'RFC' });
+    }
+    
+    // Facebook - 70% de probabilidad
+    if (Math.random() > 0.3) {
+      const facebookUsernames = ['fiestas.carlos', 'carlos.fiestas', 'fiestas.mx', 'eventos.carlos'];
+      camposParaLlenar.push({ 
+        input: facebookInput, 
+        valor: `https://facebook.com/${facebookUsernames[Math.floor(Math.random() * facebookUsernames.length)]}`, 
+        nombre: 'Facebook' 
+      });
+    }
+    
+    // Instagram - 80% de probabilidad
+    if (Math.random() > 0.2) {
+      const instagramUsernames = ['fiestas_carlos', 'carlos_fiestas', 'fiestas_mx', 'eventos_carlos'];
+      camposParaLlenar.push({ 
+        input: instagramInput, 
+        valor: `https://instagram.com/${instagramUsernames[Math.floor(Math.random() * instagramUsernames.length)]}`, 
+        nombre: 'Instagram' 
+      });
+    }
+    
+    // TikTok - 60% de probabilidad
+    if (Math.random() > 0.4) {
+      const tiktokUsernames = ['@fiestascarlos', '@carlosfiestas', '@fiestasmx', '@eventoscarlos'];
+      camposParaLlenar.push({ 
+        input: tiktokInput, 
+        valor: `https://tiktok.com/${tiktokUsernames[Math.floor(Math.random() * tiktokUsernames.length)]}`, 
+        nombre: 'TikTok' 
+      });
+    }
+    
+    // Sitio web - 70% de probabilidad
+    if (Math.random() > 0.3) {
+      const websites = ['https://fiestascarlos.com', 'https://www.fiestascarlos.mx', 'https://carlosfiestas.com.mx'];
+      camposParaLlenar.push({ 
+        input: websiteInput, 
+        valor: websites[Math.floor(Math.random() * websites.length)], 
+        nombre: 'Sitio web' 
+      });
+    }
+    
+    // Llenar los campos seleccionados aleatoriamente
+    for (const campo of camposParaLlenar) {
+      try {
+        await campo.input.waitFor({ state: 'visible', timeout: 5000 });
+        await campo.input.fill(campo.valor);
+        console.log(`✓ ${campo.nombre} ingresado: ${campo.valor}`);
+        await page.waitForTimeout(300);
+      } catch (error) {
+        // Silenciar errores al llenar campos opcionales
+      }
+    }
+    
+    await page.waitForTimeout(500);
+  } else {
+    // Formulario de presencia digital no encontrado
+  }
+  
+  // Paso 16: Presionar el botón "Finalizar"
+  // Esperar un momento adicional para que el formulario se procese completamente
+  await page.waitForTimeout(1500);
+  
+  // El botón está fuera del formulario pero tiene form="BusinessSocialPresenceForm"
+  // Intentar múltiples estrategias para encontrar el botón
+  
+  // Estrategia 1: Buscar por atributo form (más específico)
+  let finalizarButton = page.locator('button[type="submit"][form="BusinessSocialPresenceForm"]');
+  let isButtonVisible = await finalizarButton.isVisible({ timeout: 2000 }).catch(() => false);
+  
+  if (!isButtonVisible) {
+    // Estrategia 2: Buscar solo por form sin type
+    finalizarButton = page.locator('button[form="BusinessSocialPresenceForm"]');
+    isButtonVisible = await finalizarButton.isVisible({ timeout: 2000 }).catch(() => false);
+  }
+  
+  if (!isButtonVisible) {
+    // Estrategia 3: Buscar por texto usando getByRole
+    finalizarButton = page.getByRole('button', { name: 'Finalizar' });
+    isButtonVisible = await finalizarButton.isVisible({ timeout: 2000 }).catch(() => false);
+  }
+  
+  if (!isButtonVisible) {
+    // Estrategia 4: Buscar por texto dentro del span
+    finalizarButton = page.locator('button').filter({
+      has: page.locator('span:has-text("Finalizar")')
+    });
+    isButtonVisible = await finalizarButton.isVisible({ timeout: 2000 }).catch(() => false);
+  }
+  
+  if (!isButtonVisible) {
+    // Estrategia 5: Hacer scroll hacia abajo y buscar nuevamente
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(500);
+    finalizarButton = page.locator('button[type="submit"][form="BusinessSocialPresenceForm"]');
+    isButtonVisible = await finalizarButton.isVisible({ timeout: 2000 }).catch(() => false);
+  }
+  
+  if (isButtonVisible) {
+    await finalizarButton.waitFor({ state: 'visible', timeout: 10000 });
+    await finalizarButton.click();
+    console.log('✓ Botón "Finalizar" presionado');
+  } else {
+    throw new Error('❌ No se pudo encontrar el botón "Finalizar" después de intentar múltiples estrategias');
+  }
 }
 
 /**
