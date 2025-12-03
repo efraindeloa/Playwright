@@ -2676,6 +2676,34 @@ test.describe('Cotizaciones', () => {
     console.log(`✍️ Escribiendo nota: "${textoNota}"`);
     
     await campoNotas.first().fill(textoNota);
+    await safeWaitForTimeout(page, 500);
+    
+    // Mover el cursor a otro elemento (como el chat) para que se guarde la nota
+    console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota...');
+    const campoMensajeChat = page.locator('textarea, input').filter({
+      has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+    }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+    .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+    
+    const campoMensajeChatVisible = await campoMensajeChat.first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (campoMensajeChatVisible) {
+      // Hacer clic en el campo del chat para activar el blur del campo de notas
+      await campoMensajeChat.first().click();
+      await safeWaitForTimeout(page, 1000);
+      console.log('✅ Cursor movido al campo del chat');
+    } else {
+      // Si no se encuentra el campo del chat, hacer clic en otro elemento visible
+      console.log('⚠️ Campo del chat no encontrado, haciendo clic en otro elemento...');
+      const otroElemento = page.locator('div, button, p').first();
+      await otroElemento.click({ force: true }).catch(() => {
+        // Si falla, simplemente presionar Tab para mover el foco
+        console.log('⚠️ No se pudo hacer clic, presionando Tab para mover el foco...');
+      });
+      await page.keyboard.press('Tab');
+      await safeWaitForTimeout(page, 1000);
+    }
+    
+    // Esperar un momento adicional para que se guarde la nota
     await safeWaitForTimeout(page, 1000);
     
     // Verificar que se guardó
@@ -2721,6 +2749,26 @@ test.describe('Cotizaciones', () => {
           // Volver a escribir una nota para dejar el campo con contenido
           const notaFinal = `Nota final de prueba - ${new Date().toISOString()}`;
           await campoNotas.first().fill(notaFinal);
+          await safeWaitForTimeout(page, 500);
+          
+          // Mover el cursor al chat para que se guarde la nota final
+          console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota final...');
+          const campoMensajeChatFinal = page.locator('textarea, input').filter({
+            has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+          }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+          .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+          
+          const campoMensajeChatFinalVisible = await campoMensajeChatFinal.first().isVisible({ timeout: 5000 }).catch(() => false);
+          if (campoMensajeChatFinalVisible) {
+            await campoMensajeChatFinal.first().click();
+            await safeWaitForTimeout(page, 1000);
+            console.log('✅ Cursor movido al campo del chat');
+          } else {
+            // Si no se encuentra el campo del chat, presionar Tab para mover el foco
+            await page.keyboard.press('Tab');
+            await safeWaitForTimeout(page, 1000);
+          }
+          
           await safeWaitForTimeout(page, 1000);
           console.log(`✅ Nota final escrita: "${notaFinal}"`);
         } else {
