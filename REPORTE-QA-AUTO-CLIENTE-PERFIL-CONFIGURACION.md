@@ -21,6 +21,34 @@ Este conjunto de validaciones verifica el funcionamiento del perfil del cliente 
 6. **Cambio de contraseña** ✅ Implementada (validación de formulario)
 7. **Configuración de preferencias** (pendiente de implementación)
 
+## 📊 Resumen de Pruebas
+
+### Tests Implementados
+
+Las pruebas de perfil están implementadas en `tests/client/perfil.spec.ts`:
+
+1. **`test('Se muestran todos los elementos de la página de perfil')`**
+   - Valida que todos los elementos principales del perfil son visibles
+   - Timeout: 60 segundos
+
+2. **`test('Se pueden editar los datos personales')`**
+   - Valida funcionalidad de edición de datos personales
+   - Timeout: 120 segundos (2 minutos)
+
+3. **`test('Se actualiza la foto de perfil')`**
+   - Valida funcionalidad de subir foto de perfil
+   - Timeout: 120 segundos (2 minutos)
+
+4. **`test('Se puede eliminar la foto de perfil')`**
+   - Valida funcionalidad de eliminar foto de perfil
+   - Timeout: 150 segundos (2.5 minutos)
+
+5. **`test('Se puede cambiar la contraseña')`**
+   - Valida funcionalidad de cambio de contraseña
+   - Timeout: 120 segundos (2 minutos)
+
+**Total de tests**: 5 tests
+
 ## 📊 Validaciones Implementadas
 
 ### Validación de Navegación al Perfil
@@ -201,6 +229,21 @@ Este conjunto de validaciones verifica el funcionamiento del perfil del cliente 
 - Validación de estructura del formulario
 - Timeout extendido (2 minutos) para el flujo completo
 
+## 🔄 Flujos de Prueba
+
+### Flujo 1: Validación de Elementos del Perfil
+
+**Contexto**: Test independiente "Se muestran todos los elementos de la página de perfil"
+
+**Pasos**:
+1. Navega al perfil del cliente
+2. Valida que la página carga correctamente
+3. Valida sección "Datos personales"
+4. Valida foto de perfil
+5. Valida sección "Opciones"
+
+**Resultado esperado**: Todos los elementos principales del perfil son visibles y accesibles
+
 ## 🔄 Flujos de Validación
 
 ### Flujo 1: Navegación al Perfil desde Dashboard
@@ -270,6 +313,35 @@ Este conjunto de validaciones verifica el funcionamiento del perfil del cliente 
 5. Cierra el formulario (no se llena)
 
 **Resultado esperado**: El formulario de cambio de contraseña es accesible y tiene los campos correctos
+
+## 🛠️ Funciones Principales
+
+Las pruebas de perfil utilizan funciones auxiliares integradas en los tests:
+
+### Funciones de Navegación
+- Navegación al perfil desde diferentes puntos (dashboard, barra superior)
+- Manejo de navegación en desktop y móvil
+
+### Funciones de Validación
+- Validación de elementos del perfil
+- Validación de formularios de edición
+- Validación de subida/eliminación de foto
+
+### Funciones de Interacción
+- Apertura de formularios de edición
+- Llenado de campos de formulario
+- Guardado de cambios
+- Interacción con menús desplegables
+
+## 📊 Datos de Prueba
+
+### Datos de Edición
+- **Nombre de prueba**: "Cliente QA Test"
+- **Teléfono de prueba**: "1234567890"
+- **Archivo de foto**: `tests/profile.png` (si está disponible)
+
+### Archivos de Prueba
+- **Foto de perfil**: `tests/profile.png` (usado para subir foto de perfil)
 
 ## 📋 Validaciones Detalladas
 
@@ -346,7 +418,29 @@ Este conjunto de validaciones verifica el funcionamiento del perfil del cliente 
 - ✅ **Campo confirmación**: Input de tipo password para confirmar contraseña
 - ✅ **Botón Cancelar**: Botón para cerrar el formulario sin guardar
 
-## 🚀 Cómo Ejecutar las Validaciones
+## 🎨 Características Especiales
+
+### Navegación Condicional por Viewport
+- **Desktop**: Enlace de perfil en barra de navegación superior
+- **Mobile**: Enlace de perfil en menú móvil con icono de usuario
+- Detección automática del viewport antes de navegar
+
+### Múltiples Estrategias de Búsqueda
+- Búsqueda de elementos por múltiples selectores
+- Fallbacks automáticos si un selector falla
+- Validación no bloqueante (continúa aunque algunos elementos no se encuentren)
+
+### Manejo de Formularios
+- Detección automática de formularios modales o en página separada
+- Múltiples estrategias para encontrar campos de entrada
+- Validación de guardado de cambios
+
+### Gestión de Archivos
+- Uso de archivo de prueba si está disponible
+- Manejo de casos donde el archivo no existe
+- Validación de que el botón sigue disponible después de la subida
+
+## 🚀 Cómo Ejecutar las Pruebas
 
 ### Prerrequisitos
 1. Tener Node.js instalado
@@ -358,44 +452,54 @@ Este conjunto de validaciones verifica el funcionamiento del perfil del cliente 
 
 ### Ejecución
 
-#### Ejecutar validación de navegación a perfil:
+#### Ejecutar todas las pruebas de perfil:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Barra superior navega"
+npx playwright test tests/client/perfil.spec.ts
 ```
 
 #### Ejecutar validación de elementos del perfil:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Validar elementos del perfil"
+npx playwright test tests/client/perfil.spec.ts -g "Se muestran todos los elementos"
 ```
 
 #### Ejecutar edición de datos personales:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Editar datos personales"
+npx playwright test tests/client/perfil.spec.ts -g "Se pueden editar los datos"
 ```
 
 #### Ejecutar gestión de foto de perfil:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Foto de perfil"
+npx playwright test tests/client/perfil.spec.ts -g "Se actualiza la foto"
+```
+
+#### Ejecutar eliminación de foto de perfil:
+```bash
+npx playwright test tests/client/perfil.spec.ts -g "Se puede eliminar la foto"
 ```
 
 #### Ejecutar cambio de contraseña:
 ```bash
-npx playwright test tests/client/dashboard.spec.ts -g "Cambiar contraseña"
-```
-
-#### Ejecutar todas las pruebas del dashboard:
-```bash
-npx playwright test tests/client/dashboard.spec.ts
+npx playwright test tests/client/perfil.spec.ts -g "Se puede cambiar la contraseña"
 ```
 
 #### Ejecutar en modo UI (recomendado para debugging):
 ```bash
-npx playwright test tests/client/dashboard.spec.ts --ui
+npx playwright test tests/client/perfil.spec.ts --ui
 ```
 
 #### Ejecutar en modo headed (ver el navegador):
 ```bash
-npx playwright test tests/client/dashboard.spec.ts --headed
+npx playwright test tests/client/perfil.spec.ts --headed
+```
+
+#### Ejecutar con más información de debug:
+```bash
+npx playwright test tests/client/perfil.spec.ts --debug
+```
+
+#### Ejecutar todas las pruebas del cliente:
+```bash
+npx playwright test tests/client/
 ```
 
 ## 📈 Métricas Esperadas
@@ -472,6 +576,14 @@ Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las f
 - Validar visualización de conversaciones
 - Validar filtros y búsqueda
 
+### 2. Validaciones Adicionales
+
+**Funcionalidades sugeridas**:
+- Validación de mensajes de éxito/error en formularios
+- Validación de validaciones de campos (campos requeridos, formatos)
+- Validación de límites de tamaño de archivo para foto de perfil
+- Validación de formatos aceptados para foto de perfil
+
 ## 📊 Estado de Implementación
 
 ### ✅ Completado
@@ -493,69 +605,26 @@ Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las f
 - [ ] Historial y actividad
 - [ ] Validación de mensajes de éxito/error en formularios
 
-## 🔗 Referencias
-
-### Archivo de Pruebas del Proveedor
-
-El archivo `tests/provider/profile.spec.ts` contiene pruebas completas del perfil del proveedor que pueden servir como referencia:
-
-**Funcionalidades implementadas en el proveedor**:
-- Navegación al perfil
-- Validación de elementos del perfil
-- Edición de datos personales
-- Gestión de foto de perfil (subir y eliminar)
-- Edición de información de contacto
-- Validación de formularios
-- Guardado de cambios
-
-**Estructura del archivo del proveedor**:
-- Tests organizados por funcionalidad
-- Funciones auxiliares para navegación
-- Validaciones exhaustivas de formularios
-- Manejo de archivos (foto de perfil)
-- Validación de mensajes de éxito/error
-
-### Estructura Sugerida para Cliente
-
-Basándose en el perfil del proveedor, se sugiere la siguiente estructura:
-
-```
-tests/client/profile.spec.ts
-├── Configuración y utilidades
-│   ├── Constantes (URLs, selectores)
-│   ├── Funciones auxiliares (navegación, validación)
-│   └── Helpers (subir archivos, llenar formularios)
-├── test.describe('Perfil de cliente')
-│   ├── beforeEach (login y navegación)
-│   ├── test('Navegación al perfil')
-│   ├── test('Validar elementos del perfil')
-│   ├── test('Editar datos personales')
-│   ├── test('Foto de perfil')
-│   ├── test('Cambio de contraseña')
-│   └── test('Historial y actividad')
-```
-
 ## 🔗 Enlaces Relacionados
 
 - **Repositorio**: https://github.com/efraindeloafiestamas/Automations
-- **Archivos principales**: 
-  - `tests/client/dashboard.spec.ts`
-- **Referencia**: `tests/provider/profile.spec.ts`
+- **Archivo de prueba**: `tests/client/perfil.spec.ts`
 - **Utilidades**: `tests/utils.ts`
 - **Configuración**: `tests/config.ts`
+- **Referencia**: `tests/provider/profile.spec.ts` (perfil del proveedor)
 - **Reporte de dashboard**: `REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md`
 
-## 📝 Estructura del Código Actual
+
+## 📝 Estructura del Código
 
 ```
-Validaciones de Perfil y Configuración
-└── dashboard.spec.ts
-    ├── test('Barra superior navega a chats, favoritos y perfil')
-    │   └── Navegación a perfil
-    │       ├── Búsqueda de enlace (desktop/móvil)
-    │       ├── Clic en enlace
-    │       └── Validación de URL
-    ├── test('Validar elementos del perfil')
+perfil.spec.ts
+├── Imports y configuración
+├── Constantes
+│   └── PROFILE_URL
+└── test.describe('Perfil de cliente')
+    ├── beforeEach (login y navegación)
+    ├── test('Se muestran todos los elementos de la página de perfil')
     │   └── Validación de elementos
     │       ├── Navegación al perfil
     │       ├── Validación de carga de página
@@ -566,13 +635,13 @@ Validaciones de Perfil y Configuración
     │       │   └── Validación de botón "Editar"
     │       ├── Validación de foto de perfil
     │       │   ├── Búsqueda de contenedor
-    │       │   ├── Validación de imagen
+    │       │   ├── Validación de imagen/iniciales
     │       │   └── Validación de botón de editar
-    │       └── Validación de otros elementos
-    │           ├── Información de contacto
-    │           ├── Botones de acción
-    │           └── Estructura básica
-    ├── test('Editar datos personales')
+    │       └── Validación de sección "Opciones"
+    │           ├── Botón "Cambiar contraseña"
+    │           ├── Botón "Cerrar sesión"
+    │           └── Botón "Solicitar eliminación de cuenta"
+    ├── test('Se pueden editar los datos personales')
     │   └── Edición de datos
     │       ├── Navegación al perfil
     │       ├── Apertura de formulario
@@ -582,7 +651,7 @@ Validaciones de Perfil y Configuración
     │       │   └── Código de país (si aplica)
     │       ├── Guardado de cambios
     │       └── Validación de datos actualizados
-    ├── test('Foto de perfil')
+    ├── test('Se actualiza la foto de perfil')
     │   └── Gestión de foto
     │       ├── Navegación al perfil
     │       ├── Apertura de menú de foto
@@ -590,7 +659,15 @@ Validaciones de Perfil y Configuración
     │       ├── Subida de archivo
     │       ├── Guardado de foto
     │       └── Validación de botón disponible
-    └── test('Cambiar contraseña')
+    ├── test('Se puede eliminar la foto de perfil')
+    │   └── Eliminación de foto
+    │       ├── Navegación al perfil
+    │       ├── Subida de foto si no existe
+    │       ├── Apertura de menú de foto
+    │       ├── Selección de "Eliminar foto"
+    │       ├── Confirmación de eliminación
+    │       └── Validación de iniciales
+    └── test('Se puede cambiar la contraseña')
         └── Validación de cambio de contraseña
             ├── Navegación al perfil
             ├── Clic en "Cambiar contraseña"

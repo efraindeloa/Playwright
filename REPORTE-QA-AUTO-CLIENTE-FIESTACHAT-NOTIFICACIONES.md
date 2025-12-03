@@ -21,6 +21,23 @@ Este conjunto de validaciones verifica el funcionamiento de Fiestachat y el sist
 5. **Navegación a la página de chats** desde el dashboard
 6. **Validación de elementos visuales** (título, subtítulo)
 
+## 📊 Resumen de Pruebas
+
+### Tests Implementados
+
+Las validaciones de Fiestachat y notificaciones están integradas en múltiples archivos:
+
+1. **`tests/client/dashboard.spec.ts`**:
+   - `test('Mostrar Las Conversaciones En La Sección Fiestachat')`
+   - `test('Mostrar Todos Los Elementos De La Sección Fiestachat')`
+   - `test('Navegar A La Página De Cotización Al Hacer Clic En Una Notificación')`
+   - `test('Navegar Correctamente Desde La Barra Superior A Chats Favoritos Y Perfil')` (incluye navegación a chats)
+
+2. **`tests/client/cliente-eventos.spec.ts`**:
+   - Validación de notificaciones en `ejecutarFlujoCompletoCreacionEvento()`
+
+**Total de validaciones**: 4 validaciones principales + validación integrada en flujo de eventos
+
 ## 📊 Validaciones Implementadas
 
 ### Validaciones en Dashboard
@@ -155,6 +172,65 @@ Este conjunto de validaciones verifica el funcionamiento de Fiestachat y el sist
 - **Logs detallados**: Muestra todo el contenido de la notificación
 - **Manejo de errores**: Continúa aunque algunas validaciones fallen
 
+## 🔄 Flujos de Prueba
+
+### Flujo 1: Validación Básica de Fiestachat
+
+**Contexto**: Parte de la validación de secciones del dashboard
+
+**Pasos**:
+1. Navega al dashboard del cliente
+2. Busca la sección Fiestachat
+3. Valida que el título "¡Fiestachat!" es visible
+4. Valida que el subtítulo "La línea directa a tu evento" es visible
+
+**Resultado esperado**: Sección Fiestachat visible con título y subtítulo correctos
+
+### Flujo 2: Validación de Conversaciones
+
+**Contexto**: Test independiente "Fiestachat muestra conversaciones"
+
+**Pasos**:
+1. Navega al dashboard del cliente (viewport ≥ 1024px)
+2. Busca la sección Fiestachat
+3. Valida título y subtítulo
+4. Busca conversaciones disponibles
+5. Cuenta las conversaciones encontradas
+6. Valida que la primera conversación es visible y clickeable
+
+**Resultado esperado**: Conversaciones visibles y clickeables en Fiestachat
+
+### Flujo 3: Navegación a Chats
+
+**Contexto**: Parte de la validación de navegación superior
+
+**Pasos**:
+1. Navega al dashboard del cliente
+2. Busca el enlace de chats (desktop o móvil)
+3. Hace clic en el enlace
+4. Verifica que la URL cambia a `/client/chats`
+5. Regresa al dashboard
+
+**Resultado esperado**: Navegación exitosa a la página de chats
+
+### Flujo 4: Validación de Notificación después de Crear Evento
+
+**Contexto**: Parte del flujo completo de creación de evento
+
+**Pasos**:
+1. Crea un nuevo evento (incluye selección de servicio, llenado de formulario, envío de solicitud)
+2. Regresa al dashboard del cliente
+3. Busca la sección Fiestachat (múltiples estrategias)
+4. Valida título y subtítulo
+5. Busca notificaciones en la sección
+6. Valida la primera notificación:
+   - Mensaje de solicitud
+   - Fecha y hora
+   - Nombre del servicio
+   - Mensaje completo
+
+**Resultado esperado**: Notificación visible en Fiestachat con toda la información correcta
+
 ## 🔄 Flujos de Validación
 
 ### Flujo 1: Validación Básica de Fiestachat (Dashboard)
@@ -213,6 +289,37 @@ Este conjunto de validaciones verifica el funcionamiento de Fiestachat y el sist
    - Mensaje completo
 
 **Resultado esperado**: Notificación visible en Fiestachat con toda la información correcta
+
+## 🛠️ Funciones Principales
+
+Las validaciones de Fiestachat y notificaciones utilizan funciones integradas en los tests:
+
+### Funciones de Búsqueda
+- Búsqueda de sección Fiestachat (múltiples estrategias)
+- Búsqueda de conversaciones
+- Búsqueda de notificaciones
+
+### Funciones de Validación
+- Validación de título y subtítulo
+- Validación de contenido de notificaciones
+- Validación de fecha y hora (múltiples formatos)
+- Comparación parcial de nombres de servicios
+
+### Funciones de Navegación
+- Navegación a página de chats
+- Navegación a página de cotización desde notificación
+
+## 📊 Datos de Prueba
+
+### Formatos de Fecha y Hora
+- **Formato 12h**: `\d{1,2}:\d{2}\s*(AM|PM|am|pm)` (ej: "2:30 PM")
+- **Formato 24h**: `\d{1,2}:\d{2}` (ej: "14:30")
+- **Texto relativo**: "Hoy", "Ayer", "mañana"
+
+### Mensajes de Notificación
+- "Solicitud de cotización enviada"
+- "Solicitud recibida"
+- "Pronto tendrás una respuesta"
 
 ## 📋 Validaciones Detalladas
 
@@ -354,7 +461,7 @@ Este conjunto de validaciones verifica el funcionamiento de Fiestachat y el sist
 - Identificación rápida de problemas
 - Seguimiento del flujo de validación
 
-## 🚀 Cómo Ejecutar las Validaciones
+## 🚀 Cómo Ejecutar las Pruebas
 
 ### Prerrequisitos
 1. Tener Node.js instalado
@@ -381,6 +488,11 @@ npx playwright test tests/client/dashboard.spec.ts -g "Fiestachat muestra conver
 npx playwright test tests/client/dashboard.spec.ts -g "Barra superior navega"
 ```
 
+#### Ejecutar validación de navegación desde notificación:
+```bash
+npx playwright test tests/client/dashboard.spec.ts -g "Navegar A La Página De Cotización"
+```
+
 #### Ejecutar flujo completo de creación de evento (incluye validación de notificación):
 ```bash
 npx playwright test tests/client/cliente-eventos.spec.ts -g "Nueva fiesta"
@@ -399,6 +511,16 @@ npx playwright test tests/client/dashboard.spec.ts --ui
 #### Ejecutar en modo headed (ver el navegador):
 ```bash
 npx playwright test tests/client/dashboard.spec.ts --headed
+```
+
+#### Ejecutar con más información de debug:
+```bash
+npx playwright test tests/client/dashboard.spec.ts --debug
+```
+
+#### Ejecutar todas las pruebas del cliente:
+```bash
+npx playwright test tests/client/
 ```
 
 ## 📈 Métricas Esperadas
@@ -538,18 +660,42 @@ Las validaciones incluyen manejo robusto de errores:
 - [ ] Validación de contador de mensajes no leídos
 - [ ] Validación de historial de conversaciones
 
+## 🔄 Funcionalidades Pendientes de Implementación
+
+Las siguientes funcionalidades están pendientes de implementación:
+
+1. **Validación de interacción con conversaciones**: Abrir chat y verificar contenido
+2. **Validación de envío de mensajes**: Enviar mensajes en chat y verificar que aparecen
+3. **Validación de notificaciones en tiempo real**: Verificar que las notificaciones aparecen sin recargar
+4. **Validación de marcado de mensajes como leídos**: Verificar que los mensajes se marcan como leídos
+5. **Validación de filtrado de conversaciones**: Filtrar conversaciones y verificar resultados
+6. **Validación de búsqueda en conversaciones**: Buscar en conversaciones y verificar resultados
+7. **Validación de notificaciones push**: Si aplica, verificar notificaciones push
+8. **Validación de sonidos de notificación**: Si aplica, verificar sonidos
+9. **Validación de contador de mensajes no leídos**: Verificar que el contador se actualiza correctamente
+10. **Validación de historial de conversaciones**: Verificar historial completo de conversaciones
+
 ## 📝 Estructura del Código
 
 ```
 Validaciones de Fiestachat y Notificaciones
 ├── dashboard.spec.ts
-│   ├── test('Validar secciones dashboard')
+│   ├── test('Mostrar Todas Las Secciones Principales Del Dashboard')
 │   │   └── Validación de sección Fiestachat (título y subtítulo)
-│   ├── test('Fiestachat muestra conversaciones')
+│   ├── test('Mostrar Las Conversaciones En La Sección Fiestachat')
 │   │   ├── Validación de sección Fiestachat
 │   │   ├── Búsqueda de conversaciones
 │   │   └── Validación de interactividad
-│   └── test('Barra superior navega a chats, favoritos y perfil')
+│   ├── test('Mostrar Todos Los Elementos De La Sección Fiestachat')
+│   │   ├── Validación de título y subtítulo
+│   │   ├── Validación de contenedor destacado
+│   │   ├── Validación de elementos interactivos
+│   │   └── Validación de conversaciones
+│   ├── test('Navegar A La Página De Cotización Al Hacer Clic En Una Notificación')
+│   │   ├── Búsqueda de notificaciones
+│   │   ├── Clic en notificación
+│   │   └── Validación de navegación
+│   └── test('Navegar Correctamente Desde La Barra Superior A Chats Favoritos Y Perfil')
 │       └── Navegación a página de chats
 └── cliente-eventos.spec.ts
     └── ejecutarFlujoCompletoCreacionEvento()
@@ -563,4 +709,65 @@ Validaciones de Fiestachat y Notificaciones
                 ├── Nombre del servicio
                 └── Mensaje completo
 ```
+
+## 💡 Recomendaciones
+
+### Prioridades de Mejora
+
+1. **Alta prioridad**:
+   - Validación de interacción con conversaciones (abrir chat)
+   - Validación de envío de mensajes en chat
+   - Validación de contador de mensajes no leídos
+
+2. **Media prioridad**:
+   - Validación de notificaciones en tiempo real
+   - Validación de marcado de mensajes como leídos
+   - Validación de filtrado de conversaciones
+
+3. **Baja prioridad**:
+   - Validación de búsqueda en conversaciones
+   - Validación de notificaciones push (si aplica)
+   - Validación de sonidos de notificación (si aplica)
+   - Validación de historial de conversaciones
+
+### Mejores Prácticas
+
+1. **Múltiples estrategias de búsqueda**: Usar múltiples estrategias para encontrar elementos críticos
+2. **Validación flexible**: Aceptar múltiples formatos de fecha y hora
+3. **Comparación parcial**: Comparar nombres de servicios parcialmente para manejar truncamiento
+4. **Logs detallados**: Proporcionar información completa para debugging
+
+## 📊 Métricas de Cobertura
+
+### Cobertura Actual
+- **Validación de sección Fiestachat**: ✅ 100% Implementada
+- **Validación de conversaciones**: ✅ 100% Implementada
+- **Validación de notificaciones**: ✅ 100% Implementada
+- **Validación de navegación**: ✅ 100% Implementada
+- **Validación de contenido de notificaciones**: ✅ 100% Implementada
+
+### Cobertura Objetivo
+- **Validación de sección Fiestachat**: ✅ 100% (alcanzado)
+- **Validación de conversaciones**: ✅ 100% (alcanzado)
+- **Validación de notificaciones**: ✅ 100% (alcanzado)
+- **Validación de navegación**: ✅ 100% (alcanzado)
+- **Validación de contenido de notificaciones**: ✅ 100% (alcanzado)
+- **Interacción con chat**: 🔄 Pendiente de implementación
+
+## 📝 Notas Adicionales
+
+1. **Estado actual**: 
+   - Todas las validaciones principales de Fiestachat y notificaciones están implementadas
+   - Las validaciones están integradas en múltiples archivos (dashboard.spec.ts y cliente-eventos.spec.ts)
+   - Las validaciones usan múltiples estrategias de búsqueda para mayor robustez
+
+2. **Próximos pasos sugeridos**:
+   - Implementar validaciones de interacción con chat
+   - Agregar validaciones de envío de mensajes
+   - Implementar validaciones de notificaciones en tiempo real
+
+3. **Dependencias**:
+   - Requiere estar logueado como cliente
+   - Las validaciones de conversaciones requieren que existan conversaciones previas
+   - Las validaciones de notificaciones requieren que se haya creado un evento y enviado una solicitud
 

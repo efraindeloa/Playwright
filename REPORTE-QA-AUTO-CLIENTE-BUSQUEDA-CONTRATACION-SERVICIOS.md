@@ -21,6 +21,21 @@ Este conjunto de funcionalidades valida el proceso completo de búsqueda y contr
 5. **Manejo de servicios inactivos** durante la navegación
 6. **Extracción de información** de servicios (nombre, categoría, subcategoría)
 
+## 📊 Resumen de Pruebas
+
+### Tests Implementados
+
+Las funcionalidades de búsqueda y contratación están integradas en múltiples flujos:
+
+1. **`tests/client/cliente-eventos.spec.ts`**:
+   - `test('Crear Una Nueva Fiesta Y Agregar Un Servicio')` - Incluye búsqueda y contratación
+   - `test('Agregar Un Servicio A Un Evento Existente')` - Incluye búsqueda y contratación
+
+2. **`tests/client/dashboard.spec.ts`**:
+   - `test('Crear Nueva Fiesta Desde El Dashboard')` - Incluye navegación por servicios
+
+**Total de validaciones**: 3 flujos principales que incluyen búsqueda y contratación
+
 ## 📊 Funcionalidades Implementadas
 
 ### Funciones Principales
@@ -242,6 +257,65 @@ Este conjunto de funcionalidades valida el proceso completo de búsqueda y contr
 - **Búsqueda rápida**: Solo verifica presencia, no detalles
 - **Validación de visibilidad**: Solo cuenta servicios visibles
 
+## 🔄 Flujos de Prueba
+
+### Flujo 1: Búsqueda y Contratación en Creación de Evento
+
+**Contexto**: Parte del flujo de creación de evento (`ejecutarFlujoCompletoCreacionEvento`)
+
+**Pasos**:
+1. **Buscar servicio en proveedor**:
+   - Llama a `buscarServicioEnProveedor()`
+   - Obtiene nombre, categoría y subcategoría del servicio
+2. **Cerrar sesión del proveedor** y hacer login como cliente
+3. **Navegar a "Nueva fiesta"** y seleccionar tipo de evento
+4. **Navegar hasta encontrar el servicio**:
+   - Llama a `navegarHastaEncontrarServicioEspecifico()`
+   - Usa la categoría y subcategoría para navegación directa
+   - Encuentra el servicio por nombre
+5. **Hacer clic en "Contactar GRATIS"**:
+   - La función `navegarHastaEncontrarServicioEspecifico` ya hace clic automáticamente
+6. **Completar formulario de evento** y continuar con el flujo
+
+**Resultado esperado**: Servicio encontrado y contratado exitosamente
+
+### Flujo 2: Búsqueda y Contratación al Agregar Servicio a Evento Existente
+
+**Contexto**: Parte del flujo de agregar servicio a evento existente (`agregarServicioAEventoExistente`)
+
+**Pasos**:
+1. **Seleccionar evento existente** con fecha futura
+2. **Hacer clic en "Agregar servicios"**
+3. **Buscar servicio en proveedor**:
+   - Llama a `buscarServicioEnProveedor()`
+   - Obtiene información del servicio
+4. **Cerrar sesión del proveedor** y hacer login como cliente
+5. **Volver a seleccionar el evento** y hacer clic en "Agregar servicios"
+6. **Navegar hasta encontrar el servicio**:
+   - Llama a `navegarHastaEncontrarServicioEspecifico()`
+   - Maneja el caso de servicio ya agregado (reintentos)
+7. **Hacer clic en "Contactar GRATIS"**:
+   - La función ya hace clic automáticamente
+8. **Interactuar con modal de solicitud** (sin llenar datos del evento)
+
+**Resultado esperado**: Servicio agregado a evento existente exitosamente
+
+### Flujo 3: Búsqueda General de Servicios (Dashboard)
+
+**Contexto**: Parte de la validación del dashboard (`navegarHastaEncontrarServicios`)
+
+**Pasos**:
+1. **Seleccionar categoría de servicios aleatoria**
+2. **Navegar recursivamente por subcategorías**:
+   - Usa `obtenerCategoriasServicios()` y `obtenerSubcategorias()`
+   - Usa `verificarSiHayServicios()` en cada nivel
+3. **Manejar rutas sin servicios**:
+   - Regresa un nivel si no encuentra servicios
+   - Cambia de categoría si es necesario
+4. **Retorna cuando encuentra servicios** o alcanza límites
+
+**Resultado esperado**: Servicios encontrados en la navegación
+
 ## 🔄 Flujos de Búsqueda y Contratación
 
 ### Flujo 1: Búsqueda y Contratación en Creación de Evento
@@ -294,6 +368,58 @@ Este conjunto de funcionalidades valida el proceso completo de búsqueda y contr
    - Regresa un nivel si no encuentra servicios
    - Cambia de categoría si es necesario
 4. **Retorna cuando encuentra servicios** o alcanza límites
+
+## 🛠️ Funciones Principales
+
+Ver sección "📊 Funcionalidades Implementadas" para detalles completos de cada función.
+
+## 📊 Datos de Prueba
+
+### Categorías de Servicios
+
+Lista de categorías principales disponibles:
+- Bebidas
+- Entretenimiento
+- Música
+- Lugares
+- Mobiliario
+- Servicios Especializados
+- Decoración
+- Alimentos
+- Invitaciones
+- Mesa de regalos
+
+### Subcategorías por Categoría
+
+Mapeo completo de subcategorías (ver `dashboard.spec.ts` para lista completa):
+
+**Bebidas**: Cafés, Aguas de sabores, Vinos y Licores, Coctelería, Refrescos / sodas, Especialidades
+
+**Entretenimiento**: Backdrop, Mini Spa, Magos, Casino, Pirotecnia, Artistas, Pulseras electrónicas, Cabina de fotos, Comediantes, Payasos, Inflables, Artículos / Objetos, Espectáculo, Juegos Mecánicos, Pinta Caritas, Mini Feria
+
+**Música**: Banda, Country, Norteño, Rock / Pop, Coro / Religiosa, Solista, duetos, tríos y más, Artistas reconocidos, Cumbia y salsa, Urbana, Violinista o saxofonista, DJ, Sones Regionales, Grupo Versátil, Mariachi / Música Ranchera, Otro Tipo
+
+**Lugares**: Antros / disco, Centros de Convenciones, Playas, Restaurantes, Salón de eventos, Salón de hotel, Viñedos, Terrazas, Haciendas
+
+**Servicios Especializados**: Hoteles, Barman, Fotógrafo, Coreografías, Vestidos, Smoking / trajes, Niñeras, Transporte, Valet parking, Meseros, Joyería, Cuidado de Mascotas, Belleza, Agencia de Viajes, Hostess, Organizador de Eventos, Barbería, Conferencista
+
+**Decoración**: Temática, Centros de mesa, Decorador profesional, Flores, Luces, Mamparas, Decoración y ambientación gral, Globos
+
+**Alimentos**: Taquizas, Banquetes, Entradas, Buffetes, Postres / Pasteles, After Party, Snacks Botanas
+
+**Mesa de regalos**: Perfumería
+
+### Sub-Subcategorías (Tercer Nivel)
+
+**Alimentos > After Party**: Chilaquiles, Hamburguesas, Taquizas
+
+**Alimentos > Snacks Botanas**: Tortas, Helados, Frituras, Cafés, Hamburguesas, Frutas y/o Verduras, Pizzas
+
+### Formatos de Datos
+
+- **Nombres de servicios**: Pueden incluir sufijos como " - EDITADO 2025-11-20T17:19:11"
+- **Categorías**: Formato "Categoría > Subcategoría" con entidades HTML (`&gt;`, `&lt;`)
+- **Estados de servicios**: "Activo" (botón "Desactivar") o "Inactivo" (botón "Activar")
 
 ## 📊 Estructura de Datos
 
@@ -444,7 +570,7 @@ Mapeo completo de subcategorías (ver `dashboard.spec.ts` para lista completa):
 - ✅ Cambio de categoría principal funciona
 - ✅ Regreso de niveles funciona
 
-## 🚀 Cómo Ejecutar las Funcionalidades
+## 🚀 Cómo Ejecutar las Pruebas
 
 ### Prerrequisitos
 1. Tener Node.js instalado
@@ -628,6 +754,107 @@ Las funciones incluyen manejo robusto de errores:
 - [ ] Validación de precios y cotizaciones
 - [ ] Búsqueda por proveedor
 - [ ] Filtrado por calificaciones
+
+## 🔄 Funcionalidades Pendientes de Implementación
+
+Las siguientes funcionalidades están pendientes de implementación:
+
+1. **Búsqueda por texto libre**: Implementar búsqueda usando el buscador de la plataforma
+2. **Filtrado por precio**: Filtrar servicios por rango de precios
+3. **Filtrado por ubicación**: Filtrar servicios por ubicación geográfica
+4. **Ordenamiento de resultados**: Ordenar servicios por precio, calificación, etc.
+5. **Validación de imágenes de servicios**: Verificar que las imágenes se carguen correctamente
+6. **Validación de descripciones**: Verificar que las descripciones de servicios sean correctas
+7. **Validación de precios y cotizaciones**: Verificar que los precios se muestren correctamente
+8. **Búsqueda por proveedor**: Buscar servicios de un proveedor específico
+9. **Filtrado por calificaciones**: Filtrar servicios por calificación mínima
+
+## 💡 Recomendaciones
+
+### Prioridades de Mejora
+
+1. **Alta prioridad**:
+   - Búsqueda por texto libre (buscador)
+   - Filtrado por precio
+   - Validación de imágenes de servicios
+
+2. **Media prioridad**:
+   - Filtrado por ubicación
+   - Ordenamiento de resultados
+   - Validación de descripciones
+
+3. **Baja prioridad**:
+   - Validación de precios y cotizaciones
+   - Búsqueda por proveedor
+   - Filtrado por calificaciones
+
+### Mejores Prácticas
+
+1. **Filtrado de servicios activos**: Siempre verificar el estado del servicio antes de seleccionarlo
+2. **Navegación inteligente**: Usar categoría y subcategoría para navegación directa cuando sea posible
+3. **Manejo de servicios inactivos**: Detectar y omitir servicios inactivos automáticamente
+4. **Comparación flexible de nombres**: Usar comparación flexible para manejar variantes de nombres
+5. **Logs detallados**: Proporcionar información completa para debugging
+
+## 📊 Métricas de Cobertura
+
+### Cobertura Actual
+- **Búsqueda de servicios en proveedor**: ✅ 100% Implementada
+- **Filtrado de servicios activos**: ✅ 100% Implementada
+- **Extracción de información de servicios**: ✅ 100% Implementada
+- **Navegación por categorías y subcategorías**: ✅ 100% Implementada
+- **Búsqueda de servicio específico por nombre**: ✅ 100% Implementada
+- **Detección y omisión de servicios inactivos**: ✅ 100% Implementada
+- **Clic en "Contactar GRATIS"**: ✅ 100% Implementada
+- **Navegación inteligente usando categoría/subcategoría**: ✅ 100% Implementada
+- **Comparación flexible de nombres**: ✅ 100% Implementada
+- **Manejo de rutas sin servicios**: ✅ 100% Implementada
+- **Reintentos automáticos para servicios ya agregados**: ✅ 100% Implementada
+
+### Cobertura Objetivo
+- **Búsqueda de servicios en proveedor**: ✅ 100% (alcanzado)
+- **Filtrado de servicios activos**: ✅ 100% (alcanzado)
+- **Extracción de información de servicios**: ✅ 100% (alcanzado)
+- **Navegación por categorías y subcategorías**: ✅ 100% (alcanzado)
+- **Búsqueda de servicio específico por nombre**: ✅ 100% (alcanzado)
+- **Detección y omisión de servicios inactivos**: ✅ 100% (alcanzado)
+- **Clic en "Contactar GRATIS"**: ✅ 100% (alcanzado)
+- **Navegación inteligente usando categoría/subcategoría**: ✅ 100% (alcanzado)
+- **Comparación flexible de nombres**: ✅ 100% (alcanzado)
+- **Manejo de rutas sin servicios**: ✅ 100% (alcanzado)
+- **Reintentos automáticos para servicios ya agregados**: ✅ 100% (alcanzado)
+- **Búsqueda por texto libre**: 🔄 Pendiente de implementación
+- **Filtrado por precio**: 🔄 Pendiente de implementación
+- **Filtrado por ubicación**: 🔄 Pendiente de implementación
+- **Ordenamiento de resultados**: 🔄 Pendiente de implementación
+- **Validación de imágenes de servicios**: 🔄 Pendiente de implementación
+- **Validación de descripciones**: 🔄 Pendiente de implementación
+- **Validación de precios y cotizaciones**: 🔄 Pendiente de implementación
+- **Búsqueda por proveedor**: 🔄 Pendiente de implementación
+- **Filtrado por calificaciones**: 🔄 Pendiente de implementación
+
+## 📝 Notas Adicionales
+
+1. **Estado actual**: 
+   - Todas las funcionalidades principales de búsqueda y contratación están implementadas
+   - Las funciones están integradas en múltiples flujos de pruebas
+   - Las funciones usan múltiples estrategias de búsqueda para mayor robustez
+
+2. **Próximos pasos sugeridos**:
+   - Implementar búsqueda por texto libre
+   - Agregar filtrado por precio y ubicación
+   - Implementar validaciones de imágenes y descripciones
+
+3. **Dependencias**:
+   - Requiere estar logueado como proveedor para buscar servicios
+   - Requiere estar logueado como cliente para contratar servicios
+   - Requiere que existan servicios activos en el dashboard del proveedor
+   - Las funciones de navegación requieren que existan categorías y subcategorías
+
+4. **Rendimiento**:
+   - El filtrado de servicios activos puede tomar tiempo si hay muchos servicios (~1.5-2 segundos por servicio)
+   - La navegación recursiva puede tomar tiempo si hay muchas categorías y subcategorías (~10-60 segundos)
+   - Las funciones tienen límites de seguridad para evitar loops infinitos
 
 ## 📝 Estructura del Código
 
