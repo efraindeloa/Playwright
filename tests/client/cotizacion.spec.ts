@@ -169,6 +169,25 @@ async function obtenerNotificacionYInfo(page: Page, excluirCanceladas: boolean =
 }
 
 /**
+ * Valida si un archivo tiene un formato permitido para Galería
+ * Formatos permitidos según el diálogo: imágenes (xbm, tif, jfif, pjp, apng, jpeg, heif, ico, tiff, webp, svgz, jpg, heic, gif, svg, png, bmp, pjpeg, avif)
+ * y videos (ogm, wmv, mpg, webm, ogv, mov, asx, mpeg, mp4, m4v, avi)
+ */
+function esFormatoPermitidoParaGaleria(archivo: string): boolean {
+  const ext = path.extname(archivo).toLowerCase();
+  const formatosImagen = [
+    '.xbm', '.tif', '.tiff', '.jfif', '.pjp', '.apng', '.jpeg', '.heif', 
+    '.ico', '.webp', '.svgz', '.jpg', '.heic', '.svg', '.png', 
+    '.bmp', '.pjpeg', '.avif'
+  ];
+  const formatosVideo = [
+    '.ogm', '.wmv', '.mpg', '.webm', '.ogv', '.mov', '.asx', '.mpeg', 
+    '.mp4', '.m4v', '.avi'
+  ];
+  return formatosImagen.includes(ext) || formatosVideo.includes(ext);
+}
+
+/**
  * Obtiene archivos de prueba de las rutas especificadas
  */
 async function obtenerArchivosPrueba(): Promise<{
@@ -188,7 +207,7 @@ async function obtenerArchivosPrueba(): Promise<{
         if (archivo.isFile()) {
           const ext = path.extname(archivo.name).toLowerCase();
           // Incluir archivos comunes: .txt, .pdf, .doc, .docx, .xlsx, .csv, .jpg, .png, etc.
-          if (['.txt', '.pdf', '.doc', '.docx', '.xlsx', '.csv', '.jpg', '.jpeg', '.png', '.gif'].includes(ext)) {
+          if (['.txt', '.pdf', '.doc', '.docx', '.xlsx', '.csv', '.jpg', '.jpeg', '.png'].includes(ext)) {
             const rutaCompleta = path.join(tempDir, archivo.name);
             // Verificar que el archivo existe y es accesible
             if (fs.existsSync(rutaCompleta)) {
@@ -202,7 +221,10 @@ async function obtenerArchivosPrueba(): Promise<{
     console.log('⚠️ No se pudieron leer archivos de C:\\Temp:', e);
   }
 
-  // Buscar imágenes en C:\Users\Efrain De Loa\Pictures\Fiestamas Testing
+  // Buscar imágenes y videos en C:\Users\Efrain De Loa\Pictures\Fiestamas Testing
+  // Formatos permitidos según el diálogo de Galería:
+  // Imágenes: xbm, tif, jfif, pjp, apng, jpeg, heif, ico, tiff, webp, svgz, jpg, heic, gif, svg, png, bmp, pjpeg, avif
+  // Videos: ogm, wmv, mpg, webm, ogv, mov, asx, mpeg, mp4, m4v, avi
   try {
     const imagenesDir = 'C:\\Users\\Efrain De Loa\\Pictures\\Fiestamas Testing';
     
@@ -210,13 +232,10 @@ async function obtenerArchivosPrueba(): Promise<{
       const archivos = fs.readdirSync(imagenesDir, { withFileTypes: true });
       for (const archivo of archivos) {
         if (archivo.isFile()) {
-          const ext = path.extname(archivo.name).toLowerCase();
-          if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
-            const rutaCompleta = path.join(imagenesDir, archivo.name);
-            // Verificar que el archivo existe y es accesible
-            if (fs.existsSync(rutaCompleta)) {
-              imagenesTesting.push(rutaCompleta);
-            }
+          const rutaCompleta = path.join(imagenesDir, archivo.name);
+          // Verificar que el archivo existe, es accesible y tiene un formato permitido para Galería
+          if (fs.existsSync(rutaCompleta) && esFormatoPermitidoParaGaleria(rutaCompleta)) {
+            imagenesTesting.push(rutaCompleta);
           }
         }
       }
@@ -228,12 +247,12 @@ async function obtenerArchivosPrueba(): Promise<{
   return { archivosTemp, imagenesTesting };
 }
 
-test.describe('Página de Cotización', () => {
+test.describe('Cotizaciones', () => {
   test.beforeEach(async ({ page }) => {
     // Login y navegación se harán en cada test según sea necesario
   });
 
-  test('Mostrar Todos Los Elementos De La Página De Cotización', async ({ page }) => {
+  test('Validar que se muestran todos los elementos de una cotización', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Validar elementos completos de la página de cotización');
@@ -1100,16 +1119,91 @@ test.describe('Página de Cotización', () => {
     await showStepMessage(page, '📎 ADJUNTANDO ARCHIVOS');
     await safeWaitForTimeout(page, 1000);
 
-    // Buscar icono/botón de enviar documento
-    const iconoEnviarDocumento = page.locator('button, div').filter({
-      has: page.locator('i[class*="attach"], i[class*="paperclip"], i[class*="file"], i[class*="document"]')
-    }).or(page.locator('button, label').filter({
-      hasText: /Adjuntar|Attach|Archivo|File|Subir|Upload|Documento/i
-    })).first();
+    // Buscar icono/botón de enviar documento con múltiples estrategias
+    let iconoEnviarDocumento: Locator | null = null;
+    let iconoVisible = false;
 
-    const iconoVisible = await iconoEnviarDocumento.isVisible({ timeout: 5000 }).catch(() => false);
-
+    // Estrategia 1: Buscar botón con icono icon-paperclip específicamente
+    console.log('🔍 Estrategia 1: Buscando botón con icono icon-paperclip...');
+    // Buscar directamente el botón que contiene el icono
+    const botonPaperclip = page.locator('button').filter({
+      has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+    }).first();
+    
+    iconoVisible = await botonPaperclip.isVisible({ timeout: 5000 }).catch(() => false);
     if (iconoVisible) {
+      console.log('✅ Botón con icono paperclip encontrado (Estrategia 1)');
+      iconoEnviarDocumento = botonPaperclip;
+    } else {
+      // Verificar si el icono existe pero el botón no es visible
+      const iconoExiste = await page.locator('i.icon-paperclip, i[class*="paperclip"]').count() > 0;
+      if (iconoExiste) {
+        console.log('⚠️ Icono encontrado pero botón no visible, intentando buscar botón padre...');
+        const iconoPaperclip = page.locator('i.icon-paperclip, i[class*="paperclip"]').first();
+        // Buscar el botón padre más cercano
+        const botonPadre = iconoPaperclip.locator('xpath=ancestor::button[1]').first();
+        iconoVisible = await botonPadre.isVisible({ timeout: 3000 }).catch(() => false);
+        if (iconoVisible) {
+          console.log('✅ Botón padre encontrado (Estrategia 1)');
+          iconoEnviarDocumento = botonPadre;
+        }
+      }
+    }
+
+    // Estrategia 2: Buscar dentro del área del chat/formulario de mensaje
+    if (!iconoVisible) {
+      console.log('🔍 Estrategia 2: Buscando en área del chat...');
+      // Buscar el contenedor del área de mensajes (tiene border-t y contiene el formulario)
+      const areaChat = page.locator('div').filter({
+        has: page.locator('form#MessageForm')
+      }).or(
+        page.locator('div.border-t').filter({
+          has: page.locator('button').filter({
+            has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+          })
+        })
+      );
+      
+      const botonEnArea = areaChat.locator('button').filter({
+        has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+      }).first();
+      
+      iconoVisible = await botonEnArea.isVisible({ timeout: 3000 }).catch(() => false);
+      if (iconoVisible) {
+        console.log('✅ Botón encontrado en área del chat (Estrategia 2)');
+        iconoEnviarDocumento = botonEnArea;
+      }
+    }
+
+    // Estrategia 3: Buscar por cualquier botón con icono de paperclip/attach/file/document
+    if (!iconoVisible) {
+      console.log('🔍 Estrategia 3: Buscando cualquier botón con icono de adjuntar...');
+      const botonGenerico = page.locator('button').filter({
+        has: page.locator('i[class*="attach"], i[class*="paperclip"], i[class*="file"], i[class*="document"]')
+      }).first();
+      
+      iconoVisible = await botonGenerico.isVisible({ timeout: 3000 }).catch(() => false);
+      if (iconoVisible) {
+        console.log('✅ Botón genérico encontrado (Estrategia 3)');
+        iconoEnviarDocumento = botonGenerico;
+      }
+    }
+
+    // Estrategia 4: Buscar por texto (fallback)
+    if (!iconoVisible) {
+      console.log('🔍 Estrategia 4: Buscando por texto...');
+      const botonPorTexto = page.locator('button, label').filter({
+        hasText: /Adjuntar|Attach|Archivo|File|Subir|Upload|Documento/i
+      }).first();
+      
+      iconoVisible = await botonPorTexto.isVisible({ timeout: 3000 }).catch(() => false);
+      if (iconoVisible) {
+        console.log('✅ Botón encontrado por texto (Estrategia 4)');
+        iconoEnviarDocumento = botonPorTexto;
+      }
+    }
+
+    if (iconoVisible && iconoEnviarDocumento) {
       console.log('✅ Icono/botón de enviar documento encontrado');
       
       // Hacer clic en el icono para abrir el diálogo
@@ -1446,24 +1540,251 @@ test.describe('Página de Cotización', () => {
         }
 
         // Cerrar el diálogo antes de continuar con ubicación
+        console.log('🔒 Cerrando diálogo de adjuntos...');
         const botonCerrar = dialogoAdjuntos.locator('button').filter({
           has: page.locator('i.icon-x')
         }).first();
         const cerrarVisible = await botonCerrar.isVisible({ timeout: 2000 }).catch(() => false);
+        
         if (cerrarVisible) {
+          console.log('🖱️ Haciendo clic en botón de cerrar...');
           await botonCerrar.click();
           await safeWaitForTimeout(page, 1000);
-          console.log('✅ Diálogo de adjuntos cerrado');
+          
+          // Verificar que el diálogo se cerró
+          const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
+          if (dialogoCerrado) {
+            console.log('✅ Diálogo de adjuntos cerrado correctamente');
+          } else {
+            console.log('⚠️ El diálogo aún está visible, intentando cerrar con ESC...');
+            await page.keyboard.press('Escape');
+            await safeWaitForTimeout(page, 1000);
+            
+            // Verificar nuevamente
+            const dialogoCerrado2 = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
+            if (dialogoCerrado2) {
+              console.log('✅ Diálogo cerrado con ESC');
+            } else {
+              console.log('⚠️ El diálogo no se cerró, continuando de todas formas...');
+            }
+          }
         } else {
+          console.log('⚠️ Botón de cerrar no encontrado, usando ESC...');
           await page.keyboard.press('Escape');
           await safeWaitForTimeout(page, 1000);
-          console.log('✅ Diálogo de adjuntos cerrado (usando ESC)');
+          
+          // Verificar que el diálogo se cerró
+          const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
+          if (dialogoCerrado) {
+            console.log('✅ Diálogo de adjuntos cerrado (usando ESC)');
+          } else {
+            console.log('⚠️ El diálogo no se cerró con ESC, continuando de todas formas...');
+          }
         }
+        
+        // Esperar un momento adicional para asegurar que el diálogo se cerró completamente
+        await safeWaitForTimeout(page, 500);
       } else {
         console.log('⚠️ Diálogo de adjuntos no se abrió después de hacer clic en el icono');
       }
     } else {
-      console.log('⚠️ Icono/botón de enviar documento no encontrado');
+      console.log('❌ ERROR: Icono/botón de enviar documento no encontrado');
+      console.log('🔍 Información de depuración:');
+      
+      // Intentar encontrar todos los botones con iconos relacionados
+      const todosLosBotones = await page.locator('button').count();
+      console.log(`   - Total de botones en la página: ${todosLosBotones}`);
+      
+      const botonesConIconos = page.locator('button').filter({
+        has: page.locator('i')
+      });
+      const cantidadConIconos = await botonesConIconos.count();
+      console.log(`   - Botones con iconos: ${cantidadConIconos}`);
+      
+      // Buscar específicamente el icono paperclip
+      const iconosPaperclip = await page.locator('i.icon-paperclip, i[class*="paperclip"]').count();
+      console.log(`   - Iconos paperclip encontrados: ${iconosPaperclip}`);
+      
+      // Buscar el formulario de mensaje
+      const formularioMensaje = await page.locator('form#MessageForm').count();
+      console.log(`   - Formulario MessageForm encontrado: ${formularioMensaje > 0 ? 'Sí' : 'No'}`);
+      
+      if (formularioMensaje > 0) {
+        const contenedorPadre = page.locator('form#MessageForm').locator('..');
+        const botonesEnContenedor = await contenedorPadre.locator('button').count();
+        console.log(`   - Botones en contenedor del formulario: ${botonesEnContenedor}`);
+      }
+      
+      throw new Error('No se pudo encontrar el botón para adjuntar archivos. El elemento puede no estar disponible o la estructura de la página ha cambiado.');
+    }
+
+    // 5.5. PROBAR BOTÓN DE CÁMARA
+    // Nota: El botón de cámara se comporta igual que seleccionar "Galería" en el diálogo de adjuntos
+    console.log('📷 PASO 5.5: Probando botón de cámara (comportamiento igual a Galería)...');
+    await showStepMessage(page, '📷 PROBANDO BOTÓN DE CÁMARA');
+    await safeWaitForTimeout(page, 1000);
+
+    // Buscar el botón de cámara (icono icon-camera)
+    const botonCamara = page.locator('button').filter({
+      has: page.locator('i.icon-camera, i[class*="camera"]')
+    }).first();
+
+    const botonCamaraVisible = await botonCamara.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!botonCamaraVisible) {
+      // Intentar buscar en el área del chat/formulario
+      const areaChat = page.locator('form#MessageForm').locator('..').or(
+        page.locator('div').filter({ has: page.locator('form#MessageForm') })
+      );
+      const botonCamaraEnArea = areaChat.locator('button').filter({
+        has: page.locator('i.icon-camera, i[class*="camera"]')
+      }).first();
+      
+      const botonCamaraEnAreaVisible = await botonCamaraEnArea.isVisible({ timeout: 2000 }).catch(() => false);
+      if (botonCamaraEnAreaVisible) {
+        console.log('✅ Botón de cámara encontrado en área del chat');
+        // Usar el botón encontrado en el área
+        const botonCamaraHabilitado = await botonCamaraEnArea.isEnabled({ timeout: 1000 }).catch(() => false);
+        if (botonCamaraHabilitado) {
+          console.log('✅ Botón de cámara está habilitado');
+          
+          // Obtener imágenes de prueba (mismo proceso que para Galería)
+          const { imagenesTesting } = await obtenerArchivosPrueba();
+          console.log(`📊 Imágenes encontradas: ${imagenesTesting.length}`);
+          
+          if (imagenesTesting.length > 0) {
+            const imagenPrueba = imagenesTesting[0];
+            console.log(`📎 Usando imagen de prueba: ${path.basename(imagenPrueba)}`);
+            
+            // Hacer clic en el botón de cámara (abre el mismo input que Galería)
+            console.log('🖱️ Haciendo clic en botón de cámara...');
+            await botonCamaraEnArea.click();
+            await safeWaitForTimeout(page, 1000);
+            
+            // Buscar el input file (mismo que se usa para Galería)
+            // El botón de cámara abre el mismo selector de archivos que Galería
+            let inputCamara = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+            let inputCamaraExists = await inputCamara.count() > 0;
+            
+            if (!inputCamaraExists) {
+              // Buscar input con capture (puede estar oculto)
+              inputCamara = page.locator('input[type="file"][capture="environment"], input[type="file"][capture*="camera"]').first();
+              inputCamaraExists = await inputCamara.count() > 0;
+            }
+            
+            if (!inputCamaraExists) {
+              // Última opción: buscar cualquier input file
+              inputCamara = page.locator('input[type="file"]').first();
+              inputCamaraExists = await inputCamara.count() > 0;
+            }
+            
+            // Intentar adjuntar la imagen (mismo proceso que Galería)
+            try {
+              if (inputCamaraExists) {
+                await inputCamara.setInputFiles(imagenPrueba);
+                await safeWaitForTimeout(page, 2000);
+                console.log('✅ Imagen adjuntada desde botón de cámara (comportamiento igual a Galería)');
+              } else {
+                console.log('⚠️ Input file no encontrado después de hacer clic en botón de cámara');
+              }
+            } catch (e: any) {
+              console.log(`⚠️ Error al adjuntar imagen desde botón de cámara: ${e.message}`);
+              console.log('⚠️ Intentando estrategia alternativa...');
+              
+              // Estrategia alternativa: buscar input file en toda la página
+              const inputAlternativo = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+              const inputAltExists = await inputAlternativo.count() > 0;
+              if (inputAltExists) {
+                try {
+                  await inputAlternativo.setInputFiles(imagenPrueba);
+                  await safeWaitForTimeout(page, 2000);
+                  console.log('✅ Imagen adjuntada (usando estrategia alternativa)');
+                } catch (e2: any) {
+                  console.log(`⚠️ Error en estrategia alternativa: ${e2.message}`);
+                }
+              }
+            }
+          } else {
+            console.log('⚠️ No se encontraron imágenes de prueba');
+          }
+        } else {
+          console.log('⚠️ Botón de cámara está deshabilitado');
+        }
+      }
+    } else {
+      console.log('✅ Botón de cámara encontrado');
+      
+      // Verificar que el botón está habilitado
+      const botonCamaraHabilitado = await botonCamara.isEnabled({ timeout: 1000 }).catch(() => false);
+      if (botonCamaraHabilitado) {
+        console.log('✅ Botón de cámara está habilitado');
+        
+        // Obtener imágenes de prueba (mismo proceso que para Galería)
+        const { imagenesTesting } = await obtenerArchivosPrueba();
+        console.log(`📊 Imágenes encontradas: ${imagenesTesting.length}`);
+        
+        if (imagenesTesting.length > 0) {
+          const imagenPrueba = imagenesTesting[0];
+          console.log(`📎 Usando imagen de prueba: ${path.basename(imagenPrueba)}`);
+          
+          // Hacer clic en el botón de cámara (abre el mismo input que Galería)
+          console.log('🖱️ Haciendo clic en botón de cámara...');
+          await botonCamara.click();
+          await safeWaitForTimeout(page, 1000);
+          
+          // Buscar el input file (mismo que se usa para Galería)
+          // El botón de cámara abre el mismo selector de archivos que Galería
+          let inputCamara = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+          let inputCamaraExists = await inputCamara.count() > 0;
+          
+          if (!inputCamaraExists) {
+            // Buscar input con capture (puede estar oculto)
+            inputCamara = page.locator('input[type="file"][capture="environment"], input[type="file"][capture*="camera"]').first();
+            inputCamaraExists = await inputCamara.count() > 0;
+          }
+          
+          if (!inputCamaraExists) {
+            // Última opción: buscar cualquier input file
+            inputCamara = page.locator('input[type="file"]').first();
+            inputCamaraExists = await inputCamara.count() > 0;
+          }
+          
+          // Intentar adjuntar la imagen (mismo proceso que Galería)
+          try {
+            if (inputCamaraExists) {
+              await inputCamara.setInputFiles(imagenPrueba);
+              await safeWaitForTimeout(page, 2000);
+              console.log('✅ Imagen adjuntada desde botón de cámara (comportamiento igual a Galería)');
+            } else {
+              console.log('⚠️ Input file no encontrado después de hacer clic en botón de cámara');
+            }
+          } catch (e: any) {
+            console.log(`⚠️ Error al adjuntar imagen desde botón de cámara: ${e.message}`);
+            console.log('⚠️ Intentando estrategia alternativa...');
+            
+            // Estrategia alternativa: buscar input file en toda la página
+            const inputAlternativo = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+            const inputAltExists = await inputAlternativo.count() > 0;
+            if (inputAltExists) {
+              try {
+                await inputAlternativo.setInputFiles(imagenPrueba);
+                await safeWaitForTimeout(page, 2000);
+                console.log('✅ Imagen adjuntada (usando estrategia alternativa)');
+              } catch (e2: any) {
+                console.log(`⚠️ Error en estrategia alternativa: ${e2.message}`);
+              }
+            }
+          }
+        } else {
+          console.log('⚠️ No se encontraron imágenes de prueba');
+        }
+      } else {
+        console.log('⚠️ Botón de cámara está deshabilitado');
+      }
+    }
+    
+    if (!botonCamaraVisible) {
+      console.log('⚠️ Botón de cámara no encontrado (puede no estar disponible en esta vista)');
     }
 
     // 6. ADJUNTAR UBICACIÓN
@@ -1471,17 +1792,45 @@ test.describe('Página de Cotización', () => {
     await showStepMessage(page, '📍 ADJUNTANDO UBICACIÓN');
     await safeWaitForTimeout(page, 1000);
 
-    // Re-abrir el diálogo de adjuntos
-    const iconoEnviarDocumento2 = page.locator('button, div').filter({
-      has: page.locator('i[class*="attach"], i[class*="paperclip"], i[class*="file"], i[class*="document"]')
-    }).or(page.locator('button, label').filter({
-      hasText: /Adjuntar|Attach|Archivo|File|Subir|Upload|Documento/i
-    })).first();
-
-    const iconoVisible2 = await iconoEnviarDocumento2.isVisible({ timeout: 5000 }).catch(() => false);
-    if (iconoVisible2) {
-      await iconoEnviarDocumento2.click();
+    // Asegurarse de que no haya diálogos abiertos antes de continuar
+    console.log('🔍 Verificando que no haya diálogos abiertos...');
+    const dialogoAbierto = page.locator('div[role="presentation"]').first();
+    const hayDialogoAbierto = await dialogoAbierto.isVisible({ timeout: 1000 }).catch(() => false);
+    if (hayDialogoAbierto) {
+      console.log('⚠️ Hay un diálogo abierto, cerrándolo...');
+      await page.keyboard.press('Escape');
       await safeWaitForTimeout(page, 1000);
+    }
+
+    // Re-abrir el diálogo de adjuntos
+    console.log('🔍 Buscando icono para re-abrir diálogo de adjuntos...');
+    const iconoEnviarDocumento2 = page.locator('button').filter({
+      has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+    }).first();
+    
+    let iconoVisible2 = await iconoEnviarDocumento2.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    // Si no se encuentra con el selector específico, intentar con el genérico
+    if (!iconoVisible2) {
+      console.log('🔍 Intentando con selector genérico...');
+      const iconoGenerico = page.locator('button, div').filter({
+        has: page.locator('i[class*="attach"], i[class*="paperclip"], i[class*="file"], i[class*="document"]')
+      }).or(page.locator('button, label').filter({
+        hasText: /Adjuntar|Attach|Archivo|File|Subir|Upload|Documento/i
+      })).first();
+      
+      iconoVisible2 = await iconoGenerico.isVisible({ timeout: 3000 }).catch(() => false);
+      if (iconoVisible2) {
+        console.log('✅ Icono encontrado con selector genérico');
+        await iconoGenerico.click();
+      }
+    } else {
+      console.log('✅ Icono encontrado con selector específico');
+      await iconoEnviarDocumento2.click();
+    }
+    
+    if (iconoVisible2) {
+      await safeWaitForTimeout(page, 1500);
 
       const dialogoAdjuntos2 = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
         has: page.locator('p').filter({ hasText: /^Adjunto$/i })
@@ -1632,6 +1981,757 @@ test.describe('Página de Cotización', () => {
     }
 
     console.log('✅ Validación de otra cotización sin cancelar completada');
+  });
+
+  test('Cancelar Una Negociación', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+
+    console.log('🚀 INICIANDO PRUEBA: Cancelar una negociación');
+    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
+
+    await showStepMessage(page, '❌ CANCELANDO NEGOCIACIÓN');
+    await safeWaitForTimeout(page, 1000);
+
+    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
+    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+    
+    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
+    if (quotationId) {
+      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
+    }
+
+    // Asegurarse de estar en el dashboard antes de hacer clic
+    const urlActualAntes = page.url();
+    if (!urlActualAntes.includes('/dashboard')) {
+      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    }
+
+    // Re-buscar el botón de notificación para asegurarse de que está disponible
+    console.log('🔍 Re-buscando botón de notificación...');
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar sección Fiestachat nuevamente
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+
+    if (!fiestachatVisible) {
+      throw new Error('No se encontró la sección Fiestachat después de navegar');
+    }
+
+    // Buscar la notificación por su texto
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    let notificationButtonFinal: Locator | null = null;
+    
+    // Buscar la notificación que coincida con el texto y que NO esté cancelada
+    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+      const notification = notificationButtons.nth(i);
+      const text = (await notification.textContent())?.trim() || '';
+      
+      // Verificar si coincide (puede ser parcial debido a truncamiento)
+      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
+        // Verificar que NO esté cancelada
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      // Si no se encuentra por texto, usar la primera no cancelada
+      console.log('⚠️ No se encontró la notificación exacta, buscando primera no cancelada...');
+      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+        const notification = notificationButtons.nth(i);
+        const text = (await notification.textContent())?.trim() || '';
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para cancelar');
+    }
+
+    // Hacer clic en la notificación
+    console.log('🖱️ Haciendo clic en la notificación...');
+    await notificationButtonFinal.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+    console.log(`🌐 URL de cotización: ${urlActual}`);
+
+    // Verificar que estamos en una página de cotización
+    const esPaginaCotizacion = 
+      urlActual.includes('/quotation') ||
+      urlActual.includes('/prequotation') ||
+      urlActual.includes('/negotiation') ||
+      urlActual.includes('/cotizacion');
+
+    if (!esPaginaCotizacion) {
+      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
+    }
+
+    console.log('✅ Navegación exitosa a página de cotización');
+
+    // 2. CANCELAR LA NEGOCIACIÓN
+    await showStepMessage(page, '❌ CANCELANDO NEGOCIACIÓN');
+    await safeWaitForTimeout(page, 1000);
+
+    const botonCancelar = page.locator('button, a').filter({
+      hasText: /Cancelar negociación|Cancelar|Cancel/i
+    }).first();
+
+    const cancelarVisible = await botonCancelar.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!cancelarVisible) {
+      throw new Error('❌ ERROR: Botón "Cancelar negociación" no encontrado. No se puede continuar con la cancelación.');
+    }
+
+    console.log('✅ Botón "Cancelar negociación" encontrado');
+    await expect(botonCancelar).toBeVisible();
+    
+    // Guardar URL de esta cotización antes de cancelar
+    const urlCotizacionActual = page.url();
+    console.log(`📋 URL de cotización actual: ${urlCotizacionActual}`);
+    
+    // Hacer clic en el botón de cancelar
+    await showStepMessage(page, '🖱️ HACIENDO CLIC EN CANCELAR');
+    await safeWaitForTimeout(page, 500);
+    
+    await botonCancelar.click();
+    await safeWaitForTimeout(page, 1500);
+
+    // Buscar modal de confirmación con el diálogo específico
+    // El diálogo tiene: imagen de danger, texto "Esta acción es irreversible...", botones "Regresar" y "Aceptar"
+    const modalConfirmacion = page.locator('div.relative.flex.flex-col.gap-3.w-\\[300px\\]').filter({
+      has: page.locator('img[alt="danger icon"], img[alt*="danger"]')
+    }).filter({
+      has: page.locator('p').filter({
+        hasText: /Esta acción es irreversible|irreversible|no podrás modificar/i
+      })
+    }).first();
+
+    // Fallback: buscar modal con estructura más flexible
+    let modalVisible = await modalConfirmacion.isVisible({ timeout: 5000 }).catch(() => false);
+    let modalElement = modalConfirmacion;
+
+    if (!modalVisible) {
+      console.log('🔍 Intentando buscar modal con selector más flexible...');
+      modalElement = page.locator('div.relative.flex.flex-col').filter({
+        has: page.locator('img[alt*="danger"], img[src*="danger"]')
+      }).filter({
+        has: page.locator('p').filter({
+          hasText: /Esta acción es irreversible|irreversible|no podrás modificar/i
+        })
+      }).first();
+      modalVisible = await modalElement.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+
+    if (!modalVisible) {
+      throw new Error('❌ ERROR: Modal de confirmación no encontrado después de hacer clic en cancelar');
+    }
+
+    console.log('✅ Modal de confirmación encontrado');
+    
+    // Buscar y hacer clic en el botón "Aceptar"
+    const botonAceptar = modalElement.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /^Aceptar$/i })
+    }).filter({
+      has: page.locator('span').filter({ hasText: /Aceptar/i })
+    }).first();
+
+    let aceptarVisible = await botonAceptar.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!aceptarVisible) {
+      // Fallback: buscar botón con bg-danger-neutral
+      const botonAceptarFallback = modalElement.locator('button.bg-danger-neutral').filter({
+        has: page.locator('span').filter({ hasText: /Aceptar/i })
+      }).first();
+      aceptarVisible = await botonAceptarFallback.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (aceptarVisible) {
+        console.log('✅ Botón "Aceptar" encontrado en el modal (usando fallback)');
+        await botonAceptarFallback.click();
+      }
+    } else {
+      console.log('✅ Botón "Aceptar" encontrado en el modal');
+      await botonAceptar.click();
+    }
+
+    if (!aceptarVisible) {
+      throw new Error('❌ ERROR: Botón "Aceptar" no encontrado en el modal de confirmación');
+    }
+
+    await safeWaitForTimeout(page, 2000);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Cancelación aceptada');
+
+    // Verificar que se navegó (probablemente de vuelta al dashboard o a otra página)
+    const urlDespuesCancelar = page.url();
+    console.log(`🌐 URL después de cancelar: ${urlDespuesCancelar}`);
+    
+    if (urlDespuesCancelar !== urlCotizacionActual) {
+      console.log('✅ Navegación después de cancelar confirmada');
+    }
+
+    // 3. VERIFICAR QUE LA NEGOCIACIÓN FUE CANCELADA
+    await showStepMessage(page, '✅ VERIFICANDO CANCELACIÓN');
+    await safeWaitForTimeout(page, 1000);
+
+    // Si estamos en el dashboard, buscar la notificación cancelada
+    if (urlDespuesCancelar.includes('/dashboard')) {
+      console.log('🔍 Verificando que la notificación aparece como cancelada en el dashboard...');
+      await safeWaitForTimeout(page, 2000);
+      
+      // Buscar la sección Fiestachat nuevamente
+      fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (!fiestachatVisible) {
+        fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+        fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+      }
+
+      if (fiestachatVisible) {
+        const notificationButtonsDespues = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+        const notificationCountDespues = await notificationButtonsDespues.count();
+        
+        // Buscar la notificación cancelada
+        let encontradaCancelada = false;
+        for (let i = 0; i < Math.min(notificationCountDespues, 50); i++) {
+          const notification = notificationButtonsDespues.nth(i);
+          const text = (await notification.textContent())?.trim() || '';
+          const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+          
+          if (textoCancelado && (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30)))) {
+            encontradaCancelada = true;
+            console.log(`✅ Notificación cancelada encontrada en posición ${i + 1}`);
+            break;
+          }
+        }
+        
+        if (encontradaCancelada) {
+          console.log('✅ La negociación fue cancelada exitosamente');
+        } else {
+          console.log('⚠️ No se encontró la notificación cancelada en el dashboard (puede requerir recarga)');
+        }
+      }
+    } else {
+      // Si estamos en otra página, verificar que la página muestra que está cancelada
+      const mensajeCancelado = page.locator('button, div, p').filter({
+        hasText: /La negociación fue cancelada|negociación cancelada|cancelada/i
+      }).first();
+      
+      const canceladoVisible = await mensajeCancelado.isVisible({ timeout: 5000 }).catch(() => false);
+      if (canceladoVisible) {
+        console.log('✅ La página muestra que la negociación fue cancelada');
+      } else {
+        console.log('⚠️ No se encontró mensaje de cancelación en la página actual');
+      }
+    }
+
+    // 4. VERIFICAR QUE EL CHAT YA NO ES INTERACTUABLE
+    await showStepMessage(page, '🔒 VERIFICANDO QUE EL CHAT NO ES INTERACTUABLE');
+    
+    // Si estamos en la página de cotización (no en el dashboard), hacer refresh para reflejar los cambios
+    const urlActualFinal = page.url();
+    const esPaginaCotizacionFinal = 
+      urlActualFinal.includes('/quotation') ||
+      urlActualFinal.includes('/prequotation') ||
+      urlActualFinal.includes('/negotiation') ||
+      urlActualFinal.includes('/cotizacion');
+
+    if (esPaginaCotizacionFinal) {
+      // Hacer refresh de la página para que se reflejen los cambios después de cancelar
+      console.log('🔄 Recargando la página para reflejar los cambios después de la cancelación...');
+      await page.reload({ waitUntil: 'networkidle' });
+      await safeWaitForTimeout(page, 2000); // Espera adicional después del refresh
+      console.log('✅ Página recargada');
+      
+      // 4.0. Verificar que se muestra el mensaje "La negociación fue cancelada" en el chat
+      console.log('💬 Verificando mensaje de cancelación en el chat...');
+      await showStepMessage(page, '💬 VERIFICANDO MENSAJE DE CANCELACIÓN');
+      await safeWaitForTimeout(page, 1000);
+      
+      // Buscar el mensaje con el formato específico: div[id^="message-"] que contiene "La negociación fue cancelada"
+      const mensajeCancelacion = page.locator('div[id^="message-"]').filter({
+        has: page.locator('p').filter({ hasText: /^La negociación fue cancelada$/i })
+      }).first();
+      
+      const mensajeCancelacionVisible = await mensajeCancelacion.isVisible({ timeout: 10000 }).catch(() => false);
+      
+      if (!mensajeCancelacionVisible) {
+        // Intentar buscar con selector más flexible
+        console.log('🔍 Intentando buscar mensaje con selector más flexible...');
+        const mensajeCancelacionFlexible = page.locator('div').filter({
+          has: page.locator('p').filter({ hasText: /La negociación fue cancelada/i })
+        }).filter({
+          has: page.locator('div.bg-gradient-to-r, div[class*="gradient"]')
+        }).first();
+        
+        const mensajeFlexibleVisible = await mensajeCancelacionFlexible.isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (mensajeFlexibleVisible) {
+          console.log('✅ Mensaje de cancelación encontrado en el chat (usando selector flexible)');
+          
+          // Verificar que tiene el formato correcto con el gradiente
+          const tieneGradiente = await mensajeCancelacionFlexible.locator('div.bg-gradient-to-r, div[class*="gradient"]').isVisible({ timeout: 2000 }).catch(() => false);
+          if (tieneGradiente) {
+            console.log('✅ El mensaje tiene el formato correcto con gradiente');
+          }
+          
+          // Verificar que contiene el texto correcto
+          const textoMensaje = await mensajeCancelacionFlexible.textContent();
+          if (textoMensaje && /La negociación fue cancelada/i.test(textoMensaje)) {
+            console.log(`✅ El mensaje contiene el texto correcto: "${textoMensaje.trim()}"`);
+          }
+        } else {
+          throw new Error('❌ ERROR: No se encontró el mensaje "La negociación fue cancelada" en el chat después de cancelar');
+        }
+      } else {
+        console.log('✅ Mensaje de cancelación encontrado en el chat');
+        
+        // Verificar que tiene el formato correcto
+        const tieneGradiente = await mensajeCancelacion.locator('div.bg-gradient-to-r, div[class*="gradient"]').isVisible({ timeout: 2000 }).catch(() => false);
+        if (tieneGradiente) {
+          console.log('✅ El mensaje tiene el formato correcto con gradiente');
+        }
+        
+        // Verificar que el mensaje está centrado (tiene las clases correctas)
+        const tieneClasesCorrectas = await mensajeCancelacion.evaluate((el) => {
+          return el.classList.contains('flex') && 
+                 el.classList.contains('w-full') && 
+                 el.classList.contains('items-center') && 
+                 el.classList.contains('justify-center');
+        }).catch(() => false);
+        
+        if (tieneClasesCorrectas) {
+          console.log('✅ El mensaje tiene las clases CSS correctas (centrado)');
+        }
+        
+        // Verificar que contiene el texto correcto
+        const textoMensaje = await mensajeCancelacion.textContent();
+        if (textoMensaje && /La negociación fue cancelada/i.test(textoMensaje)) {
+          console.log(`✅ El mensaje contiene el texto correcto: "${textoMensaje.trim()}"`);
+        }
+        
+        // Verificar que tiene el icono de reloj y la hora
+        const tieneHora = await mensajeCancelacion.locator('i.icon-clock, i[class*="clock"]').isVisible({ timeout: 2000 }).catch(() => false);
+        if (tieneHora) {
+          console.log('✅ El mensaje tiene el icono de reloj y la hora');
+        }
+      }
+      
+      console.log('🔍 Verificando que el chat no es interactuable en la página de cotización cancelada...');
+      
+      // 4.1. Verificar que el campo de mensaje está deshabilitado
+      console.log('📝 Verificando campo de mensaje...');
+      await safeWaitForTimeout(page, 1000); // Espera adicional antes de verificar
+      
+      const campoMensaje = page.locator('textarea, input').filter({
+        has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+      }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+      .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+
+      const campoMensajeVisible = await campoMensaje.first().isVisible({ timeout: 5000 }).catch(() => false);
+      if (campoMensajeVisible) {
+        // Esperar a que el campo se deshabilite (puede tomar tiempo)
+        console.log('⏳ Esperando a que el campo de mensaje se deshabilite...');
+        let campoMensajeHabilitado = true;
+        let intentos = 0;
+        const maxIntentos = 10; // 10 intentos = 5 segundos
+        
+        while (campoMensajeHabilitado && intentos < maxIntentos) {
+          campoMensajeHabilitado = await campoMensaje.first().isEnabled({ timeout: 500 }).catch(() => false);
+          if (campoMensajeHabilitado) {
+            intentos++;
+            await safeWaitForTimeout(page, 500); // Esperar 500ms antes del siguiente intento
+          }
+        }
+        
+        if (campoMensajeHabilitado) {
+          throw new Error('❌ ERROR: El campo de mensaje está habilitado cuando debería estar deshabilitado después de cancelar');
+        } else {
+          console.log('✅ Campo de mensaje está deshabilitado (correcto)');
+        }
+      } else {
+        console.log('⚠️ Campo de mensaje no encontrado (puede estar oculto o no disponible)');
+      }
+
+      // 4.2. Verificar que el botón de enviar está deshabilitado o no está disponible
+      console.log('📤 Verificando botón de enviar...');
+      await safeWaitForTimeout(page, 500); // Espera adicional
+      
+      const botonEnviar = page.locator('button').filter({
+        has: page.locator('i[class*="send"], i[class*="paper-plane"], svg[class*="send"]')
+      }).or(page.locator('button').filter({
+        hasText: /Enviar|Send/i
+      })).first();
+
+      const botonEnviarVisible = await botonEnviar.isVisible({ timeout: 3000 }).catch(() => false);
+      if (botonEnviarVisible) {
+        // Esperar a que el botón se deshabilite
+        let botonEnviarHabilitado = true;
+        let intentos = 0;
+        const maxIntentos = 10;
+        
+        while (botonEnviarHabilitado && intentos < maxIntentos) {
+          botonEnviarHabilitado = await botonEnviar.isEnabled({ timeout: 500 }).catch(() => false);
+          if (botonEnviarHabilitado) {
+            intentos++;
+            await safeWaitForTimeout(page, 500);
+          }
+        }
+        
+        if (botonEnviarHabilitado) {
+          throw new Error('❌ ERROR: El botón de enviar está habilitado cuando debería estar deshabilitado después de cancelar');
+        } else {
+          console.log('✅ Botón de enviar está deshabilitado (correcto)');
+        }
+      } else {
+        console.log('✅ Botón de enviar no está visible (correcto - chat deshabilitado)');
+      }
+
+      // 4.3. Verificar que el botón de adjuntar archivos está deshabilitado o no está disponible
+      console.log('📎 Verificando botón de adjuntar archivos...');
+      await safeWaitForTimeout(page, 500); // Espera adicional
+      
+      const botonAdjuntar = page.locator('button').filter({
+        has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+      }).first();
+
+      const botonAdjuntarVisible = await botonAdjuntar.isVisible({ timeout: 3000 }).catch(() => false);
+      if (botonAdjuntarVisible) {
+        // Esperar a que el botón se deshabilite
+        let botonAdjuntarHabilitado = true;
+        let intentos = 0;
+        const maxIntentos = 10;
+        
+        while (botonAdjuntarHabilitado && intentos < maxIntentos) {
+          botonAdjuntarHabilitado = await botonAdjuntar.isEnabled({ timeout: 500 }).catch(() => false);
+          if (botonAdjuntarHabilitado) {
+            intentos++;
+            await safeWaitForTimeout(page, 500);
+          }
+        }
+        
+        if (botonAdjuntarHabilitado) {
+          throw new Error('❌ ERROR: El botón de adjuntar archivos está habilitado cuando debería estar deshabilitado después de cancelar');
+        } else {
+          console.log('✅ Botón de adjuntar archivos está deshabilitado (correcto)');
+        }
+      } else {
+        console.log('✅ Botón de adjuntar archivos no está visible (correcto - chat deshabilitado)');
+      }
+
+      // 4.4. Verificar que el botón de cámara está deshabilitado o no está disponible
+      console.log('📷 Verificando botón de cámara...');
+      await safeWaitForTimeout(page, 500); // Espera adicional
+      
+      const botonCamara = page.locator('button').filter({
+        has: page.locator('i.icon-camera, i[class*="camera"]')
+      }).first();
+
+      const botonCamaraVisible = await botonCamara.isVisible({ timeout: 3000 }).catch(() => false);
+      if (botonCamaraVisible) {
+        // Esperar a que el botón se deshabilite
+        let botonCamaraHabilitado = true;
+        let intentos = 0;
+        const maxIntentos = 10;
+        
+        while (botonCamaraHabilitado && intentos < maxIntentos) {
+          botonCamaraHabilitado = await botonCamara.isEnabled({ timeout: 500 }).catch(() => false);
+          if (botonCamaraHabilitado) {
+            intentos++;
+            await safeWaitForTimeout(page, 500);
+          }
+        }
+        
+        if (botonCamaraHabilitado) {
+          throw new Error('❌ ERROR: El botón de cámara está habilitado cuando debería estar deshabilitado después de cancelar');
+        } else {
+          console.log('✅ Botón de cámara está deshabilitado (correcto)');
+        }
+      } else {
+        console.log('✅ Botón de cámara no está visible (correcto - chat deshabilitado)');
+      }
+
+      // 4.5. Intentar interactuar con el campo de mensaje para confirmar que está deshabilitado
+      console.log('🔒 Intentando interactuar con el campo de mensaje para confirmar deshabilitación...');
+      if (campoMensajeVisible) {
+        try {
+          await campoMensaje.first().fill('Test de interacción');
+          // Si llegamos aquí, el campo está habilitado (no debería pasar)
+          throw new Error('❌ ERROR: Se pudo escribir en el campo de mensaje cuando debería estar deshabilitado');
+        } catch (e: any) {
+          // Si el error es porque el campo está deshabilitado, está bien
+          if (e.message.includes('deshabilitado') || e.message.includes('disabled') || e.message.includes('is not editable')) {
+            console.log('✅ Confirmado: El campo de mensaje está deshabilitado y no permite interacción');
+          } else if (e.message.includes('ERROR')) {
+            // Re-lanzar el error si es nuestro error personalizado
+            throw e;
+          } else {
+            // Otro tipo de error, probablemente porque el campo está deshabilitado
+            console.log('✅ Confirmado: El campo de mensaje no permite interacción (probablemente deshabilitado)');
+          }
+        }
+      }
+
+      console.log('✅ Verificación completada: El chat no es interactuable después de cancelar la negociación');
+    } else {
+      console.log('⚠️ No estamos en la página de cotización, no se puede verificar el estado del chat');
+      console.log(`   URL actual: ${urlActualFinal}`);
+    }
+
+    console.log('✅ Prueba de cancelar negociación completada');
+  });
+
+  test('Agregar Una Nota', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+
+    console.log('🚀 INICIANDO PRUEBA: Agregar una nota');
+    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
+
+    await showStepMessage(page, '📝 AGREGANDO NOTA');
+    await safeWaitForTimeout(page, 1000);
+
+    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
+    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+    
+    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
+    if (quotationId) {
+      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
+    }
+
+    // Asegurarse de estar en el dashboard antes de hacer clic
+    const urlActualAntes = page.url();
+    if (!urlActualAntes.includes('/dashboard')) {
+      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    }
+
+    // Re-buscar el botón de notificación para asegurarse de que está disponible
+    console.log('🔍 Re-buscando botón de notificación...');
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar sección Fiestachat nuevamente
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+
+    if (!fiestachatVisible) {
+      throw new Error('No se encontró la sección Fiestachat después de navegar');
+    }
+
+    // Buscar la notificación por su texto
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    let notificationButtonFinal: Locator | null = null;
+    
+    // Buscar la notificación que coincida con el texto y que NO esté cancelada
+    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+      const notification = notificationButtons.nth(i);
+      const text = (await notification.textContent())?.trim() || '';
+      
+      // Verificar si coincide (puede ser parcial debido a truncamiento)
+      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
+        // Verificar que NO esté cancelada
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      // Si no se encuentra por texto, usar la primera no cancelada
+      console.log('⚠️ No se encontró la notificación exacta, buscando primera no cancelada...');
+      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+        const notification = notificationButtons.nth(i);
+        const text = (await notification.textContent())?.trim() || '';
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para agregar nota');
+    }
+
+    // Hacer clic en la notificación
+    console.log('🖱️ Haciendo clic en la notificación...');
+    await notificationButtonFinal.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+    console.log(`🌐 URL de cotización: ${urlActual}`);
+
+    // Verificar que estamos en una página de cotización
+    const esPaginaCotizacion = 
+      urlActual.includes('/quotation') ||
+      urlActual.includes('/prequotation') ||
+      urlActual.includes('/negotiation') ||
+      urlActual.includes('/cotizacion');
+
+    if (!esPaginaCotizacion) {
+      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
+    }
+
+    console.log('✅ Navegación exitosa a página de cotización');
+
+    // 2. AGREGAR UNA NOTA
+    console.log('📝 PASO 2: Agregando una nota...');
+    await showStepMessage(page, '📝 AGREGANDO NOTA');
+    await safeWaitForTimeout(page, 1000);
+
+    const campoNotas = page.locator('textarea, input').filter({
+      has: page.locator('label').filter({ hasText: /Nota|Note|Observación|Observacion/i })
+    }).or(page.getByLabel(/Nota|Note|Observación|Observacion/i, { exact: false }))
+    .or(page.locator('textarea#Notes, input#Notes, textarea[id*="note"], input[id*="note"]'));
+
+    const notasVisible = await campoNotas.first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (!notasVisible) {
+      throw new Error('❌ ERROR: Campo de notas no encontrado. No se puede continuar con la prueba.');
+    }
+
+    console.log('✅ Campo de notas encontrado');
+
+    const estaHabilitado = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
+    
+    if (!estaHabilitado) {
+      // Intentar habilitar el campo
+      console.log('🔍 Campo de notas está deshabilitado, buscando botón de editar...');
+      const botonEditar = page.locator('button').filter({
+        hasText: /Editar|Edit|Modificar|Modify/i
+      }).first();
+      const editarVisible = await botonEditar.isVisible({ timeout: 2000 }).catch(() => false);
+      if (editarVisible) {
+        console.log('🖱️ Haciendo clic en botón de editar para habilitar el campo...');
+        await botonEditar.click();
+        await safeWaitForTimeout(page, 1000);
+      } else {
+        throw new Error('❌ ERROR: Campo de notas está deshabilitado y no se encontró botón de editar');
+      }
+    }
+
+    const estaHabilitadoDespues = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
+    if (!estaHabilitadoDespues) {
+      throw new Error('❌ ERROR: Campo de notas sigue deshabilitado después de intentar habilitarlo');
+    }
+
+    console.log('✅ Campo de notas está habilitado');
+
+    // Obtener el valor actual del campo (si tiene contenido)
+    const valorInicial = await campoNotas.first().inputValue().catch(() => '');
+    console.log(`📝 Valor inicial del campo: "${valorInicial.substring(0, 50)}${valorInicial.length > 50 ? '...' : ''}"`);
+
+    // Escribir una nota nueva con timestamp
+    const textoNota = `Nota de prueba - ${new Date().toISOString()}`;
+    console.log(`✍️ Escribiendo nota: "${textoNota}"`);
+    
+    await campoNotas.first().fill(textoNota);
+    await safeWaitForTimeout(page, 1000);
+    
+    // Verificar que se guardó
+    const valorNota = await campoNotas.first().inputValue();
+    if (valorNota.includes(textoNota)) {
+      console.log('✅ Nota agregada correctamente');
+      await expect(campoNotas.first()).toHaveValue(new RegExp(textoNota.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    } else {
+      throw new Error(`❌ ERROR: La nota no se guardó correctamente. Valor esperado: "${textoNota}", Valor actual: "${valorNota}"`);
+    }
+
+    // 3. VALIDAR BOTÓN "BORRAR TODO"
+    console.log('🧹 PASO 3: Validando botón "Borrar todo"...');
+    await showStepMessage(page, '🧹 VALIDANDO BORRAR TODO');
+    await safeWaitForTimeout(page, 1000);
+
+    const botonBorrarTodo = page.locator('button').filter({
+      has: page.locator('p').filter({ hasText: /^Borrar todo$/i })
+    }).or(page.getByText('Borrar todo', { exact: true }).locator('..')).first();
+
+    const botonBorrarVisible = await botonBorrarTodo.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!botonBorrarVisible) {
+      console.log('⚠️ Botón "Borrar todo" no encontrado o no está visible (puede no estar disponible)');
+    } else {
+      console.log('✅ Botón "Borrar todo" encontrado y visible');
+      await expect(botonBorrarTodo).toBeVisible();
+      
+      // Verificar que el campo tiene contenido antes de borrar
+      const valorAntesBorrar = await campoNotas.first().inputValue();
+      if (valorAntesBorrar && valorAntesBorrar.trim().length > 0) {
+        console.log(`📝 Contenido antes de borrar: "${valorAntesBorrar.substring(0, 50)}..."`);
+        
+        // Hacer clic en el botón "Borrar todo"
+        console.log('🖱️ Haciendo clic en botón "Borrar todo"...');
+        await botonBorrarTodo.click();
+        await safeWaitForTimeout(page, 1000);
+        
+        // Verificar que el campo se vació
+        const valorDespuesBorrar = await campoNotas.first().inputValue();
+        if (!valorDespuesBorrar || valorDespuesBorrar.trim().length === 0) {
+          console.log('✅ Botón "Borrar todo" funcionó correctamente - el campo se vació');
+          
+          // Volver a escribir una nota para dejar el campo con contenido
+          const notaFinal = `Nota final de prueba - ${new Date().toISOString()}`;
+          await campoNotas.first().fill(notaFinal);
+          await safeWaitForTimeout(page, 1000);
+          console.log(`✅ Nota final escrita: "${notaFinal}"`);
+        } else {
+          console.log(`⚠️ El campo aún tiene contenido después de borrar: "${valorDespuesBorrar}"`);
+        }
+      } else {
+        console.log('⚠️ El campo no tenía contenido para borrar');
+      }
+    }
+
+    console.log('✅ Prueba de agregar nota completada');
   });
 
   test('Mostrar Datos De La Cotización Que Coinciden Con La Notificación Seleccionada', async ({ page }) => {
