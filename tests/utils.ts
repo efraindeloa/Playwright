@@ -228,6 +228,7 @@ export async function showStepMessage(page: Page, message: string) {
       }
       box.textContent = msg;
       
+      
       // Auto-eliminar después de 2 segundos
       setTimeout(() => {
         if (box && box.parentNode) {
@@ -275,5 +276,128 @@ export async function safeWaitForTimeout(page: Page, timeout: number) {
       return;
     }
     throw error;
+  }
+}
+
+/**
+ * Espera a que el backdrop de Material-UI desaparezca antes de hacer click
+ * Esto evita errores de "element intercepts pointer events"
+ */
+export async function waitForBackdropToDisappear(page: Page, timeout = 10000) {
+  try {
+    if (page.isClosed()) {
+      return;
+    }
+    
+    const backdropSelectors = [
+      '.MuiBackdrop-root',
+      '[class*="MuiBackdrop-root"]',
+      '[class*="mui-"]:has-text("")',
+      'div[aria-hidden="true"].MuiBackdrop-root'
+    ];
+    
+    // Verificar si hay algún backdrop visible
+    let backdropFound = false;
+    for (const selector of backdropSelectors) {
+      try {
+        const backdrop = page.locator(selector).first();
+        const count = await backdrop.count();
+        if (count > 0) {
+          const isVisible = await backdrop.isVisible({ timeout: 500 }).catch(() => false);
+          if (isVisible) {
+            backdropFound = true;
+            // Esperar a que desaparezca
+            try {
+              await backdrop.waitFor({ state: 'hidden', timeout });
+            } catch {
+              // Si no desaparece, intentar cerrarlo con ESC
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(500);
+              // Verificar nuevamente
+              const stillVisible = await backdrop.isVisible({ timeout: 1000 }).catch(() => false);
+              if (stillVisible) {
+                console.log('⚠️ Backdrop aún visible después de presionar ESC');
+              }
+            }
+            break;
+          }
+        }
+      } catch {
+        // Continuar con el siguiente selector
+        continue;
+      }
+    }
+    
+    if (!backdropFound) {
+      // No hay backdrop visible, continuar normalmente
+      return;
+    }
+    
+    // Esperar un poco más para asegurar que el backdrop desapareció completamente
+    await page.waitForTimeout(300);
+  } catch (error) {
+    // Si la página se cerró, ignorar el error
+    if (error instanceof Error && error.message.includes('Target page, context or browser has been closed')) {
+      return;
+    }
+    // Para otros errores, solo loguear pero no fallar
+    console.log('⚠️ Error al esperar backdrop:', error);
+  }
+}
+
+/**
+ * Cierra el modal de "Registra tu servicio" si está visible
+ * Este modal aparece ocasionalmente y puede bloquear interacciones
+ */
+export async function closeRegistrationModal(page: Page, timeout = 5000) {
+  try {
+    if (page.isClosed()) {
+      return;
+    }
+    
+    // Buscar el modal por su texto característico o el botón de cerrar
+    const modalText = page.getByText('Registra tu servicio en Fiestamas', { exact: false });
+    const modalVisible = await modalText.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (modalVisible) {
+      console.log('🔍 Modal de registro detectado, intentando cerrarlo...');
+      
+      // Buscar el botón de cerrar (ícono X) dentro del modal
+      const closeButton = page.locator('button:has(i.icon-x), button:has(.icon-x)').first();
+      const buttonVisible = await closeButton.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (buttonVisible) {
+        await closeButton.click({ timeout: 3000 });
+        await safeWaitForTimeout(page, 500);
+        console.log('✅ Modal cerrado exitosamente');
+        
+        // Verificar que el modal desapareció
+        const stillVisible = await modalText.isVisible({ timeout: 1000 }).catch(() => false);
+        if (stillVisible) {
+          console.log('⚠️ Modal aún visible después de cerrar, intentando con ESC...');
+          await page.keyboard.press('Escape');
+          await safeWaitForTimeout(page, 500);
+        }
+        return;
+      }
+    }
+    
+    // También buscar directamente el botón de cerrar si el texto no está disponible
+    const closeButtonDirect = page.locator('div:has-text("Registra tu servicio") button:has(i.icon-x), div:has-text("Registra tu servicio") button:has(.icon-x)').first();
+    const buttonDirectVisible = await closeButtonDirect.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (buttonDirectVisible) {
+      console.log('🔍 Botón de cerrar modal encontrado directamente');
+      await closeButtonDirect.click({ timeout: 3000 });
+      await safeWaitForTimeout(page, 500);
+      console.log('✅ Modal cerrado exitosamente');
+    }
+  } catch (error) {
+    // Si la página se cerró, ignorar el error
+    if (error instanceof Error && error.message.includes('Target page, context or browser has been closed')) {
+      return;
+    }
+    // Para otros errores, solo loguear pero no fallar
+    console.log('⚠️ Error al cerrar modal de registro:', error);
   }
 }
