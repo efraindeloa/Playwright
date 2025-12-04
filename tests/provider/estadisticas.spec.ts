@@ -68,12 +68,12 @@ test.describe('Estadísticas de proveedor', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('navegar a página de visualizaciones desde dashboard', async ({ page }) => {
+  test('Navegar a página de visualizaciones desde dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de visualizaciones');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -171,12 +171,12 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('validar elementos de la página de visualizaciones', async ({ page }) => {
+  test('Validar elementos de la página de visualizaciones', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de visualizaciones');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -375,12 +375,12 @@ test.describe('Estadísticas de proveedor', () => {
     console.log(`  ✅ Botón de regreso: Visible`);
   });
 
-  test('interactuar con botón de filtro en visualizaciones', async ({ page }) => {
+  test('Interactuar con botón de filtro en visualizaciones', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de filtro');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -407,12 +407,12 @@ test.describe('Estadísticas de proveedor', () => {
     await expect(botonFiltro).toBeEnabled();
   });
 
-  test('navegar de regreso desde visualizaciones al dashboard', async ({ page }) => {
+  test('Navegar de regreso desde visualizaciones al dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de navegación');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -439,12 +439,12 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('navegar a página de solicitudes desde dashboard', async ({ page }) => {
+  test('Navegar a página de solicitudes desde dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de solicitudes');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -538,12 +538,12 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('validar elementos de la página de solicitudes', async ({ page }) => {
+  test('Validar elementos de la página de solicitudes', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de solicitudes');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -750,12 +750,12 @@ test.describe('Estadísticas de proveedor', () => {
     console.log(`  ✅ Botón de regreso: Visible`);
   });
 
-  test('interactuar con botón de filtro en solicitudes', async ({ page }) => {
+  test('Interactuar con botón de filtro en solicitudes', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de filtro');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 
@@ -777,12 +777,12 @@ test.describe('Estadísticas de proveedor', () => {
     await expect(botonFiltro).toBeEnabled();
   });
 
-  test('navegar de regreso desde solicitudes al dashboard', async ({ page }) => {
+  test('Navegar de regreso desde solicitudes al dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
     if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando prueba de navegación');
+      console.log('⚠️ El proveedor NO tiene servicios - saltando prueba');
       return;
     }
 

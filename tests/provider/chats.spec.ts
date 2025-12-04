@@ -28,7 +28,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('navegar a página de chats', async ({ page }) => {
+  test('Navegar a página de chats', async ({ page }) => {
     // --- NAVEGAR A DASHBOARD ---
     await showStepMessage(page, '🏠 NAVEGANDO AL DASHBOARD');
     await page.waitForTimeout(1000);
@@ -70,7 +70,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     console.log('✅ Navegación a página de chats exitosa');
   });
 
-  test('validar elementos de la página de chats', async ({ page }) => {
+  test('Validar elementos de la página de chats', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -133,7 +133,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('buscar conversaciones', async ({ page }) => {
+  test('Buscar conversaciones', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -194,7 +194,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('filtrar conversaciones', async ({ page }) => {
+  test('Filtrar conversaciones', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -239,7 +239,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('seleccionar conversación y navegar a negociación', async ({ page }) => {
+  test('Seleccionar conversación y navegar a negociación', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -300,7 +300,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('navegar de regreso desde chats al dashboard', async ({ page }) => {
+  test('Navegar de regreso desde chats al dashboard', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);

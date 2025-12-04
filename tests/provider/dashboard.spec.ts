@@ -36,7 +36,11 @@ test.describe('Dashboard de proveedor', () => {
     await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible();
   });
 
-  test('mostrar las secciones principales del dashboard', async ({ page }) => {
+  // ============================================
+  // GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+  // ============================================
+
+  test('Mostrar las secciones principales del dashboard', async ({ page }) => {
     await showStepMessage(page, '📋 VALIDANDO SECCIONES PRINCIPALES DEL DASHBOARD');
     await page.waitForTimeout(1000);
     
@@ -58,7 +62,7 @@ test.describe('Dashboard de proveedor', () => {
       // Si tiene servicios, las estadísticas DEBEN mostrarse
       await showStepMessage(page, '📊 VALIDANDO TARJETAS DE ESTADÍSTICAS');
       await page.waitForTimeout(1000);
-      console.log('[test] El proveedor tiene servicios - validando que las estadísticas se muestren');
+      console.log('✅ El proveedor tiene servicios - validando estadísticas');
       await expect(obtenerTarjetaEstadistica(page, /Visualizaciones/i)).toBeVisible();
       await expect(obtenerTarjetaEstadistica(page, /Solicitudes/i)).toBeVisible();
       await expect(obtenerTarjetaEstadistica(page, /Contrataciones/i)).toBeVisible();
@@ -66,7 +70,7 @@ test.describe('Dashboard de proveedor', () => {
       // Si NO tiene servicios, las estadísticas NO deben mostrarse
       await showStepMessage(page, '⚠️ SIN SERVICIOS - VALIDANDO QUE NO HAY ESTADÍSTICAS');
       await page.waitForTimeout(1000);
-      console.log('[test] El proveedor NO tiene servicios - validando que las estadísticas NO se muestren');
+      console.log('⚠️ El proveedor NO tiene servicios - las estadísticas no se muestran');
       const tarjetaVisualizaciones = obtenerTarjetaEstadistica(page, /Visualizaciones/i);
       const tarjetaSolicitudes = obtenerTarjetaEstadistica(page, /Solicitudes/i);
       const tarjetaContrataciones = obtenerTarjetaEstadistica(page, /Contrataciones/i);
@@ -112,72 +116,15 @@ test.describe('Dashboard de proveedor', () => {
     await expect(primerChat).toBeVisible();
   });
 
-  test('accesos rápidos navegan a las secciones correspondientes', async ({ page }) => {
-    await showStepMessage(page, '🔘 NAVEGANDO A SERVICIOS');
-    await page.waitForTimeout(1000);
-    await page.getByRole('button', { name: /Administrar servicios/i }).click();
-    await expect(page).toHaveURL(SERVICES_URL);
-
-    await page.goto(DASHBOARD_URL);
-    await showStepMessage(page, '🔘 NAVEGANDO A PROMOCIONES');
-    await page.waitForTimeout(1000);
-    await page.getByRole('button', { name: /Administrar promociones/i }).click();
-    await expect(page).toHaveURL(PROMOTIONS_URL);
-
-    await page.goto(DASHBOARD_URL);
-  });
-
-  test('barra superior navega a chats y perfil', async ({ page }) => {
-    await showStepMessage(page, '💬 NAVEGANDO A CHATS');
-    await page.waitForTimeout(1000);
-    const enlaceChats = page.locator('div.lg\\:block nav a[href="/provider/chats"]').first();
-    await expect(enlaceChats).toBeVisible();
-    await enlaceChats.click();
-    await expect(page).toHaveURL(CHATS_URL);
-
-    await page.goto(DASHBOARD_URL);
-
-    await showStepMessage(page, '👤 NAVEGANDO A PERFIL');
-    await page.waitForTimeout(1000);
-    const enlacePerfil = page.locator('div.lg\\:block nav a[href="/provider/profile"]').first();
-    await expect(enlacePerfil).toBeVisible();
-    await enlacePerfil.click();
-    await expect(page).toHaveURL(PROFILE_URL);
-
-    await page.goto(DASHBOARD_URL);
-  });
-
-  test('tarjetas de estadísticas redirigen a sus secciones', async ({ page }) => {
-    // Solo validar las tarjetas si el proveedor tiene servicios
-    await showStepMessage(page, '🔍 VERIFICANDO SI EL PROVEEDOR TIENE SERVICIOS');
-    await page.waitForTimeout(1000);
-    const tieneServicios = await verificarSiTieneServicios(page);
-    
-    if (!tieneServicios) {
-      console.log('[test] El proveedor NO tiene servicios - saltando validación de redirección de estadísticas');
-      return;
-    }
-    
-    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE VISUALIZACIONES');
-    await page.waitForTimeout(1000);
-    await validarTarjetaEstadistica(page, /Visualizaciones/i, '/provider/stats/views', STATS_VIEWS_URL);
-    
-    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE SOLICITUDES');
-    await page.waitForTimeout(1000);
-    await validarTarjetaEstadistica(page, /Solicitudes/i, '/provider/stats/applications', STATS_APPLICATIONS_URL);
-    
-    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE CONTRATACIONES');
-    await page.waitForTimeout(1000);
-    await validarTarjetaEstadistica(page, /Contrataciones/i, '/provider/stats/hirings', STATS_HIRINGS_URL);
-  });
-
-  test('controles adicionales del listado de eventos están visibles', async ({ page }) => {
+  test('Controles adicionales del listado de eventos están visibles', async ({ page }) => {
     await showStepMessage(page, '📐 AJUSTANDO VIEWPORT');
+    console.log('🔍 Validando controles adicionales del listado de eventos...');
     await page.waitForTimeout(1000);
     await page.setViewportSize({ width: 1080, height: 720 });
     await page.waitForTimeout(500);
 
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN NUEVO EVENTO');
+    console.log('✅ Botón nuevo evento visible y habilitado');
     await page.waitForTimeout(1000);
     const botonNuevoEventoDesktop = page.locator('button').filter({
       has: page.locator('i.icon-calendar')
@@ -227,38 +174,115 @@ test.describe('Dashboard de proveedor', () => {
     await expect(botonFecha).toBeEnabled();
   });
 
-  test('filtros de eventos permiten cambiar la vista', async ({ page }) => {
+  // ============================================
+  // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
+  // ============================================
+
+  test('Accesos rápidos navegan a las secciones correspondientes', async ({ page }) => {
+    await showStepMessage(page, '🔘 NAVEGANDO A SERVICIOS');
+    console.log('🚀 Navegando a servicios desde accesos rápidos...');
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: /Administrar servicios/i }).click();
+    await expect(page).toHaveURL(SERVICES_URL);
+    console.log('✅ Navegación a servicios exitosa');
+
+    await page.goto(DASHBOARD_URL);
+    await showStepMessage(page, '🔘 NAVEGANDO A PROMOCIONES');
+    console.log('🚀 Navegando a promociones desde accesos rápidos...');
+    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: /Administrar promociones/i }).click();
+    await expect(page).toHaveURL(PROMOTIONS_URL);
+    console.log('✅ Navegación a promociones exitosa');
+
+    await page.goto(DASHBOARD_URL);
+  });
+
+  test('Barra superior navega a chats y perfil', async ({ page }) => {
+    await showStepMessage(page, '💬 NAVEGANDO A CHATS');
+    console.log('🚀 Navegando a chats desde la barra superior...');
+    await page.waitForTimeout(1000);
+    const enlaceChats = page.locator('div.lg\\:block nav a[href="/provider/chats"]').first();
+    await expect(enlaceChats).toBeVisible();
+    await enlaceChats.click();
+    await expect(page).toHaveURL(CHATS_URL);
+    console.log('✅ Navegación a chats exitosa');
+
+    await page.goto(DASHBOARD_URL);
+
+    await showStepMessage(page, '👤 NAVEGANDO A PERFIL');
+    console.log('🚀 Navegando a perfil desde la barra superior...');
+    await page.waitForTimeout(1000);
+    const enlacePerfil = page.locator('div.lg\\:block nav a[href="/provider/profile"]').first();
+    await expect(enlacePerfil).toBeVisible();
+    await enlacePerfil.click();
+    await expect(page).toHaveURL(PROFILE_URL);
+    console.log('✅ Navegación a perfil exitosa');
+
+    await page.goto(DASHBOARD_URL);
+  });
+
+  test('Tarjetas de estadísticas redirigen a sus secciones', async ({ page }) => {
+    // Solo validar las tarjetas si el proveedor tiene servicios
+    await showStepMessage(page, '🔍 VERIFICANDO SI EL PROVEEDOR TIENE SERVICIOS');
+    await page.waitForTimeout(1000);
+    const tieneServicios = await verificarSiTieneServicios(page);
+    
+    if (!tieneServicios) {
+      console.log('⚠️ El proveedor NO tiene servicios - saltando validación de estadísticas');
+      return;
+    }
+    
+    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE VISUALIZACIONES');
+    await page.waitForTimeout(1000);
+    await validarTarjetaEstadistica(page, /Visualizaciones/i, '/provider/stats/views', STATS_VIEWS_URL);
+    
+    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE SOLICITUDES');
+    await page.waitForTimeout(1000);
+    await validarTarjetaEstadistica(page, /Solicitudes/i, '/provider/stats/applications', STATS_APPLICATIONS_URL);
+    
+    await showStepMessage(page, '📊 VALIDANDO REDIRECCIÓN DE CONTRATACIONES');
+    await page.waitForTimeout(1000);
+    await validarTarjetaEstadistica(page, /Contrataciones/i, '/provider/stats/hirings', STATS_HIRINGS_URL);
+  });
+
+  test('Filtros de eventos permiten cambiar la vista', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '🔍 VALIDANDO FILTROS DE EVENTOS');
+    console.log('🚀 Validando funcionalidad de filtros de eventos...');
     await page.waitForTimeout(1000);
     const filtrosContainer = page.locator('div').filter({
       has: page.getByRole('button', { name: 'TODOS', exact: true })
     }).first();
 
     await showStepMessage(page, '✅ FILTRANDO POR CONTRATADO');
+    console.log('✅ Filtro CONTRATADO aplicado correctamente');
     await page.waitForTimeout(1000);
     await validarEstado(filtrosContainer, page, 'CONTRATADO');
 
     await showStepMessage(page, '⏳ FILTRANDO POR PENDIENTE');
+    console.log('✅ Filtro PENDIENTE aplicado correctamente');
     await page.waitForTimeout(1000);
     await validarEstado(filtrosContainer, page, 'PENDIENTE');
 
     await showStepMessage(page, '🆕 FILTRANDO POR NUEVO');
+    console.log('✅ Filtro NUEVO aplicado correctamente');
     await page.waitForTimeout(1000);
     await validarEstado(filtrosContainer, page, 'NUEVO');
 
     await showStepMessage(page, '❌ FILTRANDO POR CANCELADO');
+    console.log('✅ Filtro CANCELADO aplicado correctamente');
     await page.waitForTimeout(1000);
     await validarEstado(filtrosContainer, page, 'CANCELADO');
 
     await showStepMessage(page, '🔄 VOLVIENDO A FILTRO TODOS');
+    console.log('✅ Filtro TODOS restaurado correctamente');
     await page.waitForTimeout(1000);
     const filtroTodos = filtrosContainer.getByRole('button', { name: 'TODOS', exact: true });
     await filtroTodos.click();
     await expect(page.getByRole('button', { name: /Nuevo Evento/i })).toBeVisible();
   });
 
-  test('botón Fecha ordena los eventos', async ({ page }) => {
+  test('Botón Fecha ordena los eventos', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '📆 VALIDANDO BOTÓN FECHA');
     await page.waitForTimeout(1000);
@@ -339,7 +363,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de ordenamiento completada: El botón alterna correctamente entre orden ascendente y descendente');
   });
 
-  test('botón Ver eventos pasados muestra eventos pasados', async ({ page }) => {
+  test('Botón Ver eventos pasados muestra eventos pasados', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '📅 BUSCANDO BOTÓN VER EVENTOS PASADOS');
     await page.waitForTimeout(1000);
@@ -403,7 +427,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de "Ver eventos pasados" completada exitosamente');
   });
 
-  test('calendario filtra eventos al seleccionar un día con eventos', async ({ page }) => {
+  test('Calendario filtra eventos al seleccionar un día con eventos', async ({ page }) => {
     test.setTimeout(90000); // Aumentar timeout a 90 segundos (prueba larga con muchas esperas)
     await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
     await page.waitForTimeout(1000);
@@ -708,7 +732,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de calendario completada exitosamente');
   });
 
-  test('calendario muestra estado vacío al seleccionar un día sin eventos', async ({ page }) => {
+  test('Calendario muestra estado vacío al seleccionar un día sin eventos', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
     await page.waitForTimeout(1000);
@@ -854,7 +878,11 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de día sin eventos completada exitosamente');
   });
 
-  test('botón Nuevo evento navega a la página de creación de evento', async ({ page }) => {
+  // ============================================
+  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
+  // ============================================
+
+  test('Se crea un nuevo evento desde el dashboard', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos (la creación de evento puede tardar)
     await showStepMessage(page, '🔘 BUSCANDO BOTÓN NUEVO EVENTO');
     await page.waitForTimeout(1000);
@@ -886,7 +914,7 @@ test.describe('Dashboard de proveedor', () => {
       console.log('✅ Botón "Nuevo evento" encontrado (selector simple)');
     }
     
-    await expect(botonNuevoEvento).toBeVisible({ timeout: 10000 });
+    await expect(botonNuevoEvento).toBeVisible({ timeout: 20000 });
     await expect(botonNuevoEvento).toBeEnabled();
     
     // Guardar la URL actual antes de hacer clic

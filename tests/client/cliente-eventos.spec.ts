@@ -3654,7 +3654,10 @@ export async function crearEventosDeBloque(
 
 // Ejecutar el flujo completo en el test
 test('Nueva fiesta', async ({ page }) => {
+  await showStepMessage(page, '🎉 INICIANDO CREACIÓN DE NUEVA FIESTA');
+  console.log('🚀 Iniciando creación de nueva fiesta...');
   await ejecutarFlujoCompletoCreacionEvento(page);
+  console.log('✅ Creación de nueva fiesta completada exitosamente');
 });
 
 // Crear tests para cada bloque de 3 tipos de eventos
@@ -3666,6 +3669,9 @@ const crearTestsPorBloque = () => {
     
     test(`Crear eventos - Bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})`, async ({ page }) => {
       test.setTimeout(600000); // 10 minutos por bloque (aumentado para dar más tiempo)
+      
+      await showStepMessage(page, `🎉 CREANDO EVENTOS - BLOQUE ${bloque + 1} (TIPOS ${inicio + 1}-${fin})`);
+      console.log(`🚀 Iniciando creación de eventos del bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})...`);
       
       // Limpiar cookies y storage antes de empezar
       await page.context().clearCookies();

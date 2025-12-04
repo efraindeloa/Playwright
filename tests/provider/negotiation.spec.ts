@@ -84,13 +84,12 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('navegar a página de negociación', async ({ page }) => {
+  test('Navegar a página de negociación', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE NEGOCIACIÓN');
     await page.waitForTimeout(1000);
     
     const negotiationUrl = await navigateToNegotiation(page);
-    console.log(`📍 URL de negociación: ${negotiationUrl}`);
 
     // --- VALIDAR QUE LLEGÓ A LA PÁGINA CORRECTA ---
     await showStepMessage(page, '✅ VALIDANDO PÁGINA DE NEGOCIACIÓN');
@@ -103,7 +102,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     console.log('✅ Navegación a página de negociación exitosa');
   });
 
-  test('validar información del evento en negociación', async ({ page }) => {
+  test('Validar información del evento en negociación', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -164,7 +163,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar información del servicio en negociación', async ({ page }) => {
+  test('Validar información del servicio en negociación', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -204,7 +203,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar información del cliente en negociación', async ({ page }) => {
+  test('Validar información del cliente en negociación', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -265,7 +264,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar sección de cotización', async ({ page }) => {
+  test('Validar sección de cotización', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -319,7 +318,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar campos de cotización', async ({ page }) => {
+  test('Validar campos de cotización', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -367,7 +366,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar sección de notas personales', async ({ page }) => {
+  test('Validar sección de notas personales', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -414,7 +413,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('validar sección de chat/mensajes', async ({ page }) => {
+  test('Validar sección de chat/mensajes', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -466,7 +465,7 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     }
   });
 
-  test('navegar de regreso desde negociación', async ({ page }) => {
+  test('Navegar de regreso desde negociación', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -499,7 +498,6 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     if (currentUrl.includes('/provider/chats') || currentUrl.includes('/provider/dashboard')) {
       console.log('✅ Regreso exitoso');
     } else {
-      console.log(`ℹ️ URL actual después del regreso: ${currentUrl}`);
     }
   });
 });
@@ -650,7 +648,7 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('validación completa de elementos interactivos en estado NUEVA', async ({ page }) => {
+  test('Validación completa de elementos interactivos en estado NUEVA', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN CON ESTADO NUEVA ---
     await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN NUEVA');
     await page.waitForTimeout(1000);
@@ -1067,7 +1065,7 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
     }
   });
 
-  test('validación completa: tipo de evento, estado de cotización y elementos según contexto', async ({ page }) => {
+  test('Validación completa: tipo de evento, estado de cotización y elementos según contexto', async ({ page }) => {
     // --- NAVEGAR A NEGOCIACIÓN ---
     await showStepMessage(page, '🔍 NAVEGANDO A NEGOCIACIÓN');
     await page.waitForTimeout(1000);
@@ -1091,10 +1089,10 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
 
     if (hasInviteButton) {
       eventType = 'provider';
-      console.log('✅ Evento creado por PROVEEDOR detectado (tiene botón "Invitar a Fiestamas")');
+      console.log('✅ Evento creado por proveedor detectado');
     } else if (hasChatContainer) {
       eventType = 'client';
-      console.log('✅ Evento creado por CLIENTE detectado (tiene contenedor de chat)');
+      console.log('✅ Evento creado por cliente detectado');
     } else {
       throw new Error('❌ No se pudo determinar el tipo de evento (no se encontró botón "Invitar a Fiestamas" ni contenedor de chat)');
     }
@@ -1686,7 +1684,6 @@ test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {
         throw new Error('❌ No se pudo agregar la nota en el campo "Notas personales"');
       }
       console.log('✅ Nota agregada correctamente en "Notas personales"');
-      console.log(`📝 Contenido de la nota: "${notesValue}"`);
 
       // Verificar que se puede modificar la nota
       const modifiedNote = `${testNote} - Modificada`;

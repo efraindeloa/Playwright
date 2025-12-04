@@ -133,7 +133,7 @@ test.describe('Gestión de promociones', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('crear promoción', async ({ page }) => {
+  test('Crear promoción', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -240,7 +240,7 @@ test.describe('Gestión de promociones', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('validar campos obligatorios vacíos', async ({ page }) => {
+  test('Validar campos obligatorios vacíos', async ({ page }) => {
     // Caso 2: Campo obligatorio vacío
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -368,7 +368,7 @@ test.describe('Gestión de promociones', () => {
     console.log('✅ El formulario no se cerró, validación funcionó correctamente');
   });
 
-  test('validar límite de caracteres en oferta corta', async ({ page }) => {
+  test('Validar límite de caracteres en oferta corta', async ({ page }) => {
     // Caso 3: Límite de caracteres en Oferta corta
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -413,7 +413,7 @@ test.describe('Gestión de promociones', () => {
     }
   });
 
-  test('validar fecha de fin en el pasado', async ({ page }) => {
+  test('Validar fecha de fin en el pasado', async ({ page }) => {
     // Caso 4: Fecha de fin en el pasado
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -493,7 +493,7 @@ test.describe('Gestión de promociones', () => {
     }
   });
 
-  test('validar fecha inicio mayor que fecha fin', async ({ page }) => {
+  test('Validar fecha inicio mayor que fecha fin', async ({ page }) => {
     // Caso 5: Fecha inicio mayor que fecha fin
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -575,7 +575,7 @@ test.describe('Gestión de promociones', () => {
     }
   });
 
-  test('validar servicios no disponibles', async ({ page }) => {
+  test('Validar servicios no disponibles', async ({ page }) => {
     // Caso 6: Servicios no disponibles
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -625,7 +625,7 @@ test.describe('Gestión de promociones', () => {
     }
   });
 
-  test('ordenar promociones', async ({ page }) => {
+  test('Ordenar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -664,7 +664,7 @@ test.describe('Gestión de promociones', () => {
     console.log('✅ Ordenamiento de promociones completado exitosamente');
   });
 
-  test('filtrar promociones', async ({ page }) => {
+  test('Filtrar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -793,7 +793,7 @@ test.describe('Gestión de promociones', () => {
     console.log(`  ✅ Después de limpiar filtro: ${afterClearCount} promociones`);
   });
 
-  test('buscar promociones', async ({ page }) => {
+  test('Buscar promociones', async ({ page }) => {
     // --- ADMINISTRAR PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -958,7 +958,7 @@ test.describe('Gestión de promociones', () => {
     console.log(`  ✅ Estado final: ${finalPromoCount} promociones`);
   });
 
-  test('editar promoción', async ({ page }) => {
+  test('Editar promoción', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // --- ADMINISTRAR PROMOCIONES ---
@@ -975,15 +975,12 @@ test.describe('Gestión de promociones', () => {
     // Esperar a que aparezcan las cards de promociones
     const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
     const totalPromos = await promoCardsLocator.count();
-    console.log(`🔍 TRACE: Total de promociones disponibles: ${totalPromos}`);
-    
     if (totalPromos === 0) {
       throw new Error('❌ No se encontraron promociones disponibles para editar');
     }
     
     // Seleccionar un índice aleatorio
     const randomIndex = Math.floor(Math.random() * totalPromos);
-    console.log(`🔍 TRACE: Seleccionando promoción aleatoria (índice ${randomIndex} de ${totalPromos})`);
     
     // Obtener la promoción seleccionada aleatoriamente
     const selectedPromoCard = promoCardsLocator.nth(randomIndex);
@@ -1108,7 +1105,7 @@ test.describe('Gestión de promociones', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('eliminar promoción', async ({ page }) => {
+  test('Eliminar promoción', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // --- ADMINISTRAR PROMOCIONES ---
@@ -1125,15 +1122,12 @@ test.describe('Gestión de promociones', () => {
     // Esperar a que aparezcan las cards de promociones
     const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
     const totalPromos = await promoCardsLocator.count();
-    console.log(`🔍 TRACE: Total de promociones disponibles: ${totalPromos}`);
-    
     if (totalPromos === 0) {
       throw new Error('❌ No se encontraron promociones disponibles para eliminar');
     }
     
     // Seleccionar un índice aleatorio
     const randomIndex = Math.floor(Math.random() * totalPromos);
-    console.log(`🔍 TRACE: Seleccionando promoción aleatoria (índice ${randomIndex} de ${totalPromos})`);
     
     // Obtener la promoción seleccionada aleatoriamente
     const selectedPromoCard = promoCardsLocator.nth(randomIndex);
@@ -1192,7 +1186,7 @@ test.describe('Gestión de promociones', () => {
     }
   });
 
-  test('navegar a chats desde promociones', async ({ page }) => {
+  test('Navegar a chats desde promociones', async ({ page }) => {
     // --- NAVEGAR A PÁGINA DE PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
     await page.waitForTimeout(1000);
@@ -1248,7 +1242,7 @@ test.describe('Gestión de promociones', () => {
     console.log('✅ Navegación completa: Promociones → Chats → Promociones');
   });
 
-  test('navegar a perfil desde promociones', async ({ page }) => {
+  test('Navegar a perfil desde promociones', async ({ page }) => {
     // --- NAVEGAR A PÁGINA DE PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
     await page.waitForTimeout(1000);
@@ -1302,7 +1296,7 @@ test.describe('Gestión de promociones', () => {
     console.log('✅ Navegación completa: Promociones → Perfil → Promociones');
   });
 
-  test('navegar a dashboard desde promociones', async ({ page }) => {
+  test('Navegar a dashboard desde promociones', async ({ page }) => {
     // --- NAVEGAR A PÁGINA DE PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
     await page.waitForTimeout(1000);

@@ -94,7 +94,6 @@ test.beforeEach(async ({ page }) => {
   await page.waitForTimeout(2000);
 
   const finalUrl = page.url();
-  console.log(`🔍 TRACE: URL después del login: ${finalUrl}`);
 
   if (!finalUrl.includes('dashboard') && !finalUrl.includes('profile')) {
     await page.waitForTimeout(3000);
@@ -353,15 +352,15 @@ test('Crear servicio', async ({ page }) => {
 
 
   // Enviar formulario
-  console.log('🔍 TRACE: Enviando formulario de detalles...');
+  console.log(' Enviando formulario de detalles...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO');
   await page.waitForTimeout(1000);
 
-  console.log('🔍 TRACE: Haciendo clic en botón ServiceDetailsForm...');
+  console.log(' Haciendo clic en botón ServiceDetailsForm...');
   await page.locator('button[type="submit"][form="ServiceDetailsForm"]').click();
-  console.log('🔍 TRACE: Clic en ServiceDetailsForm completado');
+  console.log(' Clic en ServiceDetailsForm completado');
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Espera después de ServiceDetailsForm completada');
+  console.log(' Espera después de ServiceDetailsForm completada');
 
 
   // --- LLENAR FORMULARIO DE PRECIOS Y CONDICIONES ---
@@ -417,7 +416,7 @@ test('Crear servicio', async ({ page }) => {
 
   // Llenar condiciones (máximo 150 caracteres)
   const conditions = generateConditions(subcategoriaFinal || 'servicio', 150);
-  console.log(`🔍 TRACE: Condiciones (${conditions.length} caracteres): ${conditions}`);
+  
   await page.locator('textarea[id="Conditions"]').fill(conditions);
   await page.waitForTimeout(1000);
 
@@ -429,15 +428,15 @@ test('Crear servicio', async ({ page }) => {
 
 
   // Enviar formulario de precios
-  console.log('🔍 TRACE: Enviando formulario de precios...');
+  console.log(' Enviando formulario de precios...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE PRECIOS');
   await page.waitForTimeout(1000);
 
-  console.log('🔍 TRACE: Haciendo clic en botón ServicePriceConditionsForm...');
+  console.log(' Haciendo clic en botón ServicePriceConditionsForm...');
   await page.locator('button[type="submit"][form="ServicePriceConditionsForm"]').click();
-  console.log('🔍 TRACE: Clic en ServicePriceConditionsForm completado');
+  console.log(' Clic en ServicePriceConditionsForm completado');
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Espera después de ServicePriceConditionsForm completada');
+  console.log(' Espera después de ServicePriceConditionsForm completada');
 
 
   console.log(`✅ Formulario de precios llenado exitosamente: $${price}`);
@@ -469,15 +468,15 @@ test('Crear servicio', async ({ page }) => {
 
 
   // Enviar formulario de atributos
-  console.log('🔍 TRACE: Enviando formulario de atributos...');
+  console.log(' Enviando formulario de atributos...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE ATRIBUTOS');
   await page.waitForTimeout(1000);
 
-  console.log('🔍 TRACE: Haciendo clic en botón ServiceAttributesForm...');
+  console.log(' Haciendo clic en botón ServiceAttributesForm...');
   await page.locator('button[type="submit"][form="ServiceAttributesForm"]').click();
-  console.log('🔍 TRACE: Clic en ServiceAttributesForm completado');
+  console.log(' Clic en ServiceAttributesForm completado');
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Espera después de ServiceAttributesForm completada');
+  console.log(' Espera después de ServiceAttributesForm completada');
 
 
   console.log(`✅ Atributos seleccionados exitosamente`);
@@ -506,15 +505,15 @@ test('Crear servicio', async ({ page }) => {
 
 
     // Enviar formulario de rango
-    console.log('🔍 TRACE: Enviando formulario de rango...');
+    console.log(' Enviando formulario de rango...');
     await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE RANGO');
     await page.waitForTimeout(1000);
 
-    console.log('🔍 TRACE: Haciendo clic en botón ServiceRangeForm...');
+    console.log(' Haciendo clic en botón ServiceRangeForm...');
     await page.locator('button[type="submit"][form="ServiceRangeForm"]').click();
-    console.log('🔍 TRACE: Clic en ServiceRangeForm completado');
+    console.log(' Clic en ServiceRangeForm completado');
     await page.waitForTimeout(3000);
-    console.log('🔍 TRACE: Espera después de ServiceRangeForm completada');
+    console.log(' Espera después de ServiceRangeForm completada');
 
   } else {
     console.log('📍 Categoría "Lugares" detectada - omitiendo configuración de rango de servicio');
@@ -524,18 +523,18 @@ test('Crear servicio', async ({ page }) => {
   }
 
   // Esperar a que aparezca la página de media o el botón final
-  console.log('🔍 TRACE: Esperando página de media (#Step_6)...');
+  console.log(' Esperando página de media (#Step_6)...');
   try {
     await page.waitForSelector('#Step_6', { timeout: 10000 });
     console.log('✅ TRACE: Llegamos a la página de media');
 
 
     // Subir 1 IMAGEN PEQUEÑA para activar el botón de envío (más rápido)
-    console.log('🔍 TRACE: Iniciando subida de imagen...');
+    console.log(' Iniciando subida de imagen...');
     await showStepMessage(page, '📸 SUBIENDO IMAGEN DE PRUEBA');
     await page.waitForTimeout(1000);
     const fileInput = page.locator('input[type="file"]');
-    console.log('🔍 TRACE: Localizador de input de archivo encontrado');
+    console.log(' Localizador de input de archivo encontrado');
 
     // Usar solo imágenes pequeñas para subida más rápida
     const smallImages = [
@@ -551,16 +550,16 @@ test('Crear servicio', async ({ page }) => {
     const randomImage = smallImages[Math.floor(Math.random() * smallImages.length)];
     const imagePath = `C:/Users/Efrain De Loa/Pictures/Fiestamas Testing/${randomImage}`;
     console.log(`📸 Subiendo imagen: ${randomImage}`);
-    console.log(`🔍 TRACE: Ruta de imagen: ${imagePath}`);
+    
     await fileInput.setInputFiles(imagePath);
-    console.log('🔍 TRACE: Archivo subido, esperando procesamiento...');
+    console.log(' Archivo subido, esperando procesamiento...');
 
     // Esperar a que se procese la imagen y aparezca el botón de envío
     console.log('⏳ Esperando a que se procese la imagen...');
     await page.waitForTimeout(3000); // Espera inicial para que comience el procesamiento
     
     // Verificar si hay indicadores de que la imagen se procesó (preview, mensaje de éxito, etc.)
-    console.log('🔍 TRACE: Verificando indicadores de procesamiento de imagen...');
+    console.log(' Verificando indicadores de procesamiento de imagen...');
     let imagenProcesada = false;
     try {
       // Buscar preview de imagen o indicador de éxito
@@ -586,7 +585,7 @@ test('Crear servicio', async ({ page }) => {
     let buttonFound = false;
     
     // Estrategia 1: Buscar botón ServiceMediaForm con timeout largo
-    console.log('🔍 TRACE: Buscando botón ServiceMediaForm (Estrategia 1)...');
+    console.log(' Buscando botón ServiceMediaForm (Estrategia 1)...');
     try {
       const button1 = page.locator('button[type="submit"][form="ServiceMediaForm"]');
       await expect(button1).toBeVisible({ timeout: 30000 }); // 30 segundos
@@ -599,7 +598,7 @@ test('Crear servicio', async ({ page }) => {
     
     // Estrategia 2: Buscar cualquier botón de submit en el formulario
     if (!buttonFound) {
-      console.log('🔍 TRACE: Buscando botón de submit alternativo (Estrategia 2)...');
+      console.log(' Buscando botón de submit alternativo (Estrategia 2)...');
       await page.waitForTimeout(5000); // Esperar más tiempo
       try {
         const button2 = page.locator('form#ServiceMediaForm button[type="submit"]');
@@ -619,7 +618,7 @@ test('Crear servicio', async ({ page }) => {
     
     // Estrategia 3: Buscar botón "Finalizar" o "Continuar" en la página
     if (!buttonFound) {
-      console.log('🔍 TRACE: Buscando botón "Finalizar" o "Continuar" (Estrategia 3)...');
+      console.log(' Buscando botón "Finalizar" o "Continuar" (Estrategia 3)...');
       await page.waitForTimeout(5000);
       try {
         const button3 = page.locator('button:has-text("Finalizar"), button:has-text("Continuar"), button:has-text("Guardar")');
@@ -639,7 +638,7 @@ test('Crear servicio', async ({ page }) => {
     
     // Estrategia 4: Verificar si ya avanzó automáticamente al siguiente paso
     if (!buttonFound) {
-      console.log('🔍 TRACE: Verificando si ya avanzó al siguiente paso (Estrategia 4)...');
+      console.log(' Verificando si ya avanzó al siguiente paso (Estrategia 4)...');
       await page.waitForTimeout(3000);
       const urlActual = page.url();
       const tieneFinalizar = await page.locator('button:has-text("Finalizar")').count();
@@ -653,7 +652,7 @@ test('Crear servicio', async ({ page }) => {
 
     // Si encontramos el botón, hacer clic
     if (buttonFound && finalSubmitButton) {
-      console.log('🔍 TRACE: Haciendo clic en botón encontrado...');
+      console.log(' Haciendo clic en botón encontrado...');
       try {
         // Verificar que el botón esté habilitado
         const isEnabled = await finalSubmitButton.isEnabled({ timeout: 5000 }).catch(() => false);
@@ -681,61 +680,61 @@ test('Crear servicio', async ({ page }) => {
     }
 
     await page.waitForTimeout(3000);
-    console.log('🔍 TRACE: Espera después de ServiceMediaForm completada');
+    console.log(' Espera después de ServiceMediaForm completada');
 
 
     // Página intermedia de confirmación con botón "Finalizar"
-    console.log('🔍 TRACE: Buscando página de confirmación con botón "Finalizar"...');
+    console.log(' Buscando página de confirmación con botón "Finalizar"...');
     await showStepMessage(page, '✅ CONFIRMACIÓN: CLIC EN "FINALIZAR"');
 
     // Esperar a que la página cambie o aparezca el botón Finalizar
-    console.log('🔍 TRACE: Esperando cambio de página o botón "Finalizar"...');
+    console.log(' Esperando cambio de página o botón "Finalizar"...');
     try {
       // Intentar esperar el botón Finalizar con timeout más largo
       const confirmarFinalizarBtn = page.locator('button:has-text("Finalizar")');
-      console.log('🔍 TRACE: Esperando botón "Finalizar" visible...');
+      console.log(' Esperando botón "Finalizar" visible...');
       await expect(confirmarFinalizarBtn).toBeVisible({ timeout: 20000 });
-      console.log('🔍 TRACE: Botón "Finalizar" encontrado, haciendo clic...');
+      console.log(' Botón "Finalizar" encontrado, haciendo clic...');
       await confirmarFinalizarBtn.click();
-      console.log('🔍 TRACE: Clic en "Finalizar" completado');
+      console.log(' Clic en "Finalizar" completado');
       await page.waitForTimeout(3000);
-      console.log('🔍 TRACE: Espera después de "Finalizar" completada');
+      console.log(' Espera después de "Finalizar" completada');
     } catch (finalizarError) {
-      console.log(`🔍 TRACE: Error buscando botón "Finalizar": ${finalizarError}`);
-      console.log('🔍 TRACE: Intentando buscar botones alternativos...');
+      
+      console.log(' Intentando buscar botones alternativos...');
 
       // Buscar otros botones que puedan ser el siguiente paso
       const alternativeButtons = page.locator('button:has-text("Continuar"), button:has-text("Siguiente"), button:has-text("Crear"), button[type="submit"]');
       const altCount = await alternativeButtons.count();
-      console.log(`🔍 TRACE: Botones alternativos encontrados: ${altCount}`);
+      
 
       if (altCount > 0) {
-        console.log('🔍 TRACE: Haciendo clic en botón alternativo...');
+        console.log(' Haciendo clic en botón alternativo...');
         await alternativeButtons.first().click();
-        console.log('🔍 TRACE: Clic en botón alternativo completado');
+        console.log(' Clic en botón alternativo completado');
         await page.waitForTimeout(3000);
       } else {
-        console.log('🔍 TRACE: No se encontraron botones alternativos, continuando...');
+        console.log(' No se encontraron botones alternativos, continuando...');
       }
     }
 
   } catch (error) {
     console.log('⚠️ TRACE: No se encontró Step_6, intentando encontrar botón final directamente');
-    console.log(`🔍 TRACE: Error en Step_6: ${error}`);
+    
 
     try {
       // Buscar botón final alternativo
-      console.log('🔍 TRACE: Buscando botones alternativos...');
+      console.log(' Buscando botones alternativos...');
       const alternativeButton = page.locator('button[type="submit"]:has-text("Finalizar"), button[type="submit"]:has-text("Crear"), button[type="submit"]:has-text("Guardar")');
       const altCount = await alternativeButton.count();
-      console.log(`🔍 TRACE: Botones alternativos encontrados: ${altCount}`);
+      
 
       if (altCount > 0) {
-        console.log('🔍 TRACE: Haciendo clic en botón alternativo...');
+        console.log(' Haciendo clic en botón alternativo...');
         await alternativeButton.first().click();
-        console.log('🔍 TRACE: Clic en botón alternativo completado');
+        console.log(' Clic en botón alternativo completado');
         await page.waitForTimeout(3000);
-        console.log('🔍 TRACE: Espera después de botón alternativo completada');
+        console.log(' Espera después de botón alternativo completada');
         console.log('✅ TRACE: Botón alternativo encontrado y clickeado');
       } else {
         console.log('⚠️ TRACE: No se encontró botón final, continuando...');
@@ -746,21 +745,21 @@ test('Crear servicio', async ({ page }) => {
   }
 
   // Esperar redirección automática al administrador de servicios
-  console.log('🔍 TRACE: Esperando regreso al administrador de servicios...');
+  console.log(' Esperando regreso al administrador de servicios...');
   let regresoExitoso = false;
 
   try {
-    console.log('🔍 TRACE: Buscando texto "Crear servicio"...');
+    console.log(' Buscando texto "Crear servicio"...');
     await expect(page.getByText('Crear servicio')).toBeVisible({ timeout: 15000 });
     console.log('✅ TRACE: Regreso exitoso al administrador de servicios');
     regresoExitoso = true;
   } catch (error) {
     console.log('⚠️ TRACE: No se pudo confirmar el regreso automático, intentando navegación manual...');
-    console.log(`🔍 TRACE: Error al buscar "Crear servicio": ${error}`);
+    
 
     // Intentar navegación manual como respaldo
     try {
-      console.log('🔍 TRACE: Navegando manualmente al administrador de servicios...');
+      console.log(' Navegando manualmente al administrador de servicios...');
       await page.goto(PROVIDER_SERVICES_URL);
       await page.waitForTimeout(3000);
 
@@ -770,7 +769,7 @@ test('Crear servicio', async ({ page }) => {
       regresoExitoso = true;
     } catch (navError) {
       console.log('❌ TRACE: Navegación manual también falló');
-      console.log(`🔍 TRACE: Error de navegación: ${navError}`);
+      
       regresoExitoso = false;
     }
   }
@@ -788,7 +787,7 @@ test('Editar servicio', async ({ page }) => {
   test.setTimeout(600000); // 10 minutos
   // Ya está logueado por beforeEach
 
-  console.log('🔍 TRACE: Iniciando prueba de edición de servicio...');
+  console.log('🚀 Iniciando prueba de edición de servicio...');
 
   // --- NAVEGAR A ADMINISTRAR SERVICIOS ---
   await showStepMessage(page, '🔧 SELECCIONANDO ADMINISTRAR SERVICIOS');
@@ -799,11 +798,8 @@ test('Editar servicio', async ({ page }) => {
 
   try {
     await expect(adminServiciosButton).toBeVisible({ timeout: 10000 });
-    console.log('🔍 TRACE: Componente "Administrar servicios" encontrado');
     await adminServiciosButton.click();
-    console.log('🔍 TRACE: Clic en "Administrar servicios" completado');
   } catch (error) {
-    console.log('⚠️ TRACE: No se encontró el componente "Administrar servicios", navegando directamente...');
     await page.goto(PROVIDER_SERVICES_URL);
   }
 
@@ -811,17 +807,16 @@ test('Editar servicio', async ({ page }) => {
 
 
   // --- BUSCAR SERVICIO ALEATORIO Y ABRIR MENÚ ---
-  console.log('🔍 TRACE: Buscando servicios disponibles en la lista...');
   await showStepMessage(page, '🔍 BUSCANDO SERVICIO PARA EDITAR');
 
   // Esperar a que aparezcan las cards de servicios
   await page.waitForSelector('.flex.items-end.justify-end.text-end', { timeout: 10000 });
-  console.log('🔍 TRACE: Cards de servicios encontradas');
+  console.log(' Cards de servicios encontradas');
 
   // Contar el número total de cards de servicios disponibles
   const serviceCards = page.locator('.flex.items-end.justify-end.text-end button');
   const totalCards = await serviceCards.count();
-  console.log(`🔍 TRACE: Total de servicios disponibles: ${totalCards}`);
+  
 
   if (totalCards === 0) {
     throw new Error('❌ No se encontraron servicios disponibles para editar');
@@ -829,36 +824,36 @@ test('Editar servicio', async ({ page }) => {
 
   // Seleccionar un índice aleatorio
   const randomIndex = Math.floor(Math.random() * totalCards);
-  console.log(`🔍 TRACE: Seleccionando servicio aleatorio (índice ${randomIndex} de ${totalCards})`);
+  
 
   // Buscar el botón de tres puntos del servicio seleccionado aleatoriamente
   const threeDotsButton = serviceCards.nth(randomIndex);
   await expect(threeDotsButton).toBeVisible({ timeout: 10000 });
-  console.log('🔍 TRACE: Botón de tres puntos del servicio aleatorio encontrado');
+  console.log(' Botón de tres puntos del servicio aleatorio encontrado');
 
 
   // Hacer clic en el botón de tres puntos
-  console.log('🔍 TRACE: Haciendo clic en botón de tres puntos...');
+  console.log(' Haciendo clic en botón de tres puntos...');
   await threeDotsButton.click();
   await page.waitForTimeout(2000);
-  console.log('🔍 TRACE: Clic en tres puntos completado');
+  console.log(' Clic en tres puntos completado');
 
 
   // --- SELECCIONAR OPCIÓN "Editar" ---
-  console.log('🔍 TRACE: Buscando opción "Editar" en el menú...');
+  console.log(' Buscando opción "Editar" en el menú...');
   await showStepMessage(page, '✏️ SELECCIONANDO EDITAR');
 
   const editButton = page.locator('button:has-text("Editar"), a:has-text("Editar"), [role="menuitem"]:has-text("Editar")');
   await expect(editButton).toBeVisible({ timeout: 10000 });
-  console.log('🔍 TRACE: Opción "Editar" encontrada');
+  console.log(' Opción "Editar" encontrada');
 
   await editButton.click();
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Clic en "Editar" completado');
+  console.log(' Clic en "Editar" completado');
 
 
   // --- EDITAR NOMBRE DEL SERVICIO ---
-  console.log('🔍 TRACE: Editando nombre del servicio...');
+  console.log(' Editando nombre del servicio...');
   await showStepMessage(page, '📝 EDITANDO NOMBRE DEL SERVICIO');
 
   const nameInput = page.locator('input[id="Name"]');
@@ -872,10 +867,10 @@ test('Editar servicio', async ({ page }) => {
   await nameInput.clear();
   await nameInput.fill(newName);
   await page.waitForTimeout(1000);
-  console.log(`🔍 TRACE: Nombre editado: ${newName}`);
+  
 
   // --- EDITAR DESCRIPCIÓN ---
-  console.log('🔍 TRACE: Editando descripción...');
+  console.log(' Editando descripción...');
   await showStepMessage(page, '📝 EDITANDO DESCRIPCIÓN');
 
   const descriptionInput = page.locator('textarea[id="Description"]');
@@ -887,10 +882,10 @@ test('Editar servicio', async ({ page }) => {
   await descriptionInput.clear();
   await descriptionInput.fill(newDescription);
   await page.waitForTimeout(1000);
-  console.log('🔍 TRACE: Descripción editada');
+  console.log(' Descripción editada');
 
   // --- EDITAR CAPACIDAD ---
-  console.log('🔍 TRACE: Editando capacidad...');
+  console.log(' Editando capacidad...');
   await showStepMessage(page, '👥 EDITANDO CAPACIDAD');
 
   const minAmountInput = page.locator('input[id="MinAmount"]');
@@ -906,21 +901,21 @@ test('Editar servicio', async ({ page }) => {
   await maxAmountInput.clear();
   await maxAmountInput.fill(newMaxCapacity.toString());
   await page.waitForTimeout(1000);
-  console.log(`🔍 TRACE: Capacidad editada: ${newMinCapacity}-${newMaxCapacity}`);
+  
 
 
   // --- ENVIAR FORMULARIO DE DETALLES ---
-  console.log('🔍 TRACE: Enviando formulario de detalles editado...');
+  console.log(' Enviando formulario de detalles editado...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO EDITADO');
 
   const detailsSubmitButton = page.locator('button[type="submit"][form="ServiceDetailsForm"]');
   await detailsSubmitButton.click();
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Formulario de detalles enviado');
+  console.log(' Formulario de detalles enviado');
 
 
   // --- EDITAR PRECIO ---
-  console.log('🔍 TRACE: Editando precio...');
+  console.log(' Editando precio...');
   await showStepMessage(page, '💰 EDITANDO PRECIO');
 
   const priceInput = page.locator('input[id="Price"]');
@@ -928,39 +923,39 @@ test('Editar servicio', async ({ page }) => {
   await priceInput.clear();
   await priceInput.fill(newPrice);
   await page.waitForTimeout(1000);
-  console.log(`🔍 TRACE: Precio editado: $${newPrice}`);
+  
 
   // --- EDITAR CONDICIONES ---
-  console.log('🔍 TRACE: Editando condiciones...');
+  console.log(' Editando condiciones...');
   await showStepMessage(page, '📋 EDITANDO CONDICIONES');
 
   const conditionsInput = page.locator('textarea[id="Conditions"]');
   const newConditions = generateConditions(newName, 150);
-  console.log(`🔍 TRACE: Condiciones editadas (${newConditions.length} caracteres): ${newConditions}`);
+  
   await conditionsInput.clear();
   await conditionsInput.fill(newConditions);
   await page.waitForTimeout(1000);
-  console.log('🔍 TRACE: Condiciones editadas');
+  console.log(' Condiciones editadas');
 
 
   // --- ENVIAR FORMULARIO DE PRECIOS ---
-  console.log('🔍 TRACE: Enviando formulario de precios editado...');
+  console.log(' Enviando formulario de precios editado...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE PRECIOS EDITADO');
 
   const priceSubmitButton = page.locator('button[type="submit"][form="ServicePriceConditionsForm"]');
   await priceSubmitButton.click();
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Formulario de precios enviado');
+  console.log(' Formulario de precios enviado');
 
 
   // --- EDITAR ATRIBUTOS ---
-  console.log('🔍 TRACE: Editando atributos...');
+  console.log(' Editando atributos...');
   await showStepMessage(page, '🎯 EDITANDO ATRIBUTOS');
 
   // Desmarcar algunos atributos existentes
   const existingCheckboxes = page.locator('#Attributes input[type="checkbox"]:checked');
   const checkedCount = await existingCheckboxes.count();
-  console.log(`🔍 TRACE: Atributos actualmente seleccionados: ${checkedCount}`);
+  
 
   if (checkedCount > 0) {
     // Desmarcar algunos aleatoriamente
@@ -978,7 +973,7 @@ test('Editar servicio', async ({ page }) => {
   // Marcar algunos atributos nuevos
   const allCheckboxes = page.locator('#Attributes input[type="checkbox"]:not(:checked)');
   const uncheckedCount = await allCheckboxes.count();
-  console.log(`🔍 TRACE: Atributos disponibles para seleccionar: ${uncheckedCount}`);
+  
 
   if (uncheckedCount > 0) {
     const toCheck = Math.min(2, uncheckedCount);
@@ -994,17 +989,17 @@ test('Editar servicio', async ({ page }) => {
 
 
   // --- ENVIAR FORMULARIO DE ATRIBUTOS ---
-  console.log('🔍 TRACE: Enviando formulario de atributos editado...');
+  console.log(' Enviando formulario de atributos editado...');
   await showStepMessage(page, '➡️ ENVIANDO FORMULARIO DE ATRIBUTOS EDITADO');
 
   const attributesSubmitButton = page.locator('button[type="submit"][form="ServiceAttributesForm"]');
   await attributesSubmitButton.click();
   await page.waitForTimeout(3000);
-  console.log('🔍 TRACE: Formulario de atributos enviado');
+  console.log(' Formulario de atributos enviado');
 
 
   // --- EDITAR RANGO (si no es categoría Lugares) ---
-  console.log('🔍 TRACE: Verificando si necesita editar rango...');
+  console.log(' Verificando si necesita editar rango...');
   await showStepMessage(page, '📍 EDITANDO RANGO DE SERVICIO');
 
   try {
@@ -1012,7 +1007,7 @@ test('Editar servicio', async ({ page }) => {
     const isRangeVisible = await rangeSlider.isVisible();
 
     if (isRangeVisible) {
-      console.log('🔍 TRACE: Rango visible, editando...');
+      console.log(' Rango visible, editando...');
       const minAttr = await rangeSlider.getAttribute('min');
       const maxAttr = await rangeSlider.getAttribute('max');
       const minVal = Number.isFinite(Number(minAttr)) ? Number(minAttr) : 0;
@@ -1021,25 +1016,25 @@ test('Editar servicio', async ({ page }) => {
       const newRangeIndex = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
       await rangeSlider.fill(String(newRangeIndex));
       await page.waitForTimeout(1000);
-      console.log(`🔍 TRACE: Rango editado: ${newRangeIndex}`);
+      
 
 
       // --- ENVIAR FORMULARIO DE RANGO ---
-      console.log('🔍 TRACE: Enviando formulario de rango editado...');
+      console.log(' Enviando formulario de rango editado...');
       const rangeSubmitButton = page.locator('button[type="submit"][form="ServiceRangeForm"]');
       await rangeSubmitButton.click();
       await page.waitForTimeout(3000);
-      console.log('🔍 TRACE: Formulario de rango enviado');
+      console.log(' Formulario de rango enviado');
     } else {
-      console.log('🔍 TRACE: Rango no visible (categoría Lugares), omitiendo...');
+      console.log(' Rango no visible (categoría Lugares), omitiendo...');
     }
   } catch (error) {
-    console.log(`🔍 TRACE: Error editando rango: ${error}`);
+    
   }
 
 
   // --- AGREGAR NUEVA IMAGEN ---
-  console.log('🔍 TRACE: Agregando nueva imagen...');
+  console.log(' Agregando nueva imagen...');
   await showStepMessage(page, '📸 AGREGANDO NUEVA IMAGEN');
 
   const fileInput = page.locator('input[type="file"]');
@@ -1055,34 +1050,34 @@ test('Editar servicio', async ({ page }) => {
 
   const randomImage = imageCandidates[Math.floor(Math.random() * imageCandidates.length)];
   const imagePath = `C:/Users/Efrain De Loa/Pictures/Fiestamas Testing/${randomImage}`;
-  console.log(`🔍 TRACE: Agregando imagen: ${randomImage}`);
+  
 
   await fileInput.setInputFiles(imagePath);
   await page.waitForTimeout(2000);
-  console.log('🔍 TRACE: Imagen agregada');
+  console.log(' Imagen agregada');
 
   // Esperar a que la imagen se procese y aparezca el botón de envío
-  console.log('🔍 TRACE: Esperando procesamiento de imagen...');
+  console.log(' Esperando procesamiento de imagen...');
   await page.waitForTimeout(3000);
 
   // Verificar si ya apareció el botón de envío
   try {
     const submitButton = page.locator('button[type="submit"][form="ServiceMediaForm"]');
     await expect(submitButton).toBeVisible({ timeout: 2000 });
-    console.log('🔍 TRACE: Botón de envío ya visible después de subir imagen');
+    console.log(' Botón de envío ya visible después de subir imagen');
   } catch (error) {
-    console.log('🔍 TRACE: Botón de envío no visible aún, esperando más tiempo...');
+    console.log(' Botón de envío no visible aún, esperando más tiempo...');
     await page.waitForTimeout(5000);
   }
 
 
   // --- FINALIZAR EDICIÓN ---
-  console.log('🔍 TRACE: Finalizando edición...');
+  console.log(' Finalizando edición...');
   await showStepMessage(page, '✅ FINALIZANDO EDICIÓN');
 
   try {
     // Buscar botón de envío final con múltiples estrategias
-    console.log('🔍 TRACE: Buscando botón de envío final...');
+    console.log(' Buscando botón de envío final...');
 
     // Estrategia 1: Botón ServiceMediaForm
     let finalSubmitButton = page.locator('button[type="submit"][form="ServiceMediaForm"]');
@@ -1090,21 +1085,21 @@ test('Editar servicio', async ({ page }) => {
 
     try {
       await expect(finalSubmitButton).toBeVisible({ timeout: 5000 });
-      console.log('🔍 TRACE: Botón ServiceMediaForm encontrado');
+      console.log(' Botón ServiceMediaForm encontrado');
       buttonFound = true;
     } catch (error) {
-      console.log('🔍 TRACE: Botón ServiceMediaForm no encontrado, buscando alternativas...');
+      console.log(' Botón ServiceMediaForm no encontrado, buscando alternativas...');
     }
 
     // Estrategia 2: Buscar cualquier botón de envío
     if (!buttonFound) {
       const alternativeButtons = page.locator('button[type="submit"]:has-text("Finalizar"), button[type="submit"]:has-text("Guardar"), button[type="submit"]:has-text("Actualizar"), button[type="submit"]:has-text("Continuar")');
       const altCount = await alternativeButtons.count();
-      console.log(`🔍 TRACE: Botones alternativos encontrados: ${altCount}`);
+      
 
       if (altCount > 0) {
         finalSubmitButton = alternativeButtons.first();
-        console.log('🔍 TRACE: Usando botón alternativo');
+        console.log(' Usando botón alternativo');
         buttonFound = true;
       }
     }
@@ -1113,36 +1108,36 @@ test('Editar servicio', async ({ page }) => {
     if (!buttonFound) {
       const genericButtons = page.locator('button[type="submit"]');
       const genCount = await genericButtons.count();
-      console.log(`🔍 TRACE: Botones genéricos encontrados: ${genCount}`);
+      
 
       if (genCount > 0) {
         finalSubmitButton = genericButtons.first();
-        console.log('🔍 TRACE: Usando botón genérico');
+        console.log(' Usando botón genérico');
         buttonFound = true;
       }
     }
 
     if (buttonFound) {
-      console.log('🔍 TRACE: Haciendo clic en botón final...');
+      console.log(' Haciendo clic en botón final...');
       await finalSubmitButton.click();
-      console.log('🔍 TRACE: Clic en botón final completado');
+      console.log(' Clic en botón final completado');
       await page.waitForTimeout(3000);
     } else {
       console.log('⚠️ TRACE: No se encontró ningún botón de envío, continuando...');
     }
 
   } catch (error) {
-    console.log(`🔍 TRACE: Error con botón final: ${error}`);
+    
   }
 
 
   // --- REGRESAR AL ADMINISTRADOR DE SERVICIOS ---
-  console.log('🔍 TRACE: Regresando al administrador de servicios...');
+  console.log(' Regresando al administrador de servicios...');
   await showStepMessage(page, '🏠 REGRESANDO AL ADMINISTRADOR DE SERVICIOS');
 
   try {
     // Estrategia 1: Esperar regreso automático con múltiples indicadores
-    console.log('🔍 TRACE: Esperando regreso automático al administrador...');
+    console.log(' Esperando regreso automático al administrador...');
 
     // Buscar múltiples indicadores de que estamos en el administrador
     const indicators = [
@@ -1159,11 +1154,11 @@ test('Editar servicio', async ({ page }) => {
     for (let i = 0; i < indicators.length; i++) {
       try {
         await expect(indicators[i]).toBeVisible({ timeout: 3000 });
-        console.log(`🔍 TRACE: Indicador ${i + 1} encontrado - regreso automático confirmado`);
+        
         foundIndicator = true;
         break;
       } catch (error) {
-        console.log(`🔍 TRACE: Indicador ${i + 1} no encontrado`);
+        
       }
     }
 
@@ -1173,20 +1168,20 @@ test('Editar servicio', async ({ page }) => {
 
   } catch (error) {
     console.log('⚠️ TRACE: No se pudo confirmar el regreso automático, navegando manualmente...');
-    console.log(`🔍 TRACE: Error: ${error}`);
+    
 
     // Estrategia 2: Navegación manual como respaldo
-    console.log('🔍 TRACE: Iniciando navegación manual...');
+    console.log(' Iniciando navegación manual...');
     await page.goto(PROVIDER_SERVICES_URL);
     await page.waitForTimeout(3000);
 
     // Verificar que la navegación manual fue exitosa
     try {
       await expect(page.getByText('Crear servicio')).toBeVisible({ timeout: 10000 });
-      console.log('🔍 TRACE: Navegación manual exitosa - "Crear servicio" encontrado');
+      console.log(' Navegación manual exitosa - "Crear servicio" encontrado');
     } catch (navError) {
       console.log('⚠️ TRACE: Navegación manual completada pero sin confirmación');
-      console.log(`🔍 TRACE: Error de navegación: ${navError}`);
+      
     }
   }
 
@@ -1295,11 +1290,11 @@ test('Activar servicio', async ({ page }) => {
     const cardButton = serviceCards.nth(i);
     const isVisible = await cardButton.isVisible().catch(() => false);
     if (!isVisible) {
-      console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+      
       continue;
     }
 
-    console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (índice aleatorio)...`);
+    
     await cardButton.click();
     await page.waitForTimeout(1500); // Esperar más tiempo para que el menú se abra
 
@@ -1317,13 +1312,13 @@ test('Activar servicio', async ({ page }) => {
     }
 
     // Cerrar el menú si no es el servicio desactivado
-    console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Activar" (está activo), buscando otro...`);
+    
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
   }
 
   if (!servicioDesactivadoEncontrado || !threeDotsButton) {
-    console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+    
     throw new Error(`❌ No se encontró ningún servicio desactivado para activar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
   }
 
@@ -1367,11 +1362,11 @@ test('Activar servicio', async ({ page }) => {
       const cardButton = serviceCards.nth(i);
       const isVisible = await cardButton.isVisible().catch(() => false);
       if (!isVisible) {
-        console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+        
         continue;
       }
 
-      console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (continuando búsqueda)...`);
+      
       await cardButton.click();
       await page.waitForTimeout(1500);
 
@@ -1387,14 +1382,14 @@ test('Activar servicio', async ({ page }) => {
         break;
       }
 
-      console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Activar" (está activo), buscando otro...`);
+      
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
     }
 
     // Si después de buscar en todos los servicios restantes no se encontró ninguno desactivado, fallar
     if (!servicioDesactivadoEncontrado || !threeDotsButton) {
-      console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+      
       throw new Error(`❌ No se encontró ningún servicio desactivado para activar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
     }
 
@@ -1402,7 +1397,7 @@ test('Activar servicio', async ({ page }) => {
   }
 
   // --- ACTIVAR SERVICIO ---
-  console.log('🔍 TRACE: Activando servicio...');
+  console.log(' Activando servicio...');
   await showStepMessage(page, '🟢 ACTIVANDO SERVICIO');
   await page.waitForTimeout(1000);
 
@@ -1470,11 +1465,11 @@ test('Desactivar servicio', async ({ page }) => {
     const cardButton = serviceCards.nth(i);
     const isVisible = await cardButton.isVisible().catch(() => false);
     if (!isVisible) {
-      console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+      
       continue;
     }
 
-    console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (índice aleatorio)...`);
+    
     await cardButton.click();
     await page.waitForTimeout(1500); // Esperar más tiempo para que el menú se abra
 
@@ -1492,13 +1487,13 @@ test('Desactivar servicio', async ({ page }) => {
     }
 
     // Cerrar el menú si no es el servicio activo
-    console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Desactivar" (está desactivado), buscando otro...`);
+    
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
   }
 
   if (!servicioActivoEncontrado || !threeDotsButton) {
-    console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+    
     throw new Error(`❌ No se encontró ningún servicio activo para desactivar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
   }
 
@@ -1542,11 +1537,11 @@ test('Desactivar servicio', async ({ page }) => {
       const cardButton = serviceCards.nth(i);
       const isVisible = await cardButton.isVisible().catch(() => false);
       if (!isVisible) {
-        console.log(`🔍 TRACE: Botón ${i + 1} no visible, saltando...`);
+        
         continue;
       }
 
-      console.log(`🔍 TRACE: Probando botón ${i + 1} de ${totalCards} (continuando búsqueda)...`);
+      
       await cardButton.click();
       await page.waitForTimeout(1500);
 
@@ -1562,14 +1557,14 @@ test('Desactivar servicio', async ({ page }) => {
         break;
       }
 
-      console.log(`🔍 TRACE: Botón ${i + 1} no tiene "Desactivar" (está desactivado), buscando otro...`);
+      
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
     }
 
     // Si después de buscar en todos los servicios restantes no se encontró ninguno activo, fallar
     if (!servicioActivoEncontrado || !threeDotsButton) {
-      console.log(`🔍 TRACE: Total de botones encontrados: ${totalCards}`);
+      
       throw new Error(`❌ No se encontró ningún servicio activo para desactivar. Se revisaron ${totalCards} servicios en orden aleatorio.`);
     }
 
@@ -1577,7 +1572,7 @@ test('Desactivar servicio', async ({ page }) => {
   }
 
   // --- DESACTIVAR SERVICIO ---
-  console.log('🔍 TRACE: Desactivando servicio...');
+  console.log(' Desactivando servicio...');
   await showStepMessage(page, '🔴 DESACTIVANDO SERVICIO');
   await page.waitForTimeout(1000);
 

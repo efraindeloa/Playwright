@@ -115,12 +115,14 @@ test.use({
   });
   
   test('Login', async ({ page }) => {
+    await showStepMessage(page, '🔐 VALIDANDO LOGIN AUTOMÁTICO');
     // El login ya se ejecutó en beforeEach
     console.log('✅ Login completado automáticamente');
   });
 
   test('Datos personales', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de datos personales...');
 
     // --- DATOS PERSONALES ---
     await showStepMessage(page, '👤 LOCALIZANDO SECCIÓN DE DATOS PERSONALES');
@@ -159,10 +161,12 @@ test.use({
 
     await showStepMessage(page, '✅ VALIDANDO QUE LOS DATOS SE ACTUALIZARON CORRECTAMENTE');
     await expect(seccionDatosPersonales.locator('p', { hasText: 'NuevoNombreQA NuevoApellidoQA' })).toBeVisible();
+    console.log('✅ Datos personales actualizados correctamente');
   });
 
   test('Datos del negocio', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de datos del negocio...');
   
     // --- DATOS DEL NEGOCIO ---
     await showStepMessage(page, '🏢 LOCALIZANDO SECCIÓN DE DATOS DEL NEGOCIO');
@@ -204,10 +208,12 @@ test.use({
 
     await showStepMessage(page, '✅ VALIDANDO QUE LOS DATOS DEL NEGOCIO SE ACTUALIZARON');
     await expect(seccionDatosNegocio.locator('p', { hasText: 'Nuevo Negocio QA' })).toBeVisible();
+    console.log('✅ Datos del negocio actualizados correctamente');
   });
 
   test('Presencia digital', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de presencia digital...');
    
     // --- PRESENCIA DIGITAL ---
     await showStepMessage(page, '🌐 LOCALIZANDO SECCIÓN DE PRESENCIA DIGITAL');
@@ -233,10 +239,12 @@ test.use({
     await expect(guardarPresenciaBtn).toBeVisible({ timeout: 15000 });
     await guardarPresenciaBtn.scrollIntoViewIfNeeded();
     await guardarPresenciaBtn.click();
+    console.log('✅ Presencia digital guardada correctamente');
   });
 
   test('Foto de perfil', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de cambio de foto de perfil...');
   
     // --- CAMBIAR FOTO DE PERFIL ---
     await showStepMessage(page, '📸 LOCALIZANDO CONTENEDOR DE FOTO DE PERFIL');
@@ -349,6 +357,7 @@ test.use({
 
   test('Sección Opciones', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de sección de opciones...');
 
     // --- OPCIONES ---
     await showStepMessage(page, '⚙️ LOCALIZANDO SECCIÓN DE OPCIONES');
@@ -398,6 +407,7 @@ test.use({
       .filter({ has: page.locator('p:text("Solicitar eliminacion de cuenta")') })
       .first();
     await expect(botonEliminarCuenta.locator('i.icon-trash')).toBeVisible();
+    console.log('✅ Todas las opciones están presentes y visibles');
   });
 
   test('Cambiar contraseña', async ({ page }) => {
@@ -611,6 +621,7 @@ test.use({
 
   test('Métodos de pago', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de métodos de pago...');
 
     // --- OPCIONES ---
     await showStepMessage(page, '💳 NAVEGANDO A MÉTODOS DE PAGO');
@@ -694,6 +705,7 @@ test.use({
       .filter({ has: page.locator('p', { hasText: detalleEditado }) })
       .first();
     await expect(metodoEditado).toBeVisible({ timeout: 15000 });
+    console.log('✅ Método de pago editado correctamente');
 
     // Eliminación del método de pago
     await showStepMessage(page, '🗑️ ELIMINANDO MÉTODO DE PAGO');
@@ -721,10 +733,12 @@ test.use({
     ]);
 
     await expect(seccionOpciones).toBeVisible({ timeout: 15000 });
+    console.log('✅ Prueba de métodos de pago completada exitosamente');
   });
 
   test('Cerrar sesión', async ({ page }) => {
     await navigateToProfile(page);
+    console.log('🚀 Iniciando prueba de cierre de sesión...');
 
     // --- NAVEGAR A CERRAR SESIÓN ---
     await showStepMessage(page, '🚪 NAVEGANDO A CERRAR SESIÓN');
@@ -824,5 +838,6 @@ test.use({
     // Validar logo de Fiestamas
     const logoSvg = page.locator('svg#Capa_1').first();
     await expect(logoSvg).toBeVisible({ timeout: 5000 });
+    console.log('✅ Cierre de sesión completado correctamente');
   });
  

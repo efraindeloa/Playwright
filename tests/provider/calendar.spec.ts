@@ -31,7 +31,7 @@ test.describe('Gestión de calendario', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('navegar a calendario y validar estructura básica', async ({ page }) => {
+  test('Navegar a calendario y validar estructura básica', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A PÁGINA DE CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -137,7 +137,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Estructura básica del calendario validada correctamente');
   });
 
-  test('navegar entre meses del calendario', async ({ page }) => {
+  test('Navegar entre meses del calendario', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -215,7 +215,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Navegación múltiple de meses exitosa');
   });
 
-  test('validar estructura de días del calendario', async ({ page }) => {
+  test('Validar estructura de días del calendario', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -270,7 +270,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Estructura de días del calendario validada correctamente');
   });
 
-  test('seleccionar día del calendario', async ({ page }) => {
+  test('Seleccionar día del calendario', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -346,7 +346,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Sección de eventos visible después de seleccionar día');
   });
 
-  test('validar días con eventos (indicadores de color)', async ({ page }) => {
+  test('Validar días con eventos (indicadores de color)', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -409,7 +409,7 @@ test.describe('Gestión de calendario', () => {
     }
   });
 
-  test('validar estado vacío cuando no hay eventos', async ({ page }) => {
+  test('Validar estado vacío cuando no hay eventos', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -518,7 +518,7 @@ test.describe('Gestión de calendario', () => {
     }
   });
 
-  test('validar botón agendar evento desde calendario', async ({ page }) => {
+  test('Validar botón agendar evento desde calendario', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -610,7 +610,7 @@ test.describe('Gestión de calendario', () => {
     }
   });
 
-  test('navegar de regreso desde calendario', async ({ page }) => {
+  test('Navegar de regreso desde calendario', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -653,7 +653,7 @@ test.describe('Gestión de calendario', () => {
     }
   });
 
-  test('seleccionar día con eventos del mes siguiente', async ({ page }) => {
+  test('Seleccionar día con eventos del mes siguiente', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -842,7 +842,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Prueba de selección de día del mes siguiente completada exitosamente');
   });
 
-  test('validar eventos agendados cuando hay eventos', async ({ page }) => {
+  test('Validar eventos agendados cuando hay eventos', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -1048,7 +1048,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Prueba de botón agendar evento, selección de categoría y llenado de datos completada exitosamente');
   });
 
-  test('seleccionar evento de un día con eventos y validar redirección a negociación', async ({ page }) => {
+  test('Seleccionar evento de un día con eventos y validar redirección a negociación', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
@@ -1248,7 +1248,7 @@ test.describe('Gestión de calendario', () => {
     console.log('✅ Prueba de selección de evento y redirección a negociación completada exitosamente');
   });
 
-  test('validar responsividad y elementos visuales', async ({ page }) => {
+  test('Validar responsividad y elementos visuales', async ({ page }) => {
     // --- NAVEGAR A CALENDARIO ---
     await showStepMessage(page, '📅 NAVEGANDO A CALENDARIO');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);

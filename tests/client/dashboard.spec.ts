@@ -578,6 +578,10 @@ test.describe('Dashboard de cliente', () => {
     await expect(page.getByText(/Bienvenido/i)).toBeVisible();
   });
 
+  // ============================================
+  // GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+  // ============================================
+
   test('Se muestran todas las secciones principales del dashboard', async ({ page }) => {
     await showStepMessage(page, '📋 VALIDANDO SECCIONES PRINCIPALES DEL DASHBOARD');
     await page.waitForTimeout(1000);
@@ -602,11 +606,9 @@ test.describe('Dashboard de cliente', () => {
     // Botón desktop: tiene clase "lg:flex" y es un botón cuadrado con icono grande
     // Botón móvil: tiene clase "lg:hidden" y es un botón horizontal
     const viewportWidth = page.viewportSize()?.width || 1400;
-    console.log(`📱 Viewport width: ${viewportWidth}px`);
     
     if (viewportWidth >= 1024) {
       // Desktop: buscar botón con clase "lg:flex" y estructura específica
-      console.log('🔍 Buscando botón "Nueva fiesta" (versión desktop)...');
       const botonNuevaFiestaDesktop = page.locator('button.hidden.lg\\:flex').filter({
         has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
       });
@@ -617,13 +619,11 @@ test.describe('Dashboard de cliente', () => {
           await expect(botonNuevaFiestaDesktop.first()).toBeVisible();
           console.log('✅ Botón "Nueva fiesta" encontrado y visible (versión desktop)');
         } else {
-          console.log('⚠️ Botón "Nueva fiesta" encontrado pero oculto, intentando fallback...');
         }
       }
       
       // Fallback: buscar cualquier botón con "Nueva fiesta" o "Nuevo evento" que esté visible
       if (await botonNuevaFiestaDesktop.count() === 0 || !(await botonNuevaFiestaDesktop.first().isVisible().catch(() => false))) {
-        console.log('🔍 Buscando botón "Nueva fiesta" (fallback)...');
         const botonVisible = page.locator('button').filter({
           has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
         }).first();
@@ -1014,6 +1014,128 @@ test.describe('Dashboard de cliente', () => {
     await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DE BARRA SUPERIOR FINALIZADA');
     console.log('✅ Validación completa de elementos de la barra superior finalizada');
   });
+
+  test('Se muestran conversaciones en la sección Fiestachat', async ({ page }) => {
+    await showStepMessage(page, '💬 VALIDANDO Y NAVEGANDO A CHATS');
+    await page.waitForTimeout(1000);
+    // Buscar enlace de chats (puede estar en mobile o desktop)
+    console.log('🔍 Buscando enlace de chats...');
+    const enlaceChatsMobile = page.locator('a[href="/client/chats"]').filter({
+      has: page.locator('i.icon-message-square')
+    });
+    const enlaceChatsDesktop = page.locator('div.lg\\:block nav a[href="/client/chats"]');
+    
+    let enlaceChats: ReturnType<typeof page.locator> | null = null;
+    
+    if (await enlaceChatsDesktop.count() > 0) {
+      enlaceChats = enlaceChatsDesktop.first();
+      await expect(enlaceChats).toBeVisible();
+      console.log('✅ Enlace de chats encontrado (desktop)');
+      
+      // Validar contador de mensajes antes de hacer clic
+      const contador = enlaceChats.locator('div.absolute').filter({
+        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
+      }).locator('p, div').filter({
+        hasText: /\d+/
+      }).first();
+      
+      const contadorVisible = await contador.isVisible().catch(() => false);
+      if (contadorVisible) {
+        const textoContador = await contador.textContent();
+        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
+        if (numeroContador !== null && !isNaN(numeroContador)) {
+          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
+        }
+      } else {
+        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
+      }
+      
+      console.log('🖱️ Haciendo clic en enlace de chats...');
+      await enlaceChats.click();
+    } else if (await enlaceChatsMobile.count() > 0) {
+      enlaceChats = enlaceChatsMobile.first();
+      await expect(enlaceChats).toBeVisible();
+      console.log('✅ Enlace de chats encontrado (mobile)');
+      
+      // Validar contador de mensajes antes de hacer clic
+      const contador = enlaceChats.locator('div.absolute').filter({
+        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
+      }).locator('p, div').filter({
+        hasText: /\d+/
+      }).first();
+      
+      const contadorVisible = await contador.isVisible().catch(() => false);
+      if (contadorVisible) {
+        const textoContador = await contador.textContent();
+        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
+        if (numeroContador !== null && !isNaN(numeroContador)) {
+          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
+        }
+      } else {
+        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
+      }
+      
+      console.log('🖱️ Haciendo clic en enlace de chats...');
+      await enlaceChats.click();
+    } else {
+      console.log('⚠️ No se encontró el enlace de chats');
+    }
+    
+    if (enlaceChats) {
+      await expect(page).toHaveURL(CHATS_URL);
+      console.log('✅ Navegación a chats exitosa');
+    }
+
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+
+    await showStepMessage(page, '❤️ NAVEGANDO A FAVORITOS');
+    await page.waitForTimeout(1000);
+    // Buscar enlace de favoritos (solo desktop)
+    console.log('🔍 Buscando enlace de favoritos...');
+    const enlaceFavoritos = page.locator('div.lg\\:block nav a[href="/client/favorites"]');
+    if (await enlaceFavoritos.count() > 0) {
+      await expect(enlaceFavoritos.first()).toBeVisible();
+      console.log('✅ Enlace de favoritos encontrado, haciendo clic...');
+      await enlaceFavoritos.first().click();
+      await expect(page).toHaveURL(FAVORITES_URL);
+      console.log('✅ Navegación a favoritos exitosa');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+    } else {
+      console.log('⚠️ Enlace de favoritos no encontrado (solo visible en desktop)');
+    }
+
+    await showStepMessage(page, '👤 NAVEGANDO A PERFIL');
+    await page.waitForTimeout(1000);
+    // Buscar enlace de perfil (puede estar en mobile o desktop)
+    console.log('🔍 Buscando enlace de perfil...');
+    const enlacePerfilMobile = page.locator('a[href="/client/profile"]').filter({
+      has: page.locator('i.icon-user')
+    });
+    const enlacePerfilDesktop = page.locator('div.lg\\:block nav a[href="/client/profile"]');
+    
+    if (await enlacePerfilDesktop.count() > 0) {
+      await expect(enlacePerfilDesktop.first()).toBeVisible();
+      console.log('✅ Enlace de perfil encontrado (desktop), haciendo clic...');
+      await enlacePerfilDesktop.first().click();
+    } else if (await enlacePerfilMobile.count() > 0) {
+      await expect(enlacePerfilMobile.first()).toBeVisible();
+      console.log('✅ Enlace de perfil encontrado (mobile), haciendo clic...');
+      await enlacePerfilMobile.first().click();
+    } else {
+      console.log('⚠️ No se encontró el enlace de perfil');
+    }
+    await expect(page).toHaveURL(PROFILE_URL);
+    console.log('✅ Navegación a perfil exitosa');
+
+    await page.goto(DASHBOARD_URL);
+    console.log('✅ Prueba de navegación de barra superior completada');
+  });
+
+  // ============================================
+  // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
+  // ============================================
 
   test('Navega a Chats, Favoritos y Perfil desde la barra superior', async ({ page }) => {
     await showStepMessage(page, '💬 VALIDANDO Y NAVEGANDO A CHATS');
@@ -1437,8 +1559,6 @@ test.describe('Dashboard de cliente', () => {
     const notificationText = await firstNotification.textContent();
     const urlAntesClick = page.url();
     
-    console.log(`📋 Contenido de la notificación: "${notificationText?.trim() || 'N/A'}"`);
-    console.log(`🌐 URL actual: ${urlAntesClick}`);
     
     // Verificar que la notificación es clickeable
     await expect(firstNotification).toBeVisible();
@@ -1457,7 +1577,6 @@ test.describe('Dashboard de cliente', () => {
     await safeWaitForTimeout(page, 1000);
     
     const urlDespuesClick = page.url();
-    console.log(`🌐 URL después del clic: ${urlDespuesClick}`);
     
     // Verificar que la URL cambió
     expect(urlDespuesClick).not.toBe(urlAntesClick);
@@ -1474,7 +1593,7 @@ test.describe('Dashboard de cliente', () => {
     if (esPaginaCotizacion) {
       console.log('✅ Navegación exitosa a página de cotización');
     } else {
-      console.log(`⚠️ La URL no parece ser de cotización: ${urlDespuesClick}`);
+      console.log('⚠️ La URL no parece ser de cotización');
       // No fallar el test, solo advertir, ya que puede haber diferentes formatos de URL
     }
     
@@ -2362,12 +2481,14 @@ test.describe('Dashboard de cliente', () => {
   test('Se muestra el botón Agregar Servicios y se prueba su funcionalidad', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
     
+    await showStepMessage(page, '➕ AGREGANDO SERVICIO A EVENTO EXISTENTE');
+    console.log('🚀 Iniciando flujo de agregar servicio a evento existente...');
+    
     // Esta prueba ejecuta el flujo completo de agregar un servicio a un evento existente
     // Reutiliza la función agregarServicioAEventoExistente de cliente-eventos.spec.ts
     // que selecciona un evento, hace clic en "Agregar servicios", busca un servicio
     // y completa el flujo sin llenar los datos del evento (porque ya están)
     
-    console.log('🚀 Iniciando flujo de agregar servicio a evento existente...');
     await agregarServicioAEventoExistente(page);
     console.log('✅ Flujo de agregar servicio a evento existente finalizado');
   });
@@ -3356,14 +3477,20 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa del calendario finalizada');
   });
 
+  // ============================================
+  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
+  // ============================================
+
   test('Crear una nueva fiesta desde el dashboard', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
+    
+    await showStepMessage(page, '🎉 CREANDO NUEVA FIESTA DESDE EL DASHBOARD');
+    console.log('🚀 Iniciando flujo completo de creación de evento...');
     
     // Esta prueba ejecuta el flujo completo de creación de evento
     // Reutiliza la función ejecutarFlujoCompletoCreacionEvento de cliente-eventos.spec.ts
     // para evitar duplicación de código
     
-    console.log('🚀 Iniciando flujo completo de creación de evento...');
     await ejecutarFlujoCompletoCreacionEvento(page);
     console.log('✅ Flujo completo de creación de evento finalizado');
   });

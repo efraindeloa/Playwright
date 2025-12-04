@@ -7,6 +7,7 @@ import {
   REGISTRATION_EMAIL_DEFAULT
 } from '../config';
 import { waitForVerificationCode } from '../utils/gmail-helper';
+import { showStepMessage, safeWaitForTimeout } from '../utils';
 
 // Configurar viewport para que la página se muestre correctamente
 test.use({
@@ -590,11 +591,21 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
  * Test de registro de nuevo usuario como Proveedor
  */
 test('Registrar nuevo Proveedor', async ({ page }) => {
+  await showStepMessage(page, '📝 INICIANDO REGISTRO DE NUEVO PROVEEDOR');
+  console.log('🚀 Iniciando proceso de registro de nuevo proveedor...');
+  
   // Navegar a la página de registro
   await page.goto(`${DEFAULT_BASE_URL}/login`);
+  await safeWaitForTimeout(page, 1000);
+  
+  await showStepMessage(page, '🔄 EJECUTANDO FLUJO DE REGISTRO');
+  console.log('📋 Ejecutando flujo completo de registro...');
   
   // Ejecutar el flujo de registro como proveedor
   await registerProvider(page);
+  
+  await showStepMessage(page, '✅ REGISTRO COMPLETADO');
+  console.log('✅ Proceso de registro de proveedor completado exitosamente');
   
   // Aquí puedes agregar más validaciones según sea necesario
   // Por ejemplo, verificar que se haya completado el registro exitosamente

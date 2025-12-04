@@ -276,23 +276,17 @@ test.describe('Cotizaciones', () => {
   test('Validar que se muestran todos los elementos de una cotización', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos
 
-    console.log('🚀 INICIANDO PRUEBA: Validar elementos completos de la página de cotización');
-    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
+    console.log('🚀 Iniciando validación de elementos completos de la página de cotización...');
     
     await showStepMessage(page, '📋 VALIDANDO ELEMENTOS COMPLETOS DE LA PÁGINA DE COTIZACIÓN');
     await safeWaitForTimeout(page, 1000);
 
     // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN (excluyendo canceladas)
-    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
     await showStepMessage(page, '🔔 OBTENIENDO NOTIFICACIÓN Y NAVEGANDO');
     await safeWaitForTimeout(page, 1000);
 
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
     
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
-    if (quotationId) {
-      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
-    }
     console.log('✅ Notificación obtenida correctamente');
 
     // Guardar información de la notificación para comparar después
@@ -302,13 +296,11 @@ test.describe('Cotizaciones', () => {
     };
 
     // Hacer clic en la notificación
-    console.log('🖱️ Haciendo clic en la notificación...');
     await notificationButton.click();
     await safeWaitForTimeout(page, 3000);
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL actual después del clic: ${urlActual}`);
 
     // Verificar que estamos en una página de cotización
     const esPaginaCotizacion = 
@@ -324,7 +316,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Navegación exitosa a página de cotización');
 
     // 2. VALIDAR NAVBAR/NAVEGACIÓN
-    console.log('📄 PASO 2: Validando navbar/navegación...');
     await showStepMessage(page, '📄 VALIDANDO NAVBAR');
     await safeWaitForTimeout(page, 1000);
 
@@ -351,7 +342,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 3. VALIDAR INFORMACIÓN DEL EVENTO
-    console.log('📅 PASO 3: Validando información del evento...');
     await showStepMessage(page, '📅 VALIDANDO INFORMACIÓN DEL EVENTO');
     await safeWaitForTimeout(page, 1000);
 
@@ -423,7 +413,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 4. VALIDAR INFORMACIÓN DEL SERVICIO/PROVEEDOR
-    console.log('🏢 PASO 4: Validando información del servicio/proveedor...');
     await showStepMessage(page, '🏢 VALIDANDO INFORMACIÓN DEL SERVICIO');
     await safeWaitForTimeout(page, 1000);
 
@@ -520,7 +509,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 5. VALIDAR SECCIÓN DE COTIZACIÓN
-    console.log('📋 PASO 5: Validando sección de cotización...');
     await showStepMessage(page, '📋 VALIDANDO SECCIÓN DE COTIZACIÓN');
     await safeWaitForTimeout(page, 1000);
 
@@ -606,7 +594,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 6. VALIDAR BOTÓN "CANCELAR NEGOCIACIÓN" Y ACEPTAR CANCELACIÓN
-    console.log('❌ PASO 6: Validando botón "Cancelar negociación"...');
     await showStepMessage(page, '❌ VALIDANDO BOTÓN "CANCELAR NEGOCIACIÓN"');
     await safeWaitForTimeout(page, 1000);
 
@@ -623,7 +610,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 7. VALIDAR SECCIÓN DE NOTAS PERSONALES
-    console.log('📝 PASO 7: Validando sección de notas personales...');
     await showStepMessage(page, '📝 VALIDANDO SECCIÓN DE NOTAS PERSONALES');
     await safeWaitForTimeout(page, 1000);
 
@@ -712,7 +698,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 8. VALIDAR CHAT DE MENSAJES
-    console.log('💬 PASO 8: Validando chat de mensajes...');
     await showStepMessage(page, '💬 VALIDANDO CHAT DE MENSAJES');
     await safeWaitForTimeout(page, 1000);
 
@@ -853,7 +838,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 9. VALIDAR ENVÍO DE ARCHIVOS ADJUNTOS
-    console.log('📎 PASO 9: Validando envío de archivos adjuntos...');
     await showStepMessage(page, '📎 VALIDANDO ENVÍO DE ARCHIVOS ADJUNTOS');
     await safeWaitForTimeout(page, 1000);
 
@@ -882,7 +866,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 10. VALIDAR BOTÓN DE REGRESO AL DASHBOARD
-    console.log('🏠 PASO 10: Validando botón de regreso al dashboard...');
     await showStepMessage(page, '🏠 VALIDANDO BOTÓN DE REGRESO');
     await safeWaitForTimeout(page, 1000);
 
@@ -919,7 +902,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 11. VALIDAR OTROS ELEMENTOS COMUNES
-    console.log('🔍 PASO 11: Validando otros elementos comunes...');
     await showStepMessage(page, '🔍 VALIDANDO OTROS ELEMENTOS');
     await safeWaitForTimeout(page, 1000);
 
@@ -958,19 +940,11 @@ test.describe('Cotizaciones', () => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Validar otra cotización sin cancelar');
-    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
-
     await showStepMessage(page, '🔍 VALIDANDO OTRA COTIZACIÓN SIN CANCELAR');
     await safeWaitForTimeout(page, 1000);
 
     // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-    
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
-    if (quotationId) {
-      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
-    }
 
     // Asegurarse de estar en el dashboard antes de hacer clic
     const urlActualAntes = page.url();
@@ -1048,13 +1022,11 @@ test.describe('Cotizaciones', () => {
     }
 
     // Hacer clic en la notificación
-    console.log('🖱️ Haciendo clic en la notificación...');
     await notificationButtonFinal.click();
     await safeWaitForTimeout(page, 3000);
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL de cotización: ${urlActual}`);
 
     // Verificar que estamos en una página de cotización
     const esPaginaCotizacion = 
@@ -1089,7 +1061,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 3. AGREGAR UNA NOTA
-    console.log('📝 PASO 3: Agregando una nota...');
     await showStepMessage(page, '📝 AGREGANDO NOTA');
     await safeWaitForTimeout(page, 1000);
 
@@ -1169,7 +1140,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 4. ENVIAR UN MENSAJE
-    console.log('💬 PASO 4: Enviando un mensaje...');
     await showStepMessage(page, '💬 ENVIANDO MENSAJE');
     await safeWaitForTimeout(page, 1000);
 
@@ -1209,7 +1179,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 5. ADJUNTAR ARCHIVOS: DOCUMENTO E IMAGEN
-    console.log('📎 PASO 5: Adjuntando archivos (documento e imagen)...');
     await showStepMessage(page, '📎 ADJUNTANDO ARCHIVOS');
     await safeWaitForTimeout(page, 1000);
 
@@ -1714,7 +1683,6 @@ test.describe('Cotizaciones', () => {
 
     // 5.5. PROBAR BOTÓN DE CÁMARA
     // Nota: El botón de cámara se comporta igual que seleccionar "Galería" en el diálogo de adjuntos
-    console.log('📷 PASO 5.5: Probando botón de cámara (comportamiento igual a Galería)...');
     await showStepMessage(page, '📷 PROBANDO BOTÓN DE CÁMARA');
     await safeWaitForTimeout(page, 1000);
 
@@ -1882,7 +1850,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 6. ADJUNTAR UBICACIÓN
-    console.log('📍 PASO 6: Adjuntando ubicación...');
     await showStepMessage(page, '📍 ADJUNTANDO UBICACIÓN');
     await safeWaitForTimeout(page, 1000);
 
@@ -2081,19 +2048,11 @@ test.describe('Cotizaciones', () => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Cancelar una negociación');
-    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
-
     await showStepMessage(page, '❌ CANCELANDO NEGOCIACIÓN');
     await safeWaitForTimeout(page, 1000);
 
     // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-    
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
-    if (quotationId) {
-      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
-    }
 
     // Asegurarse de estar en el dashboard antes de hacer clic
     const urlActualAntes = page.url();
@@ -2171,13 +2130,11 @@ test.describe('Cotizaciones', () => {
     }
 
     // Hacer clic en la notificación
-    console.log('🖱️ Haciendo clic en la notificación...');
     await notificationButtonFinal.click();
     await safeWaitForTimeout(page, 3000);
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL de cotización: ${urlActual}`);
 
     // Verificar que estamos en una página de cotización
     const esPaginaCotizacion = 
@@ -2286,7 +2243,6 @@ test.describe('Cotizaciones', () => {
 
     // Verificar que se navegó (probablemente de vuelta al dashboard o a otra página)
     const urlDespuesCancelar = page.url();
-    console.log(`🌐 URL después de cancelar: ${urlDespuesCancelar}`);
     
     if (urlDespuesCancelar !== urlCotizacionActual) {
       console.log('✅ Navegación después de cancelar confirmada');
@@ -2608,19 +2564,11 @@ test.describe('Cotizaciones', () => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Agregar una nota');
-    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
-
     await showStepMessage(page, '📝 AGREGANDO NOTA');
     await safeWaitForTimeout(page, 1000);
 
     // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-    
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
-    if (quotationId) {
-      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
-    }
 
     // Asegurarse de estar en el dashboard antes de hacer clic
     const urlActualAntes = page.url();
@@ -2698,13 +2646,11 @@ test.describe('Cotizaciones', () => {
     }
 
     // Hacer clic en la notificación
-    console.log('🖱️ Haciendo clic en la notificación...');
     await notificationButtonFinal.click();
     await safeWaitForTimeout(page, 3000);
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL de cotización: ${urlActual}`);
 
     // Verificar que estamos en una página de cotización
     const esPaginaCotizacion = 
@@ -2720,7 +2666,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Navegación exitosa a página de cotización');
 
     // 2. AGREGAR UNA NOTA
-    console.log('📝 PASO 2: Agregando una nota...');
     await showStepMessage(page, '📝 AGREGANDO NOTA');
     await safeWaitForTimeout(page, 1000);
 
@@ -2810,7 +2755,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 3. VALIDAR BOTÓN "BORRAR TODO"
-    console.log('🧹 PASO 3: Validando botón "Borrar todo"...');
     await showStepMessage(page, '🧹 VALIDANDO BORRAR TODO');
     await safeWaitForTimeout(page, 1000);
 
@@ -2880,19 +2824,11 @@ test.describe('Cotizaciones', () => {
     test.setTimeout(180000); // 3 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Probar funcionalidad completa del chat');
-    console.log(`📊 Viewport: ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
-
     await showStepMessage(page, '💬 PROBANDO FUNCIONALIDAD COMPLETA DEL CHAT');
     await safeWaitForTimeout(page, 1000);
 
     // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    console.log('🔔 PASO 1: Obteniendo notificación y navegando...');
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-    
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
-    if (quotationId) {
-      console.log(`🆔 ID de cotización extraído: ${quotationId}`);
-    }
 
     // Asegurarse de estar en el dashboard antes de hacer clic
     const urlActualAntes = page.url();
@@ -2965,13 +2901,11 @@ test.describe('Cotizaciones', () => {
     }
 
     // Hacer clic en la notificación
-    console.log('🖱️ Haciendo clic en la notificación...');
     await notificationButtonFinal.click();
     await safeWaitForTimeout(page, 3000);
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL de cotización: ${urlActual}`);
 
     const esPaginaCotizacion = 
       urlActual.includes('/quotation') ||
@@ -3035,7 +2969,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 2. ENVIAR UN MENSAJE DE TEXTO
-    console.log('💬 PASO 2: Enviando un mensaje de texto...');
     await showStepMessage(page, '💬 ENVIANDO MENSAJE DE TEXTO');
     await safeWaitForTimeout(page, 1000);
 
@@ -3082,7 +3015,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Mensaje de texto enviado y verificado en el chat');
 
     // 3. ENVIAR ARCHIVO DE GALERÍA
-    console.log('🖼️ PASO 3: Enviando archivo de galería...');
     await showStepMessage(page, '🖼️ ENVIANDO ARCHIVO DE GALERÍA');
     await safeWaitForTimeout(page, 1000);
 
@@ -3164,7 +3096,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Archivo de galería enviado y verificado en el chat');
 
     // 4. ENVIAR DOCUMENTO
-    console.log('📄 PASO 4: Enviando documento...');
     await showStepMessage(page, '📄 ENVIANDO DOCUMENTO');
     await safeWaitForTimeout(page, 1000);
 
@@ -3237,7 +3168,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Documento enviado y verificado en el chat');
 
     // 5. ENVIAR UBICACIÓN
-    console.log('📍 PASO 5: Enviando ubicación...');
     await showStepMessage(page, '📍 ENVIANDO UBICACIÓN');
     await safeWaitForTimeout(page, 1000);
 
@@ -3318,7 +3248,6 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Ubicación enviada y verificada en el chat');
 
     // 6. ENVIAR DESDE CÁMARA
-    console.log('📷 PASO 6: Enviando desde cámara...');
     await showStepMessage(page, '📷 ENVIANDO DESDE CÁMARA');
     await safeWaitForTimeout(page, 1000);
 
@@ -3374,7 +3303,6 @@ test.describe('Cotizaciones', () => {
     }
 
     // 7. VERIFICACIÓN FINAL: Contar todos los mensajes
-    console.log('📊 PASO 7: Verificación final de mensajes...');
     await showStepMessage(page, '📊 VERIFICACIÓN FINAL');
     await safeWaitForTimeout(page, 1000);
 
@@ -3401,7 +3329,6 @@ test.describe('Cotizaciones', () => {
     // 1. OBTENER INFORMACIÓN DE LA NOTIFICACIÓN (excluyendo canceladas)
     const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
     
-    console.log(`📋 Contenido de la notificación: "${notificationText}"`);
 
     // Extraer información clave de la notificación
     const infoNotificacion: {
@@ -3439,7 +3366,6 @@ test.describe('Cotizaciones', () => {
     await page.waitForLoadState('networkidle');
 
     const urlActual = page.url();
-    console.log(`🌐 URL de cotización: ${urlActual}`);
 
     // 3. VALIDAR QUE LOS DATOS COINCIDEN
     await showStepMessage(page, '✅ VALIDANDO COINCIDENCIA DE DATOS');

@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 import { DEFAULT_BASE_URL } from '../config';
 import { showStepMessage, safeWaitForTimeout } from '../utils';
 
+// ============================================
+// GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+// ============================================
+
 test('Validar elementos técnicos únicos de la página de inicio', async ({ page }) => {
   test.setTimeout(60000);
 
@@ -181,6 +185,10 @@ test('Validar elementos técnicos únicos de la página de inicio', async ({ pag
   console.log('   se realizan en las pruebas de funcionalidad correspondientes.');
 });
 
+// ============================================
+// GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
+// ============================================
+
 test('Validar funcionalidad del navbar superior', async ({ page }) => {
   test.setTimeout(60000);
 
@@ -195,7 +203,7 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
   // 1️⃣ VALIDAR LOGO
   await showStepMessage(page, '🏠 VALIDANDO LOGO DEL NAVBAR');
   await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando logo del navbar...');
+  console.log('🚀 Iniciando validación del navbar superior...');
   
   const navbar = page.locator('nav.z-50.fixed.w-dvw.text-neutral-1000.bg-neutral-0');
   await expect(navbar).toBeVisible({ timeout: 10000 });
@@ -681,7 +689,6 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
         // Verificar la URL actual
         try {
           const urlActual = page.url();
-          console.log(`🔍 URL actual: ${urlActual}`);
         } catch (e) {
           console.log('⚠️ No se pudo obtener la URL actual');
         }
