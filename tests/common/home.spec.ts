@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { DEFAULT_BASE_URL } from '../config';
 import { showStepMessage, safeWaitForTimeout } from '../utils';
 
-test('Validar estructura HTML de la página de inicio', async ({ page }) => {
+test('Validar elementos técnicos únicos de la página de inicio', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -11,7 +11,11 @@ test('Validar estructura HTML de la página de inicio', async ({ page }) => {
 
   await page.goto(homeUrl);
     await page.waitForLoadState('networkidle');
-  await page.waitForTimeout(2000);
+  await safeWaitForTimeout(page, 2000);
+
+  // NOTA: Esta prueba valida solo elementos técnicos únicos que no se cubren en otras pruebas.
+  // Las validaciones de navbar, hero, categorías, eventos, estímulos y footer se realizan
+  // en las pruebas de funcionalidad correspondientes.
 
   // 1️⃣ VALIDAR ESTRUCTURA DEL BODY
   await showStepMessage(page, '🔍 VALIDANDO ESTRUCTURA DEL BODY');
@@ -58,301 +62,10 @@ test('Validar estructura HTML de la página de inicio', async ({ page }) => {
     // No fallar la prueba si no se encuentran, ya que pueden estar en formato diferente
   }
 
-  // 3️⃣ VALIDAR NAVBAR
-  await showStepMessage(page, '🧭 VALIDANDO NAVBAR');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Navbar...');
-  const navbar = page.locator('nav.z-50.fixed.w-dvw.text-neutral-1000.bg-neutral-0');
-  await expect(navbar).toBeVisible({ timeout: 10000 });
-  
-  // Logo (puede estar en desktop o mobile)
-  const logo = navbar.locator('svg#Capa_1');
-  const logoCount = await logo.count();
-  expect(logoCount).toBeGreaterThanOrEqual(1);
-  
-  // Botones de navegación - buscar múltiples variantes (desktop/mobile)
-  // Botón de búsqueda
-  const searchButtons = navbar.locator('button:has(i.icon-search)');
-  const searchButtonsCount = await searchButtons.count();
-  let searchButtonFound = false;
-  
-  if (searchButtonsCount > 0) {
-    // Verificar si al menos uno es visible
-  for (let i = 0; i < searchButtonsCount; i++) {
-    const isVisible = await searchButtons.nth(i).isVisible().catch(() => false);
-    if (isVisible) {
-        searchButtonFound = true;
-        console.log(`✅ Botón de búsqueda encontrado y visible (índice ${i})`);
-      break;
-    }
-  }
-  }
-  
-  if (!searchButtonFound) {
-    // Buscar por icono directamente
-    const searchIcon = page.locator('i.icon-search');
-    const searchIconCount = await searchIcon.count();
-    if (searchIconCount > 0) {
-      for (let i = 0; i < searchIconCount; i++) {
-        const isVisible = await searchIcon.nth(i).isVisible().catch(() => false);
-    if (isVisible) {
-          searchButtonFound = true;
-          console.log(`✅ Icono de búsqueda encontrado y visible (índice ${i})`);
-      break;
-        }
-      }
-    }
-  }
-  
-  if (!searchButtonFound) {
-    console.log('⚠️ Botón de búsqueda no visible (puede estar oculto según el viewport)');
-  }
-  
-  // Botón de usuario
-  const userButtons = navbar.locator('button:has(i.icon-user)');
-  const userButtonsCount = await userButtons.count();
-  let userButtonFound = false;
-  
-  if (userButtonsCount > 0) {
-    // Verificar si al menos uno es visible
-    for (let i = 0; i < userButtonsCount; i++) {
-    const isVisible = await userButtons.nth(i).isVisible().catch(() => false);
-    if (isVisible) {
-        userButtonFound = true;
-        console.log(`✅ Botón de usuario encontrado y visible (índice ${i})`);
-      break;
-    }
-  }
-  }
-  
-  if (!userButtonFound) {
-    // Buscar por icono directamente
-    const userIcon = page.locator('i.icon-user');
-    const userIconCount = await userIcon.count();
-    if (userIconCount > 0) {
-      for (let i = 0; i < userIconCount; i++) {
-        const isVisible = await userIcon.nth(i).isVisible().catch(() => false);
-      if (isVisible) {
-          userButtonFound = true;
-          console.log(`✅ Icono de usuario encontrado y visible (índice ${i})`);
-        break;
-        }
-      }
-    }
-  }
-  
-  if (!userButtonFound) {
-    console.log('⚠️ Botón de usuario no visible (puede estar oculto según el viewport)');
-  }
-
-  // 4️⃣ VALIDAR HERO BANNER
-  await showStepMessage(page, '🎯 VALIDANDO HERO BANNER');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Hero Banner...');
-  const heroImage = page.locator('img[alt="Hero_Image"]');
-  await expect(heroImage).toBeVisible({ timeout: 10000 });
-  
-  // Validar que hay contenido en el hero
-  const heroContent = page.locator('main').locator('div').filter({
-    has: heroImage
-  });
-  await expect(heroContent.first()).toBeVisible();
-  
-  // Validar puntos del slider (pueden estar dentro del hero)
-  // Buscar botones con clase rounded-full que sean puntos del slider
-  // Los puntos del slider suelen ser botones pequeños sin texto, solo con fondo
-  const allRoundedButtons = page.locator('button.rounded-full');
-  const allRoundedButtonsCount = await allRoundedButtons.count();
-  
-  let sliderPointsCount = 0;
-  
-  // Buscar botones que parezcan ser puntos del slider (sin texto o con texto muy corto)
-  for (let i = 0; i < Math.min(allRoundedButtonsCount, 10); i++) {
-    const button = allRoundedButtons.nth(i);
-    const buttonText = await button.textContent().catch(() => '');
-    const isVisible = await button.isVisible().catch(() => false);
-    
-    // Los puntos del slider suelen ser botones pequeños sin texto o con texto muy corto
-    if (isVisible && (!buttonText || buttonText.trim().length <= 2)) {
-      sliderPointsCount++;
-    }
-  }
-  
-  // También buscar dentro del contenedor del hero específicamente
-  const heroSliderPoints = heroContent.locator('button.rounded-full');
-  const heroSliderPointsCount = await heroSliderPoints.count();
-  
-  const totalSliderPoints = Math.max(sliderPointsCount, heroSliderPointsCount);
-  
-  if (totalSliderPoints >= 2) {
-    console.log(`✅ Slider del hero encontrado con ${totalSliderPoints} puntos`);
-  } else if (totalSliderPoints > 0) {
-    console.log(`⚠️ Slider del hero encontrado con solo ${totalSliderPoints} punto(s) (puede ser normal si hay pocos banners)`);
-  } else {
-    console.log('⚠️ Puntos del slider no encontrados (puede ser normal si el slider no está presente o tiene otro formato)');
-    // No fallar la prueba si no se encuentran puntos, ya que pueden variar según la configuración
-  }
-
-  // 5️⃣ VALIDAR CATEGORÍAS (10 categorías)
-  await showStepMessage(page, '📂 VALIDANDO CATEGORÍAS');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Categorías...');
-  const expectedCategories = [
-    'Alimentos', 'Bebidas', 'Lugares', 'Mobiliario', 'Entretenimiento',
-    'Música', 'Decoración', 'Invitaciones', 'Mesa de regalos', 'Servicios Especializados'
-  ];
-  
-  const categoryButtons = page.locator('button').filter({ 
-    has: page.locator('img[alt="Ícono de categoría"]')
-  });
-  await expect(categoryButtons).toHaveCount(10, { timeout: 10000 });
-  
-  for (const categoryName of expectedCategories) {
-    const categoryButton = categoryButtons.filter({ 
-      hasText: new RegExp(categoryName, 'i')
-    }).first();
-    await expect(categoryButton).toBeVisible({ timeout: 5000 });
-    
-    const categoryImage = categoryButton.locator('img[alt="Ícono de categoría"]');
-    await expect(categoryImage).toBeVisible();
-  }
-
-  // 6️⃣ VALIDAR TÍTULO DE SECCIÓN DE EVENTOS
-  await showStepMessage(page, '📝 VALIDANDO TÍTULO DE SECCIÓN DE EVENTOS');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando título de sección de eventos...');
-  const sectionTitle = page.locator('h4, h6').filter({ 
-    hasText: /¡Elige qué quieres celebrar!/i 
-  });
-  const sectionTitleCount = await sectionTitle.count();
-  
-  if (sectionTitleCount > 0) {
-    // Verificar si alguno es visible
-    let titleVisible = false;
-    for (let i = 0; i < sectionTitleCount; i++) {
-      const isVisible = await sectionTitle.nth(i).isVisible().catch(() => false);
-    if (isVisible) {
-        titleVisible = true;
-        console.log(`✅ Título de sección encontrado y visible (índice ${i})`);
-      break;
-    }
-  }
-    
-    if (!titleVisible) {
-      console.log('⚠️ Título de sección encontrado en el DOM pero no visible (puede estar oculto según el viewport)');
-    }
-  } else {
-    console.log('⚠️ Título de sección no encontrado');
-  }
-  
-  // 7️⃣ VALIDAR GRID DE EVENTOS (12 tipos de eventos)
-  await showStepMessage(page, '🎉 VALIDANDO GRID DE EVENTOS');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Grid de Eventos...');
-  const expectedEvents = [
-    'Cumpleaños', 'Baby Shower', 'Bautizo', 'Boda', 'Revelación',
-    'XV Años', 'Graduaciones', 'Divorcio', 'Corporativa', 'Planners',
-    'Despedida', 'Personaliza tu evento'
-  ];
-  
-  // Validar imágenes de eventos
-  const eventImages = page.locator('img[alt="Fiestamas Square Image"]');
-  const eventImagesCount = await eventImages.count();
-  expect(eventImagesCount).toBeGreaterThanOrEqual(expectedEvents.length);
-  
-  // Validar textos de eventos
-  for (const eventName of expectedEvents) {
-    const eventButton = page.locator('button').filter({
-      has: page.locator('p').filter({ hasText: new RegExp(eventName, 'i') })
-    }).first();
-    await expect(eventButton).toBeVisible({ timeout: 5000 });
-  }
-  
-  // Validar estímulos (stim1, stim2, stim3, stim4)
-  const estimulosIds = ['stim1', 'stim2', 'stim3', 'stim4'];
-  for (const estimuloId of estimulosIds) {
-    const estimuloContainer = page.locator(`div#${estimuloId}`);
-    const containerExists = await estimuloContainer.count() > 0;
-    if (containerExists) {
-      const estimuloButton = estimuloContainer.locator('button[type="button"]');
-      await expect(estimuloButton).toBeVisible({ timeout: 5000 });
-    }
-  }
-
-  // 8️⃣ VALIDAR FOOTER
-  await showStepMessage(page, '👣 VALIDANDO FOOTER');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Footer...');
-  const footer = page.locator('footer.w-dvw.bg-light-neutral');
-  await expect(footer).toBeVisible({ timeout: 5000 });
-  
-  // Sección "Para ti"
-  const paraTiSection = footer.locator('p.text-medium').filter({ 
-    hasText: /Para ti/i 
-  });
-  await expect(paraTiSection).toBeVisible();
-  
-  // Enlaces del footer
-  const footerLinks = [
-    /Conviértete en proveedor/i,
-    /Inicia sesión/i,
-    /Beneficios para proveedores/i
-  ];
-  
-  for (const linkText of footerLinks) {
-    const link = footer.locator('a').filter({ hasText: linkText });
-    await expect(link.first()).toBeVisible({ timeout: 5000 });
-  }
-  
-  // Redes sociales
-  const instagramLink = footer.locator('a[aria-label="Ir a Instagram"]');
-  await expect(instagramLink).toBeVisible();
-  
-  const facebookLink = footer.locator('a[aria-label="Ir a Facebook"]');
-  await expect(facebookLink).toBeVisible();
-  
-  const tiktokLink = footer.locator('a[aria-label="Ir a Tiktok"]');
-  await expect(tiktokLink).toBeVisible();
-  
-  // Validar iconos de redes sociales
-  const instagramIcon = instagramLink.locator('i.icon-instagram');
-  await expect(instagramIcon).toBeVisible();
-  
-  const facebookIcon = facebookLink.locator('i.icon-facebook');
-  await expect(facebookIcon).toBeVisible();
-  
-  const tiktokIcon = tiktokLink.locator('i.icon-tiktok');
-  await expect(tiktokIcon).toBeVisible();
-  
-  // Copyright
-  const copyright = footer.locator('p').filter({ 
-    hasText: /© 2025\. Fiestamas/i 
-  });
-  await expect(copyright).toBeVisible();
-
-  // 9️⃣ VALIDAR NAVEGACIÓN MÓVIL
-  await showStepMessage(page, '📱 VALIDANDO NAVEGACIÓN MÓVIL');
-  await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando Navegación Móvil...');
-  const mobileNav = page.locator('div.lg\\:hidden.fixed.bottom-0');
-  const isMobileNavVisible = await mobileNav.isVisible().catch(() => false);
-  
-  if (isMobileNavVisible) {
-    // Enlaces de navegación móvil
-    const mobileHomeLink = mobileNav.locator('a:has(i.icon-home)');
-    await expect(mobileHomeLink).toBeVisible();
-    
-    const mobileFavoritesLink = mobileNav.locator('a:has(i.icon-heart)');
-    await expect(mobileFavoritesLink).toBeVisible();
-    
-    const mobileProfileLink = mobileNav.locator('a:has(i.icon-user)');
-    await expect(mobileProfileLink).toBeVisible();
-  }
-
-  // 🔟 VALIDAR ELEMENTOS ADICIONALES
+  // 3️⃣ VALIDAR ELEMENTOS ADICIONALES (Técnicos únicos)
   await showStepMessage(page, '🔧 VALIDANDO ELEMENTOS ADICIONALES');
   await safeWaitForTimeout(page, 1000);
-  console.log('🔍 Validando elementos adicionales...');
+  console.log('🔍 Validando elementos adicionales técnicos...');
   
   const elementosFaltantes: string[] = [];
   
@@ -387,23 +100,64 @@ test('Validar estructura HTML de la página de inicio', async ({ page }) => {
   }
   
   // Facebook Pixel Script
-  const fbPixelScript = page.locator('script').filter({
-    hasText: /fbq\(|facebook\.net/
-  });
-  const fbPixelExists = await fbPixelScript.count() > 0;
+  // El Facebook Pixel es un código de seguimiento de Facebook/Meta que permite:
+  // - Medir conversiones y eventos en el sitio web
+  // - Crear audiencias personalizadas para anuncios
+  // - Rastrear el comportamiento de los usuarios
+  // Puede estar en diferentes formatos:
+  // 1. Script inline con función fbq
+  // 2. Script con src que apunta a facebook.net
+  // 3. Noscript con imagen de tracking
   let fbPixelFound = false;
   
-  if (fbPixelExists) {
-    console.log('✅ Script de Facebook Pixel encontrado');
-    fbPixelFound = true;
-  } else {
-    // También buscar el noscript de Facebook Pixel
+  // Buscar script inline con función fbq (más común)
+  const fbPixelScriptInline = page.locator('script').filter({
+    hasText: /fbq|facebook\.net|fbevents\.js/
+  });
+  const fbPixelInlineExists = await fbPixelScriptInline.count() > 0;
+  
+  if (fbPixelInlineExists) {
+    // Verificar que realmente contiene código de Facebook Pixel
+    for (let i = 0; i < await fbPixelScriptInline.count(); i++) {
+      const scriptContent = await fbPixelScriptInline.nth(i).textContent().catch(() => '');
+      if (scriptContent && (scriptContent.includes('fbq') || scriptContent.includes('facebook.net') || scriptContent.includes('fbevents.js'))) {
+        console.log('✅ Script de Facebook Pixel encontrado (inline)');
+        fbPixelFound = true;
+        break;
+      }
+    }
+  }
+  
+  // Si no se encontró inline, buscar script con src
+  if (!fbPixelFound) {
+    const fbPixelScriptSrc = page.locator('script[src*="facebook.net"], script[src*="fbevents"]');
+    const fbPixelSrcExists = await fbPixelScriptSrc.count() > 0;
+    if (fbPixelSrcExists) {
+      console.log('✅ Script de Facebook Pixel encontrado (con src)');
+      fbPixelFound = true;
+    }
+  }
+  
+  // También buscar el noscript de Facebook Pixel (fallback para usuarios sin JavaScript)
+  if (!fbPixelFound) {
     const fbPixelNoscript = page.locator('noscript').filter({
-      hasText: /facebook\.com\/tr/
+      hasText: /facebook\.com\/tr|fbq|2113594752336747/
     });
     const fbPixelNoscriptExists = await fbPixelNoscript.count() > 0;
     if (fbPixelNoscriptExists) {
       console.log('✅ Noscript de Facebook Pixel encontrado');
+      fbPixelFound = true;
+    }
+  }
+  
+  // Buscar por ID del pixel específico (2113594752336747) que aparece en el HTML
+  if (!fbPixelFound) {
+    const fbPixelById = page.locator('script, noscript').filter({
+      hasText: /2113594752336747/
+    });
+    const fbPixelByIdExists = await fbPixelById.count() > 0;
+    if (fbPixelByIdExists) {
+      console.log('✅ Facebook Pixel encontrado por ID del pixel');
       fbPixelFound = true;
     }
   }
@@ -423,6 +177,8 @@ test('Validar estructura HTML de la página de inicio', async ({ page }) => {
   await showStepMessage(page, '✅ VALIDACIÓN COMPLETADA EXITOSAMENTE');
   await safeWaitForTimeout(page, 1000);
   console.log('✅ Validación de estructura HTML completada exitosamente');
+  console.log('ℹ️ Nota: Las validaciones de navbar, hero, categorías, eventos, estímulos y footer');
+  console.log('   se realizan en las pruebas de funcionalidad correspondientes.');
 });
 
 test('Validar funcionalidad del navbar superior', async ({ page }) => {
@@ -557,7 +313,7 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
       const count = await estrategia.locator.count();
       if (count > 0) {
         const isVisible = await estrategia.locator.first().isVisible({ timeout: 2000 }).catch(() => false);
-        if (isVisible) {
+    if (isVisible) {
           // Verificar que realmente es un elemento clickeable
           const tagName = await estrategia.locator.first().evaluate(el => el.tagName).catch(() => '');
           if (tagName === 'A' || tagName === 'BUTTON') {
@@ -565,9 +321,9 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
             busquedaEncontrada = true;
             estrategiaUsada = estrategia.name;
             console.log(`✅ Botón de búsqueda encontrado (${estrategia.name}) - tag: ${tagName}`);
-            break;
-          }
-        }
+      break;
+    }
+  }
       }
     } catch (e) {
       // Continuar con la siguiente estrategia
@@ -610,14 +366,14 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
         const count = await estrategia.locator.count();
         if (count > 0) {
           const isVisible = await estrategia.locator.first().isVisible({ timeout: 2000 }).catch(() => false);
-          if (isVisible) {
+    if (isVisible) {
             busquedaElement = estrategia.locator.first();
             busquedaEncontrada = true;
             estrategiaUsada = estrategia.name;
             console.log(`⚠️ Botón de búsqueda encontrado (${estrategia.name}) - puede no ser clickeable directamente`);
-            break;
-          }
-        }
+      break;
+    }
+  }
       } catch (e) {
         continue;
       }
@@ -1170,14 +926,14 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     let userElement: ReturnType<typeof page.locator> | null = null;
     
     for (let i = 0; i < userButtonsCount; i++) {
-      const isVisible = await userButtons.nth(i).isVisible().catch(() => false);
-      if (isVisible) {
+    const isVisible = await userButtons.nth(i).isVisible().catch(() => false);
+    if (isVisible) {
         userElement = userButtons.nth(i);
         userEncontrado = true;
         console.log(`✅ Botón de usuario encontrado y visible (índice ${i})`);
-        break;
-      }
+      break;
     }
+  }
     
     if (userEncontrado && userElement) {
       await expect(userElement).toBeVisible();
@@ -1342,7 +1098,7 @@ test('Validar funcionalidad del hero banner', async ({ page }) => {
         if (patron.test(botonText)) {
           botonesEncontrados.push({ texto: botonText.trim(), elemento: boton });
           console.log(`✅ Botón encontrado: "${botonText.trim()}"`);
-          break;
+        break;
         }
       }
     }
@@ -1476,7 +1232,7 @@ test('Validar funcionalidad del hero banner', async ({ page }) => {
       await page.goto(homeUrl);
       await page.waitForLoadState('networkidle');
       await safeWaitForTimeout(page, 1000);
-    } else {
+  } else {
       console.log(`⚠️ No se encontró botón en el banner ${idx + 1}`);
     }
   }
@@ -1556,7 +1312,7 @@ test('Validar funcionalidad del hero banner', async ({ page }) => {
     // Lo importante es que cada botón funciona correctamente
     if (urlsUnicas.length === urlsVisitadas.length) {
       console.log('✅ Todos los botones navegan a lugares diferentes');
-    } else {
+  } else {
       console.log(`ℹ️ Algunos botones navegan al mismo lugar (${urlsUnicas.length} lugares únicos de ${urlsVisitadas.length} botones)`);
     }
   } else {
@@ -1990,7 +1746,7 @@ test('Validar funcionalidad de los botones de estímulos', async ({ page }) => {
       if (isVisible) {
         estimulosEncontrados.push({ id: estimuloId, elemento: estimuloButton });
         console.log(`✅ Estímulo ${estimuloId} encontrado y visible`);
-      } else {
+    } else {
         console.log(`ℹ️ Estímulo ${estimuloId} encontrado pero no visible (puede estar oculto según el viewport)`);
       }
     } else {
@@ -2180,8 +1936,8 @@ test('Validar funcionalidad del footer', async ({ page }) => {
     console.log(`✅ Enlace de Instagram encontrado: ${instagramHref}`);
     
     // Validar icono
-    const instagramIcon = instagramLink.locator('i.icon-instagram');
-    await expect(instagramIcon).toBeVisible();
+  const instagramIcon = instagramLink.locator('i.icon-instagram');
+  await expect(instagramIcon).toBeVisible();
   } else {
     console.log('ℹ️ Enlace de Instagram no visible');
   }
@@ -2197,8 +1953,8 @@ test('Validar funcionalidad del footer', async ({ page }) => {
     console.log(`✅ Enlace de Facebook encontrado: ${facebookHref}`);
     
     // Validar icono
-    const facebookIcon = facebookLink.locator('i.icon-facebook');
-    await expect(facebookIcon).toBeVisible();
+  const facebookIcon = facebookLink.locator('i.icon-facebook');
+  await expect(facebookIcon).toBeVisible();
   } else {
     console.log('ℹ️ Enlace de Facebook no visible');
   }
@@ -2214,8 +1970,8 @@ test('Validar funcionalidad del footer', async ({ page }) => {
     console.log(`✅ Enlace de TikTok encontrado: ${tiktokHref}`);
     
     // Validar icono
-    const tiktokIcon = tiktokLink.locator('i.icon-tiktok');
-    await expect(tiktokIcon).toBeVisible();
+  const tiktokIcon = tiktokLink.locator('i.icon-tiktok');
+  await expect(tiktokIcon).toBeVisible();
   } else {
     console.log('ℹ️ Enlace de TikTok no visible');
   }
@@ -2229,7 +1985,7 @@ test('Validar funcionalidad del footer', async ({ page }) => {
     hasText: /© 2025\. Fiestamas/i 
   });
   await expect(copyright).toBeVisible();
-  
+
   const copyrightText = await copyright.textContent();
   expect(copyrightText).toContain('2025');
   expect(copyrightText).toContain('Fiestamas');
