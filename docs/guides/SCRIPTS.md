@@ -34,7 +34,7 @@ Configura las variables de entorno en `.env`:
 ## 📚 Documentación
 
 Para más información sobre cómo configurar SMTP, consulta:
-- [`CONFIGURAR-SMTP.md`](../docs/CONFIGURAR-SMTP.md) - Guía de configuración SMTP
+- [`CONFIGURAR-SMTP.md`](./CONFIGURAR-SMTP.md) - Guía de configuración SMTP
 
 ## 🔧 Requisitos
 

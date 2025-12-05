@@ -1015,7 +1015,7 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa de elementos de la barra superior finalizada');
   });
 
-  test('Se muestran conversaciones en la sección Fiestachat', async ({ page }) => {
+  test('Se muestran conversaciones en la sección Fiestachat (navegación)', async ({ page }) => {
     await showStepMessage(page, '💬 VALIDANDO Y NAVEGANDO A CHATS');
     await page.waitForTimeout(1000);
     // Buscar enlace de chats (puede estar en mobile o desktop)
@@ -1255,7 +1255,7 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Prueba de navegación de barra superior completada');
   });
 
-  test('Se muestran conversaciones en la sección Fiestachat', async ({ page }) => {
+  test('Se muestran todos los elementos de la sección Fiestachat (desktop)', async ({ page }) => {
     await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
     await page.waitForTimeout(1000);
     
@@ -1308,7 +1308,7 @@ test.describe('Dashboard de cliente', () => {
     }
   });
 
-  test('Se muestran todos los elementos de la sección Fiestachat', async ({ page }) => {
+  test('Se muestran todos los elementos de la sección Fiestachat (completo)', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);

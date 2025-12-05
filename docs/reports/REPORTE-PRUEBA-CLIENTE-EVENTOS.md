@@ -416,6 +416,6 @@ La prueba incluye manejo robusto de errores:
 - **Archivo de prueba**: `tests/client/cliente-eventos.spec.ts`
 - **Utilidades**: `tests/utils.ts`
 - **Configuración**: `tests/config.ts`
-- **Reporte de comparación**: `COMPARACION-VALIDACIONES-EVENTOS.md`
+- **Reporte de comparación**: [`COMPARACION-VALIDACIONES-EVENTOS.md`](./COMPARACION-VALIDACIONES-EVENTOS.md)
 - **Prueba que reutiliza el flujo**: `tests/client/dashboard.spec.ts`
 

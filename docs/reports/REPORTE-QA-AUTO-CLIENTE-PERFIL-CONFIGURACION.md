@@ -612,7 +612,7 @@ Basándose en el perfil del proveedor (`tests/provider/profile.spec.ts`) y las f
 - **Utilidades**: `tests/utils.ts`
 - **Configuración**: `tests/config.ts`
 - **Referencia**: `tests/provider/profile.spec.ts` (perfil del proveedor)
-- **Reporte de dashboard**: `REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md`
+- **Reporte de dashboard**: [`REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md`](./REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md)
 
 
 ## 📝 Estructura del Código

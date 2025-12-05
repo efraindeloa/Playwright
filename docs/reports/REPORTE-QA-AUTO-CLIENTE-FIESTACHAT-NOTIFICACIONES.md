@@ -631,8 +631,8 @@ Las validaciones incluyen manejo robusto de errores:
   - `tests/client/cliente-eventos.spec.ts`
 - **Utilidades**: `tests/utils.ts`
 - **Configuración**: `tests/config.ts`
-- **Reporte de dashboard**: `REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md`
-- **Reporte de eventos**: `REPORTE-QA-AUTO-CLIENTE-EVENTOS.md`
+- **Reporte de dashboard**: [`REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md`](./REPORTE-QA-AUTO-CLIENTE-DASHBOARD.md)
+- **Reporte de eventos**: [`REPORTE-QA-AUTO-CLIENTE-EVENTOS.md`](./REPORTE-QA-AUTO-CLIENTE-EVENTOS.md)
 
 ## 📊 Estado de Implementación
 

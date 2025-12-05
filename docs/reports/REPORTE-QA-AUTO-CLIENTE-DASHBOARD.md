@@ -1037,7 +1037,7 @@ La suite incluye manejo robusto de errores:
 - **Utilidades**: `tests/utils.ts`
 - **Configuración**: `tests/config.ts`
 - **Pruebas de eventos relacionadas**: `tests/client/cliente-eventos.spec.ts`
-- **Reporte de eventos**: `REPORTE-QA-AUTO-CLIENTE-EVENTOS.md`
+- **Reporte de eventos**: [`REPORTE-QA-AUTO-CLIENTE-EVENTOS.md`](./REPORTE-QA-AUTO-CLIENTE-EVENTOS.md)
 
 ## 📊 Estado de Implementación
 

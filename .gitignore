@@ -20,6 +20,31 @@ logs/
 # Mantener .env.example para referencia
 !.env.example
 
+# Test artifacts (keep snapshots and test files)
+*.png
+*.jpg
+*.jpeg
+!tests/common/screenshots.spec.ts-snapshots/*.png
+!tests/test-images/*.png
+!tests/test-images/*.jpg
+!tests/test-images/*.jpeg
+
+# Test documents (keep generators)
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+!tests/test-documents/*.pdf
+!tests/test-documents/*.doc
+!tests/test-documents/*.docx
+!tests/test-documents/*.xls
+!tests/test-documents/*.xlsx
+!tests/test-documents/*.ppt
+!tests/test-documents/*.pptx
+
 # OS
 .DS_Store
 Thumbs.db
