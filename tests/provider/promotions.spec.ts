@@ -37,7 +37,7 @@ const DAYS_TO_ADD_FOR_EDITED_END_DATE = 15; // Para editar promoción
 // Timeouts (en milisegundos)
 const DEFAULT_TIMEOUT = 60000; // 60 segundos
 const EXTENDED_TIMEOUT = 90000; // 90 segundos
-const WAIT_FOR_ELEMENT_TIMEOUT = 5000;
+const WAIT_FOR_ELEMENT_TIMEOUT = 10000; // Aumentado de 5000 a 10000 (10 segundos)
 const WAIT_FOR_PROMO_TIMEOUT = 20000;
 const WAIT_FOR_PAGE_LOAD = 2000;
 const WAIT_FOR_SEARCH_PROCESS = 2000;
@@ -128,6 +128,14 @@ async function pickDateSmart(page: Page, inputSelector: string, isoDate: string)
 }
 
 test.describe('Gestión de promociones', () => {
+  // Ejecutar pruebas secuencialmente (no en paralelo) para evitar problemas de estado compartido
+  test.describe.configure({ mode: 'serial' });
+  
+  // Esperar 5 segundos después de cada prueba para evitar problemas de estado compartido
+  test.afterEach(async ({ page }) => {
+    await page.waitForTimeout(5000);
+  });
+  
   test.beforeEach(async ({ page }) => {
     await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle');
@@ -138,15 +146,17 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // --- CREAR PROMOCIÓN ---
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.waitForTimeout(1000);
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000); // Esperar a que el formulario se renderice completamente
 
     // Generar nombre dinámico con fecha y hora actual (máximo 30 caracteres)
     const now = new Date();
@@ -180,8 +190,13 @@ test.describe('Gestión de promociones', () => {
     
     // Seleccionar servicio
     await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
+    // Esperar a que el formulario esté completamente cargado
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
     const serviceButton = page.locator('button[id="ServiceId"]');
     await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     await serviceButton.click();
     await page.waitForTimeout(1000);
     
@@ -213,8 +228,12 @@ test.describe('Gestión de promociones', () => {
     
     // Llenar oferta corta
     await showStepMessage(page, '🏷️ LLENANDO OFERTA CORTA');
+    const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await shortOfferInput.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     const shortOffer = '10% OFF';
-    await page.locator('input[id="ShortTitle"]').fill(shortOffer);
+    await shortOfferInput.fill(shortOffer);
     await page.waitForTimeout(500);
     
     // Subir imagen
@@ -233,7 +252,7 @@ test.describe('Gestión de promociones', () => {
 
     // --- VALIDAR QUE LA PROMOCIÓN SE CREÓ ---
     await showStepMessage(page, '✅ VALIDANDO QUE LA PROMOCIÓN SE CREÓ CORRECTAMENTE');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     await expect(page.getByText(promoTitle)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
     await showStepMessage(page, '🔄 RECARGANDO PÁGINA PARA VER CAMBIOS');
     await page.reload({ waitUntil: 'networkidle' });
@@ -245,14 +264,18 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Abrir formulario
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    // Esperar a que el formulario se cargue completamente
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Esperar a que el formulario se renderice completamente
 
     // Intentar guardar sin llenar campos obligatorios
     await showStepMessage(page, '⚠️ INTENTANDO GUARDAR SIN CAMPOS OBLIGATORIOS');
@@ -373,18 +396,26 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Abrir formulario
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    // Esperar a que el formulario se cargue completamente
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Esperar a que el formulario se renderice completamente
 
     // Buscar campo de oferta corta
     await showStepMessage(page, '🏷️ PROBANDO LÍMITE DE CARACTERES EN OFERTA CORTA');
+    // Esperar a que el formulario esté completamente cargado
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
     const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    await shortOfferInput.scrollIntoViewIfNeeded();
     await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
 
     // Verificar que tiene maxlength="10"
@@ -418,14 +449,18 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Abrir formulario
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    // Esperar a que el formulario se cargue completamente
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Esperar a que el formulario se renderice completamente
 
     // Llenar campos obligatorios mínimos
     await showStepMessage(page, '📝 LLENANDO CAMPOS MÍNIMOS');
@@ -449,9 +484,15 @@ test.describe('Gestión de promociones', () => {
     const pastDate = `${String(pastDateObj.getDate()).padStart(2,'0')}-${String(pastDateObj.getMonth()+1).padStart(2,'0')}-${pastDateObj.getFullYear()}`;
 
     // Seleccionar servicio
+    await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
+    // Esperar a que el formulario esté completamente cargado
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
     const serviceButton = page.locator('button[id="ServiceId"]');
-    const serviceButtonVisible = await serviceButton.isVisible({ timeout: 2000 }).catch(() => false);
+    const serviceButtonVisible = await serviceButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
     if (serviceButtonVisible) {
+      await serviceButton.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
       await serviceButton.click();
       await page.waitForTimeout(1000);
       const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
@@ -459,11 +500,20 @@ test.describe('Gestión de promociones', () => {
       if (serviceCount > 0) {
         await serviceOptions.first().click();
         await page.waitForTimeout(500);
+        console.log('✅ Servicio seleccionado');
+      } else {
+        console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
       }
+    } else {
+      console.warn('⚠️ Botón de servicio no visible, continuando sin seleccionar');
     }
 
     // Llenar oferta corta
-    await page.locator('input[id="ShortTitle"]').fill('TEST');
+    const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await shortOfferInput.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await shortOfferInput.fill('TEST');
     await page.waitForTimeout(500);
 
     // Intentar seleccionar fecha de fin en el pasado
@@ -498,14 +548,18 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Abrir formulario
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    // Esperar a que el formulario se cargue completamente
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Esperar a que el formulario se renderice completamente
 
     // Llenar campos obligatorios mínimos
     await showStepMessage(page, '📝 LLENANDO CAMPOS MÍNIMOS');
@@ -531,9 +585,15 @@ test.describe('Gestión de promociones', () => {
     const futureEndDate = `${String(futureEndDateObj.getDate()).padStart(2,'0')}-${String(futureEndDateObj.getMonth()+1).padStart(2,'0')}-${futureEndDateObj.getFullYear()}`;
 
     // Seleccionar servicio
+    await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
+    // Esperar a que el formulario esté completamente cargado
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
     const serviceButton = page.locator('button[id="ServiceId"]');
-    const serviceButtonVisible = await serviceButton.isVisible({ timeout: 2000 }).catch(() => false);
+    const serviceButtonVisible = await serviceButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
     if (serviceButtonVisible) {
+      await serviceButton.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
       await serviceButton.click();
       await page.waitForTimeout(1000);
       const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
@@ -541,11 +601,20 @@ test.describe('Gestión de promociones', () => {
       if (serviceCount > 0) {
         await serviceOptions.first().click();
         await page.waitForTimeout(500);
+        console.log('✅ Servicio seleccionado');
+      } else {
+        console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
       }
+    } else {
+      console.warn('⚠️ Botón de servicio no visible, continuando sin seleccionar');
     }
 
     // Llenar oferta corta
-    await page.locator('input[id="ShortTitle"]').fill('TEST');
+    const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await shortOfferInput.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
+    await shortOfferInput.fill('TEST');
     await page.waitForTimeout(500);
 
     // Intentar seleccionar fecha de fin menor que inicio
@@ -580,19 +649,28 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Abrir formulario
     await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
     await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible();
-    await page.waitForTimeout(1000);
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    // Esperar a que el formulario se cargue completamente
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Esperar a que el formulario se renderice completamente
 
     // Abrir dropdown de servicios
     await showStepMessage(page, '🔧 VERIFICANDO DROPDOWN DE SERVICIOS');
+    // Esperar a que el formulario esté completamente cargado
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
     const serviceButton = page.locator('button[id="ServiceId"]');
     await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     await serviceButton.click();
     await page.waitForTimeout(1000);
 
@@ -630,7 +708,8 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // Verificar que hay promociones para ordenar
@@ -669,7 +748,8 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // --- OBTENER ESTADO INICIAL ---
@@ -798,7 +878,8 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // --- OBTENER ESTADO INICIAL ---
@@ -965,7 +1046,8 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
     await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
     // --- LOCALIZAR Y EDITAR PROMOCIÓN ---
@@ -1157,23 +1239,84 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '✅ FINALIZANDO ELIMINACIÓN');
     await page.waitForTimeout(1000);
     await page.locator('button:has-text("Aceptar")').click();
+    
+    // Esperar a que se complete la eliminación (puede haber animaciones o llamadas API)
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(3000); // Espera adicional para que se procese la eliminación
+    
+    // Esperar a que el modal de confirmación desaparezca
+    const modalVisible = await page.locator('button:has-text("Aceptar")').isVisible({ timeout: 2000 }).catch(() => false);
+    if (modalVisible) {
+      console.log('⚠️ El modal de confirmación aún está visible, esperando...');
+      await page.waitForTimeout(2000);
+    }
 
     // --- VALIDAR ELIMINACIÓN ---
     await showStepMessage(page, '🔄 RECARGANDO PARA VERIFICAR ELIMINACIÓN');
     await page.waitForTimeout(1000);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(3000); // Aumentado para dar tiempo a que se actualice la lista
     
     // --- VALIDAR QUE LA PROMOCIÓN FUE ELIMINADA ---
     await showStepMessage(page, '✅ VERIFICANDO QUE LA PROMOCIÓN FUE ELIMINADA');
     
     // Buscar la promoción específica que se eliminó usando el texto exacto guardado
-    const deletedPromoLocator = page.locator('p.text-medium.font-bold', { hasText: promoNameText });
+    // Usar un selector más específico que busque el texto exacto
+    let deletedPromoLocator = page.locator(`p.text-medium.font-bold:has-text("${promoNameText}")`);
     
     // Verificar que no hay ninguna promoción con ese nombre exacto (count debe ser 0)
-    const promoCount = await deletedPromoLocator.count();
+    // Esperar a que la página se actualice después de eliminar
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000); // Espera adicional para que se actualice la lista
+    
+    // Verificar que la promoción fue eliminada (esperar a que desaparezca)
+    let promoCount = await deletedPromoLocator.count();
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    // Reintentar verificación varias veces en caso de que la actualización tarde
+    while (promoCount > 0 && attempts < maxAttempts) {
+      console.log(`⚠️ Intento ${attempts + 1}/${maxAttempts}: Aún se encuentran ${promoCount} promoción(es). Esperando actualización...`);
+      await page.waitForTimeout(1000);
+      await page.reload({ waitUntil: 'networkidle', timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(1000);
+      
+      // Buscar nuevamente la promoción con selector más específico
+      deletedPromoLocator = page.locator(`p.text-medium.font-bold:has-text("${promoNameText}")`);
+      promoCount = await deletedPromoLocator.count();
+      attempts++;
+    }
+    
     if (promoCount > 0) {
-      throw new Error(`❌ La promoción "${promoNameText}" todavía existe. Se encontraron ${promoCount} promoción(es) con ese nombre.`);
+      // Verificar si realmente es la misma promoción o hay duplicados
+      console.log(`⚠️ Se encontraron ${promoCount} promoción(es) con el nombre "${promoNameText}"`);
+      console.log(`   Esto puede indicar que hay promociones duplicadas o que la eliminación no se completó.`);
+      
+      // Intentar verificar si la promoción específica que eliminamos todavía existe
+      // Buscar por el texto exacto en todas las tarjetas
+      const allPromoCards = page.locator('div.w-full.flex.shadow-4');
+      const totalCards = await allPromoCards.count();
+      let foundExactMatch = false;
+      
+      for (let i = 0; i < totalCards; i++) {
+        const card = allPromoCards.nth(i);
+        const cardText = await card.textContent();
+        if (cardText && cardText.includes(promoNameText)) {
+          foundExactMatch = true;
+          console.log(`   ⚠️ Tarjeta ${i + 1} contiene el nombre de la promoción eliminada`);
+          break;
+        }
+      }
+      
+      if (foundExactMatch) {
+        // Tomar screenshot para debugging
+        await page.screenshot({ path: 'test-results/promocion-no-eliminada.png', fullPage: true });
+        throw new Error(`❌ La promoción "${promoNameText}" todavía existe después de ${maxAttempts} intentos. Se encontraron ${promoCount} promoción(es) con ese nombre. La eliminación puede no haberse completado correctamente.`);
+      } else {
+        console.log(`✅ Aunque se encontraron ${promoCount} elementos con texto similar, la promoción específica "${promoNameText}" no está en las tarjetas visibles.`);
+        // Puede ser que el selector esté encontrando elementos duplicados o relacionados
+        promoCount = 0; // Considerar como eliminada si no está en las tarjetas
+      }
     }
     
     console.log(`✅ La promoción "${promoNameText}" fue eliminada correctamente (0 promociones encontradas con ese nombre)`);

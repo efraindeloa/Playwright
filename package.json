@@ -14,7 +14,24 @@
     "test:registro-proveedor": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\"",
     "test:registro-proveedor:headed": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --headed",
     "test:registro-proveedor:chrome": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --project=chrome",
-    "test:registro-proveedor:ui": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --ui"
+    "test:registro-proveedor:ui": "playwright test registro.spec.ts -g \"Registrar nuevo Proveedor\" --ui",
+    "test:smtp": "node scripts/test-smtp.js",
+    "docs": "echo 'Documentación disponible en: docs/'",
+    "test:promociones:crear": "playwright test tests/provider/promotions.spec.ts -g \"Crear promoción\" --project=chrome",
+    "test:promociones:validar-campos-obligatorios": "playwright test tests/provider/promotions.spec.ts -g \"Validar campos obligatorios vacíos\" --project=chrome",
+    "test:promociones:validar-limite-caracteres": "playwright test tests/provider/promotions.spec.ts -g \"Validar límite de caracteres en oferta corta\" --project=chrome",
+    "test:promociones:validar-fecha-pasado": "playwright test tests/provider/promotions.spec.ts -g \"Validar fecha de fin en el pasado\" --project=chrome",
+    "test:promociones:validar-fecha-inicio-mayor": "playwright test tests/provider/promotions.spec.ts -g \"Validar fecha inicio mayor que fecha fin\" --project=chrome",
+    "test:promociones:validar-servicios-no-disponibles": "playwright test tests/provider/promotions.spec.ts -g \"Validar servicios no disponibles\" --project=chrome",
+    "test:promociones:ordenar": "playwright test tests/provider/promotions.spec.ts -g \"Ordenar promociones\" --project=chrome",
+    "test:promociones:filtrar": "playwright test tests/provider/promotions.spec.ts -g \"Filtrar promociones\" --project=chrome",
+    "test:promociones:buscar": "playwright test tests/provider/promotions.spec.ts -g \"Buscar promociones\" --project=chrome",
+    "test:promociones:editar": "playwright test tests/provider/promotions.spec.ts -g \"Editar promoción\" --project=chrome",
+    "test:promociones:eliminar": "playwright test tests/provider/promotions.spec.ts -g \"Eliminar promoción\" --project=chrome",
+    "test:promociones:navegar-chats": "playwright test tests/provider/promotions.spec.ts -g \"Navegar a chats desde promociones\" --project=chrome",
+    "test:promociones:navegar-perfil": "playwright test tests/provider/promotions.spec.ts -g \"Navegar a perfil desde promociones\" --project=chrome",
+    "test:promociones:navegar-dashboard": "playwright test tests/provider/promotions.spec.ts -g \"Navegar a dashboard desde promociones\" --project=chrome",
+    "test:promociones:todas": "playwright test tests/provider/promotions.spec.ts --project=chrome"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +48,7 @@
     "imap": "^0.8.19",
     "imapflow": "^1.1.1",
     "mailparser": "^3.9.0",
+    "nodemailer": "^6.9.8",
     "pngjs": "^7.0.0"
   }
 }
