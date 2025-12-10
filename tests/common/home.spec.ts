@@ -456,22 +456,65 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     const inputAntes = await page.locator('input#Search').count();
     console.log(`🔍 Debug: Inputs Search antes del clic: ${inputAntes}`);
     
+    // Si el elemento encontrado es un DIV, buscar el botón dentro de él
+    const tagNameElemento = await busquedaElement.evaluate(el => el.tagName).catch(() => '');
+    console.log(`🔍 Debug: Tag del elemento encontrado: ${tagNameElemento}`);
+    
+    let elementoAClickeable = busquedaElement;
+    
+    // Si es un DIV, buscar el botón dentro
+    if (tagNameElemento === 'DIV') {
+      console.log('🔍 El elemento es un DIV, buscando botón dentro...');
+      const botonDentro = busquedaElement.locator('button').first();
+      const botonCount = await botonDentro.count();
+      if (botonCount > 0) {
+        const botonVisible = await botonDentro.isVisible({ timeout: 2000 }).catch(() => false);
+        if (botonVisible) {
+          elementoAClickeable = botonDentro;
+          console.log('✅ Botón encontrado dentro del DIV');
+        }
+      }
+      
+      // Si no hay botón, buscar el icono y hacer clic en él o su padre clickeable
+      if (botonCount === 0 || !await botonDentro.isVisible({ timeout: 1000 }).catch(() => false)) {
+        const iconoDentro = busquedaElement.locator('i.icon-search').first();
+        const iconoCount = await iconoDentro.count();
+        if (iconoCount > 0) {
+          const iconoVisible = await iconoDentro.isVisible({ timeout: 2000 }).catch(() => false);
+          if (iconoVisible) {
+            // Buscar el botón padre del icono
+            const botonPadre = iconoDentro.locator('xpath=ancestor::button[1]').first();
+            const botonPadreCount = await botonPadre.count();
+            if (botonPadreCount > 0) {
+              elementoAClickeable = botonPadre;
+              console.log('✅ Botón padre del icono encontrado');
+            } else {
+              // Si no hay botón padre, hacer clic directamente en el icono usando JavaScript
+              elementoAClickeable = iconoDentro;
+              console.log('⚠️ No se encontró botón padre, usando el icono directamente');
+            }
+          }
+        }
+      }
+    }
+    
     // Intentar hacer clic con diferentes estrategias
     let clicExitoso = false;
     try {
-      await busquedaElement.click({ timeout: 5000, force: false });
+      // Primero intentar clic normal
+      await elementoAClickeable.click({ timeout: 5000, force: false });
       clicExitoso = true;
       console.log('✅ Clic ejecutado correctamente (método normal)');
     } catch (e) {
       console.log('⚠️ Primer intento de clic falló, intentando con force:true...');
       try {
-        await busquedaElement.click({ timeout: 5000, force: true });
+        await elementoAClickeable.click({ timeout: 5000, force: true });
         clicExitoso = true;
         console.log('✅ Clic ejecutado correctamente (método force)');
       } catch (e2) {
         console.log('⚠️ Clic con force falló, intentando con JavaScript...');
         try {
-          await busquedaElement.evaluate((el: any) => {
+          await elementoAClickeable.evaluate((el: any) => {
             // Intentar diferentes métodos de clic
             if (el instanceof HTMLElement) {
               el.click();
@@ -479,15 +522,29 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
               el.click();
             } else if (el.dispatchEvent) {
               // Disparar evento click
-              const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+              const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
               el.dispatchEvent(event);
             }
           });
           clicExitoso = true;
           console.log('✅ Clic ejecutado correctamente (método JavaScript)');
         } catch (e3) {
-          console.log('❌ Todos los métodos de clic fallaron');
-          throw e3;
+          console.log('⚠️ Clic con JavaScript falló, intentando buscar botón directamente...');
+          // Último recurso: buscar el botón directamente en el navbar
+          try {
+            const botonDirecto = navbar.locator('button:has(i.icon-search)').first();
+            const botonDirectoVisible = await botonDirecto.isVisible({ timeout: 2000 }).catch(() => false);
+            if (botonDirectoVisible) {
+              await botonDirecto.click({ timeout: 5000 });
+              clicExitoso = true;
+              console.log('✅ Clic ejecutado correctamente (botón directo del navbar)');
+            } else {
+              throw new Error('No se pudo encontrar un botón clickeable');
+            }
+          } catch (e4) {
+            console.log('❌ Todos los métodos de clic fallaron');
+            throw e4;
+          }
         }
       }
     }
@@ -498,7 +555,7 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     // Esperar más tiempo después del clic
     await safeWaitForTimeout(page, 500);
     
-    // Primero esperar el contenedor MUI (es lo primero que aparece)
+    // Esperar el contenedor MUI primero (es lo primero que aparece)
     console.log('🔍 Esperando contenedor MUI...');
     try {
       await page.waitForSelector('div[role="presentation"].MuiModal-root', { 
@@ -509,6 +566,9 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     } catch (e) {
       console.log('⚠️ Contenedor MUI no apareció en 8 segundos, continuando búsqueda...');
     }
+    
+    // Esperar un poco más después de que aparezca el contenedor MUI
+    await safeWaitForTimeout(page, 500);
     
     // Verificar cambios en el body que indican que el modal se abrió (overflow: hidden)
     await safeWaitForTimeout(page, 500);
@@ -521,43 +581,40 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     }).catch(() => ({ overflow: '', paddingRight: '' }));
     console.log(`🔍 Debug: Estilo del body después del clic - overflow: ${bodyStyle.overflow}, paddingRight: ${bodyStyle.paddingRight}`);
     
-    // Verificar si apareció el contenedor MUI
-    const muiContainer = await page.locator('div[role="presentation"].MuiModal-root').count();
-    console.log(`🔍 Debug: Contenedores MUI encontrados: ${muiContainer}`);
-    
     // Verificar si apareció el input Search después del clic
     const inputDespues = await page.locator('input#Search').count();
     console.log(`🔍 Debug: Inputs Search después del clic: ${inputDespues}`);
     
-    if (inputDespues === 0 && muiContainer === 0) {
+    const formDespues = await page.locator('form#SearchBarForm').count();
+    console.log(`🔍 Debug: Forms SearchBarForm después del clic: ${formDespues}`);
+    
+    if (inputDespues === 0 && formDespues === 0) {
       console.log('⚠️ El modal no apareció inmediatamente, esperando más tiempo...');
       await safeWaitForTimeout(page, 2000);
       const inputDespues2 = await page.locator('input#Search').count();
-      const muiContainer2 = await page.locator('div[role="presentation"].MuiModal-root').count();
+      const formDespues2 = await page.locator('form#SearchBarForm').count();
       console.log(`🔍 Debug: Inputs Search después de esperar más: ${inputDespues2}`);
-      console.log(`🔍 Debug: Contenedores MUI después de esperar más: ${muiContainer2}`);
+      console.log(`🔍 Debug: Forms SearchBarForm después de esperar más: ${formDespues2}`);
     }
     
-    // Múltiples selectores para el modal (más flexibles, incluyendo contenedor MUI)
+    // Múltiples selectores para el modal (está dentro de un contenedor MUI)
     const selectoresModal = [
-      // Selector 1: Buscar el contenedor MUI primero
-      page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)'),
-      // Selector 2: Buscar el contenedor MUI y luego el modal específico
-      page.locator('div[role="presentation"].MuiModal-root div.absolute.top-1\\/2.left-1\\/2.transform.-translate-x-1\\/2.-translate-y-1\\/2'),
-      // Selector 3: Buscar por contenedor MUI y form
+      // Selector 1: Buscar dentro del contenedor MUI por form SearchBarForm (más específico)
       page.locator('div[role="presentation"].MuiModal-root div:has(form#SearchBarForm)'),
-      // Selector 4: Buscar contenedor MUI por clase
-      page.locator('div.MuiModal-root div:has(input#Search)'),
-      // Selector 5: Selector específico completo (sin MUI)
-      page.locator('div.absolute.top-1\\/2.left-1\\/2.transform.-translate-x-1\\/2.-translate-y-1\\/2.bg-neutral-0.rounded-6.shadow-2xl'),
-      // Selector 6: Selector más simple con clases principales (sin MUI)
-      page.locator('div.absolute.top-1\\/2.left-1\\/2.transform.-translate-x-1\\/2.-translate-y-1\\/2'),
-      // Selector 7: Buscar por contenido "Buscador"
-      page.locator('div:has-text("Buscador")').filter({ has: page.locator('input#Search') }),
-      // Selector 8: Buscar por input Search dentro de un div modal
-      page.locator('div:has(input#Search)'),
-      // Selector 9: Buscar por form SearchBarForm
+      // Selector 2: Buscar dentro del contenedor MUI por input Search
+      page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)'),
+      // Selector 3: Buscar dentro del contenedor MUI por contenido "Buscador"
+      page.locator('div[role="presentation"].MuiModal-root div:has-text("Buscador")').filter({ has: page.locator('form#SearchBarForm') }),
+      // Selector 4: Buscar directamente por form SearchBarForm (sin MUI, por si acaso)
       page.locator('div:has(form#SearchBarForm)'),
+      // Selector 5: Buscar por input Search dentro de un div con clases específicas del modal
+      page.locator('div.absolute.top-1\\/2.left-1\\/2.transform.-translate-x-1\\/2.-translate-y-1\\/2:has(input#Search)'),
+      // Selector 6: Buscar por input Search dentro de cualquier div
+      page.locator('div:has(input#Search)'),
+      // Selector 7: Buscar por contenido "Buscador" y form
+      page.locator('div:has-text("Buscador")').filter({ has: page.locator('form#SearchBarForm') }),
+      // Selector 8: Buscar por tabindex="-1" dentro de MUI
+      page.locator('div[role="presentation"].MuiModal-root div[tabindex="-1"]:has(form#SearchBarForm)'),
     ];
     
     let modalBusqueda: ReturnType<typeof page.locator> | null = null;
@@ -586,27 +643,24 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
     if (!modalEncontrado) {
       console.log('⏳ Esperando a que aparezca el modal...');
       
-      // Intentar múltiples estrategias de espera (con timeouts más cortos, incluyendo MUI)
+      // Intentar múltiples estrategias de espera (el modal está dentro de un contenedor MUI)
       const estrategiasEspera = [
-        // Estrategia 1: Esperar el contenedor MUI primero
+        // Estrategia 1: Esperar el contenedor MUI primero, luego el form dentro
         async () => {
-          await page.waitForSelector('div[role="presentation"].MuiModal-root', { state: 'visible', timeout: 5000 });
+          await page.waitForSelector('div[role="presentation"].MuiModal-root', { state: 'visible', timeout: 8000 });
+          await page.waitForSelector('form#SearchBarForm', { state: 'visible', timeout: 5000 });
+          return page.locator('div[role="presentation"].MuiModal-root div:has(form#SearchBarForm)').first();
+        },
+        // Estrategia 2: Esperar el contenedor MUI primero, luego el input dentro
+        async () => {
+          await page.waitForSelector('div[role="presentation"].MuiModal-root', { state: 'visible', timeout: 8000 });
+          await page.waitForSelector('input#Search', { state: 'visible', timeout: 5000 });
           return page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)').first();
         },
-        // Estrategia 2: Esperar directamente el input (puede estar dentro de MUI)
+        // Estrategia 3: Esperar el form directamente (puede estar dentro de MUI)
         async () => {
-          await page.waitForSelector('input#Search', { state: 'visible', timeout: 5000 });
-          // Buscar primero dentro de MUI, luego en cualquier lugar
-          const modalMUI = page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)').first();
-          const countMUI = await modalMUI.count();
-          if (countMUI > 0) {
-            return modalMUI;
-          }
-          return page.locator('div:has(input#Search)').first();
-        },
-        // Estrategia 3: Esperar el form dentro de MUI
-        async () => {
-          await page.waitForSelector('form#SearchBarForm', { state: 'visible', timeout: 5000 });
+          await page.waitForSelector('form#SearchBarForm', { state: 'visible', timeout: 8000 });
+          // Buscar primero dentro de MUI
           const modalMUI = page.locator('div[role="presentation"].MuiModal-root div:has(form#SearchBarForm)').first();
           const countMUI = await modalMUI.count();
           if (countMUI > 0) {
@@ -614,22 +668,25 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
           }
           return page.locator('div:has(form#SearchBarForm)').first();
         },
-        // Estrategia 4: Esperar texto "Buscador" dentro de MUI
+        // Estrategia 4: Esperar el input directamente (puede estar dentro de MUI)
         async () => {
-          await page.waitForSelector('div:has-text("Buscador")', { state: 'visible', timeout: 5000 });
-          const modalMUI = page.locator('div[role="presentation"].MuiModal-root div:has-text("Buscador")').filter({ has: page.locator('input#Search') }).first();
+          await page.waitForSelector('input#Search', { state: 'visible', timeout: 8000 });
+          // Buscar primero dentro de MUI
+          const modalMUI = page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)').first();
           const countMUI = await modalMUI.count();
           if (countMUI > 0) {
             return modalMUI;
           }
-          return page.locator('div:has-text("Buscador")').filter({ has: page.locator('input#Search') }).first();
+          return page.locator('div:has(input#Search)').first();
         },
-        // Estrategia 5: Esperar cualquier div con input Search usando waitForFunction
+        // Estrategia 5: Esperar usando waitForFunction para verificar que el input es visible
         async () => {
           await page.waitForFunction(() => {
             const input = document.querySelector('input#Search') as HTMLElement | null;
-            return input !== null && input.offsetParent !== null; // visible
-          }, { timeout: 5000 });
+            if (!input) return false;
+            const style = window.getComputedStyle(input);
+            return input.offsetParent !== null && style.display !== 'none' && style.visibility !== 'hidden';
+          }, { timeout: 8000 });
           // Buscar primero dentro de MUI
           const modalMUI = page.locator('div[role="presentation"].MuiModal-root div:has(input#Search)').first();
           const countMUI = await modalMUI.count();

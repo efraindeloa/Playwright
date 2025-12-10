@@ -33,120 +33,117 @@ PRUEBAS DE PROVIDER - CHATS
 ================================================================================
 
 # Ejecutar todas las pruebas de chats
-npx playwright test tests/provider/chats.spec.ts --project=chrome
+npm run test:provider:chats:todas
 
-# Pruebas individuales de chats (usando npx)
-npx playwright test tests/provider/chats.spec.ts -g "Navegar a página de chats" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Validar elementos de la página de chats" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Buscar conversaciones" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Filtrar conversaciones" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Seleccionar conversación y navegar a negociación" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Navegar de regreso desde chats al dashboard" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Enviar archivos de imagen de diferentes formatos en chat" --project=chrome
-npx playwright test tests/provider/chats.spec.ts -g "Enviar archivos de documento de diferentes formatos en chat" --project=chrome
+# Pruebas individuales de chats
+npm run test:provider:chats:navegar
+npm run test:provider:chats:elementos
+npm run test:provider:chats:buscar
+npm run test:provider:chats:filtrar
+npm run test:provider:chats:seleccionar
+npm run test:provider:chats:regreso
+npm run test:provider:chats:enviar-imagenes
+npm run test:provider:chats:enviar-documentos
 
 ================================================================================
 PRUEBAS DE PROVIDER - DASHBOARD
 ================================================================================
 
 # Ejecutar todas las pruebas de dashboard
-npx playwright test tests/provider/dashboard.spec.ts --project=chrome
+npm run test:provider:dashboard:todas
 
-# Pruebas individuales de dashboard (usando npx)
-npx playwright test tests/provider/dashboard.spec.ts -g "Mostrar las secciones principales del dashboard" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Controles adicionales del listado de eventos están visibles" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Accesos rápidos navegan a las secciones correspondientes" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Barra superior navega a chats y perfil" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Tarjetas de estadísticas redirigen a sus secciones" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Filtros de eventos permiten cambiar la vista" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Botón Fecha ordena los eventos" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Botón Ver eventos pasados muestra eventos pasados" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Calendario filtra eventos al seleccionar un día con eventos" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Calendario muestra estado vacío al seleccionar un día sin eventos" --project=chrome
-npx playwright test tests/provider/dashboard.spec.ts -g "Se crea un nuevo evento desde el dashboard" --project=chrome
+# Pruebas individuales de dashboard
+npm run test:provider:dashboard:secciones
+npm run test:provider:dashboard:controles
+npm run test:provider:dashboard:accesos-rapidos
+npm run test:provider:dashboard:barra-superior
+npm run test:provider:dashboard:tarjetas-estadisticas
+npm run test:provider:dashboard:filtros
+npm run test:provider:dashboard:ordenar-fecha
+npm run test:provider:dashboard:eventos-pasados
+npm run test:provider:dashboard:calendario-filtrar
+npm run test:provider:dashboard:calendario-vacio
+npm run test:provider:dashboard:crear-evento
 
 ================================================================================
 PRUEBAS DE PROVIDER - NEGOCIACIÓN
 ================================================================================
 
 # Ejecutar todas las pruebas de negociación
-npx playwright test tests/provider/negotiation.spec.ts --project=chrome
+npm run test:provider:negociacion:todas
 
-# Pruebas individuales de negociación (usando npx)
-npx playwright test tests/provider/negotiation.spec.ts -g "Navegar a página de negociación" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar información del evento en negociación" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar información del servicio en negociación" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar información del cliente en negociación" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar sección de cotización" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar campos de cotización" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar sección de notas personales" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validar sección de chat/mensajes" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Navegar de regreso desde negociación" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validación completa de elementos interactivos en estado NUEVA" --project=chrome
-npx playwright test tests/provider/negotiation.spec.ts -g "Validación completa: tipo de evento, estado de cotización y elementos según contexto" --project=chrome
+# Pruebas individuales de negociación
+npm run test:provider:negociacion:navegar
+npm run test:provider:negociacion:info-evento
+npm run test:provider:negociacion:info-servicio
+npm run test:provider:negociacion:info-cliente
+npm run test:provider:negociacion:seccion-cotizacion
+npm run test:provider:negociacion:campos-cotizacion
+npm run test:provider:negociacion:notas
+npm run test:provider:negociacion:chat
+npm run test:provider:negociacion:regreso
+npm run test:provider:negociacion:elementos-nueva
+npm run test:provider:negociacion:validacion-completa
 
 ================================================================================
 PRUEBAS DE PROVIDER - SERVICIOS
 ================================================================================
 
 # Ejecutar todas las pruebas de servicios
-npx playwright test tests/provider/servicios.spec.ts --project=chrome
+npm run test:provider:servicios:todas
 
-# Pruebas individuales de servicios (usando npx)
-npx playwright test tests/provider/servicios.spec.ts -g "Crear servicio" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Editar servicio" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Eliminar servicio" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Activar servicio" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Desactivar servicio" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Buscar servicios" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Filtrar servicios" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Navegar a chats desde servicios" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Navegar a perfil desde servicios" --project=chrome
-npx playwright test tests/provider/servicios.spec.ts -g "Navegar a home desde servicios" --project=chrome
+# Pruebas individuales de servicios
+npm run test:provider:servicios:crear
+npm run test:provider:servicios:editar
+npm run test:provider:servicios:eliminar
+npm run test:provider:servicios:activar
+npm run test:provider:servicios:desactivar
+npm run test:provider:servicios:buscar
+npm run test:provider:servicios:filtrar
+npm run test:provider:servicios:navegar-chats
+npm run test:provider:servicios:navegar-perfil
+npm run test:provider:servicios:navegar-home
 
 ================================================================================
 PRUEBAS DE PROVIDER - ESTADÍSTICAS
 ================================================================================
 
 # Ejecutar todas las pruebas de estadísticas
-npx playwright test tests/provider/estadisticas.spec.ts --project=chrome
+npm run test:provider:estadisticas:todas
 
-# Pruebas individuales de estadísticas (usando npx)
-npx playwright test tests/provider/estadisticas.spec.ts -g "Navegar a página de visualizaciones desde dashboard" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Validar elementos de la página de visualizaciones" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Interactuar con botón de filtro en visualizaciones" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Navegar de regreso desde visualizaciones al dashboard" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Navegar a página de solicitudes desde dashboard" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Validar elementos de la página de solicitudes" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Interactuar con botón de filtro en solicitudes" --project=chrome
-npx playwright test tests/provider/estadisticas.spec.ts -g "Navegar de regreso desde solicitudes al dashboard" --project=chrome
+# Pruebas individuales de estadísticas
+npm run test:provider:estadisticas:navegar-visualizaciones
+npm run test:provider:estadisticas:elementos-visualizaciones
+npm run test:provider:estadisticas:filtro-visualizaciones
+npm run test:provider:estadisticas:regreso-visualizaciones
+npm run test:provider:estadisticas:navegar-solicitudes
+npm run test:provider:estadisticas:elementos-solicitudes
+npm run test:provider:estadisticas:filtro-solicitudes
+npm run test:provider:estadisticas:regreso-solicitudes
 
 ================================================================================
 PRUEBAS DE PROVIDER - PERFIL
 ================================================================================
 
 # Ejecutar todas las pruebas de perfil
-npx playwright test tests/provider/profile.spec.ts --project=chrome
+npm run test:provider:perfil:todas
 
-# Pruebas individuales de perfil (usando npx)
-npx playwright test tests/provider/profile.spec.ts -g "Login" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Datos personales" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Datos del negocio" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Presencia digital" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Foto de perfil" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Sección Opciones" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Cambiar contraseña" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Métodos de pago" --project=chrome
-npx playwright test tests/provider/profile.spec.ts -g "Cerrar sesión" --project=chrome
+# Pruebas individuales de perfil
+npm run test:provider:perfil:login
+npm run test:provider:perfil:datos-personales
+npm run test:provider:perfil:datos-negocio
+npm run test:provider:perfil:presencia-digital
+npm run test:provider:perfil:foto
+npm run test:provider:perfil:opciones
+npm run test:provider:perfil:cambiar-contraseña
+npm run test:provider:perfil:metodos-pago
+npm run test:provider:perfil:cerrar-sesion
 
 ================================================================================
 PRUEBAS DE PROVIDER - REGISTRO
 ================================================================================
 
 # Ejecutar prueba de registro
-npx playwright test tests/provider/registro.spec.ts -g "Registrar nuevo Proveedor" --project=chrome
-
-# También disponible como comando npm
 npm run test:registro-proveedor
 npm run test:registro-proveedor:headed
 npm run test:registro-proveedor:chrome
@@ -157,25 +154,25 @@ PRUEBAS DE PROVIDER - CALENDARIO
 ================================================================================
 
 # Ejecutar todas las pruebas de calendario
-npx playwright test tests/provider/calendar.spec.ts --project=chrome
+npm run test:provider:calendario:todas
 
-# Pruebas individuales de calendario (usando npx)
-npx playwright test tests/provider/calendar.spec.ts -g "Navegar a calendario y validar estructura básica" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Navegar entre meses del calendario" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar estructura de días del calendario" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Seleccionar día del calendario" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar días con eventos (indicadores de color)" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar estado vacío cuando no hay eventos" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar botón agendar evento desde calendario" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Navegar de regreso desde calendario" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Seleccionar día con eventos del mes siguiente" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar eventos agendados cuando hay eventos" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Agendar evento" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Seleccionar evento de un día con eventos y validar redirección a negociación" --project=chrome
-npx playwright test tests/provider/calendar.spec.ts -g "Validar responsividad y elementos visuales" --project=chrome
+# Pruebas individuales de calendario
+npm run test:provider:calendario:navegar
+npm run test:provider:calendario:navegar-meses
+npm run test:provider:calendario:estructura-dias
+npm run test:provider:calendario:seleccionar-dia
+npm run test:provider:calendario:dias-eventos
+npm run test:provider:calendario:estado-vacio
+npm run test:provider:calendario:boton-agendar
+npm run test:provider:calendario:regreso
+npm run test:provider:calendario:dia-mes-siguiente
+npm run test:provider:calendario:eventos-agendados
+npm run test:provider:calendario:agendar
+npm run test:provider:calendario:seleccionar-evento
+npm run test:provider:calendario:responsividad
 
 # Ejecutar todas las pruebas de proveedor
-npx playwright test tests/provider/ --project=chrome
+npm run test:provider:todas
 
 ================================================================================
 PRUEBAS COMUNES (Common)
@@ -183,42 +180,42 @@ PRUEBAS COMUNES (Common)
 
 # PRUEBAS DE HOME (tests/common/home.spec.ts)
 # Ejecutar todas las pruebas de home
-npx playwright test tests/common/home.spec.ts --project=chrome
+npm run test:common:home:todas
 
-# Pruebas individuales de home (usando npx)
-npx playwright test tests/common/home.spec.ts -g "Validar elementos técnicos únicos de la página de inicio" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad del navbar superior" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad del hero banner" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad de la sección de categorías" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad de los botones de tipos de eventos" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad de los botones de estímulos" --project=chrome
-npx playwright test tests/common/home.spec.ts -g "Validar funcionalidad del footer" --project=chrome
+# Pruebas individuales de home
+npm run test:common:home:elementos-tecnicos
+npm run test:common:home:navbar
+npm run test:common:home:hero-banner
+npm run test:common:home:categorias
+npm run test:common:home:tipos-eventos
+npm run test:common:home:estimulos
+npm run test:common:home:footer
 
 # PRUEBAS DE RUTAS Y CATEGORÍAS (tests/common/rutas-categorias.spec.ts)
 # Ejecutar todas las pruebas de rutas y categorías
-npx playwright test tests/common/rutas-categorias.spec.ts --project=chrome
+npm run test:common:rutas:todas
 
-# Pruebas individuales de rutas y categorías (usando npx)
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Validar estructura de la ruta de Familia" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Validar estructura de la ruta de Categoría" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Navegar desde Familia a Categoría" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Navegar desde Categoría a Sub-categoría" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Navegar usando breadcrumb" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Validar funcionalidad de búsqueda" --project=chrome
-npx playwright test tests/common/rutas-categorias.spec.ts -g "Validar que todas las rutas de familias principales son accesibles" --project=chrome
+# Pruebas individuales de rutas y categorías
+npm run test:common:rutas:estructura-familia
+npm run test:common:rutas:estructura-categoria
+npm run test:common:rutas:navegar-familia-categoria
+npm run test:common:rutas:navegar-categoria-subcategoria
+npm run test:common:rutas:breadcrumb
+npm run test:common:rutas:busqueda
+npm run test:common:rutas:rutas-accesibles
 
 # PRUEBAS DE SCREENSHOTS (tests/common/screenshots.spec.ts)
 # Ejecutar todas las pruebas de screenshots
-npx playwright test tests/common/screenshots.spec.ts --project=chrome
+npm run test:common:screenshots:todas
 
-# Pruebas individuales de screenshots (usando npx)
-npx playwright test tests/common/screenshots.spec.ts -g "Capturar screenshot de referencia - Banner 1" --project=chrome
-npx playwright test tests/common/screenshots.spec.ts -g "Capturar screenshot de referencia - Banner 2" --project=chrome
-npx playwright test tests/common/screenshots.spec.ts -g "Capturar screenshot de referencia - Banner 3" --project=chrome
-npx playwright test tests/common/screenshots.spec.ts -g "Validar que los banners del hero no han cambiado" --project=chrome
+# Pruebas individuales de screenshots
+npm run test:common:screenshots:banner-1
+npm run test:common:screenshots:banner-2
+npm run test:common:screenshots:banner-3
+npm run test:common:screenshots:validar
 
 # Ejecutar todas las pruebas comunes
-npx playwright test tests/common/ --project=chrome
+npm run test:common:todas
 
 ================================================================================
 PRUEBAS DE CLIENTE - DASHBOARD
@@ -285,25 +282,26 @@ npm run test:cliente:eventos:crear-eventos
 # Ejecutar todas las pruebas de Eventos
 npm run test:cliente:eventos:todas
 
-# Comandos directos para bloques específicos de eventos (usando npx)
+# Bloques específicos de eventos (bloques dinámicos)
 # Bloque 1 (tipos 1-3)
-npx playwright test tests/client/cliente-eventos.spec.ts -g "Crear eventos - Bloque 1" --project=chrome
+npm run test:cliente:eventos:bloque-1
 
 # Bloque 2 (tipos 4-6)
-npx playwright test tests/client/cliente-eventos.spec.ts -g "Crear eventos - Bloque 2" --project=chrome
+npm run test:cliente:eventos:bloque-2
 
 # Bloque 3 (tipos 7-9)
-npx playwright test tests/client/cliente-eventos.spec.ts -g "Crear eventos - Bloque 3" --project=chrome
+npm run test:cliente:eventos:bloque-3
 
 # Bloque 4 (tipos 10-12)
-npx playwright test tests/client/cliente-eventos.spec.ts -g "Crear eventos - Bloque 4" --project=chrome
+npm run test:cliente:eventos:bloque-4
 
 # Bloque 5 (tipos 13-15)
-npx playwright test tests/client/cliente-eventos.spec.ts -g "Crear eventos - Bloque 5" --project=chrome
+npm run test:cliente:eventos:bloque-5
 
 NOTA: Las pruebas de eventos incluyen múltiples bloques dinámicos que se crean
-automáticamente. El comando "crear-eventos" ejecuta pruebas para diferentes
-tipos de eventos organizados en bloques. Cada bloque prueba 3 tipos de eventos.
+automáticamente. Cada bloque prueba 3 tipos de eventos diferentes. El comando 
+"npm run test:cliente:eventos:crear-eventos" ejecuta todas las pruebas de eventos 
+organizadas en bloques.
 
 ================================================================================
 COMANDOS GENERALES
@@ -360,13 +358,17 @@ npm run docs
 NOTAS
 ================================================================================
 
-- Todos los comandos de pruebas individuales ejecutan en Chrome (headed)
+- Todos los comandos npm run ejecutan en Chrome (headed) por defecto
 - Los comandos "todas" ejecutan todas las pruebas del archivo/suite correspondiente
-- Para ejecutar en modo headless, usa: npx playwright test [archivo] --project=chromium
+- Todos los comandos de pruebas individuales están disponibles como npm run
+- Prefiere usar comandos npm run en lugar de npx playwright test directamente
+
+OPCIONES ADICIONALES (usando npx directamente solo si necesitas opciones específicas):
+- Para ejecutar en modo headless: npx playwright test [archivo] --project=chromium
 - Para ejecutar con UI: npx playwright test [archivo] --ui
 - Para ejecutar en modo debug: npx playwright test [archivo] --debug
 
 ================================================================================
-Última actualización: Diciembre 2024
+Última actualización: Diciembre 2025
 ================================================================================
 

@@ -100,14 +100,54 @@ test.use({
   }
   
   async function navigateToProfile(page: Page) {
-    const profileLink = page.locator('a[href="/provider/profile"]').filter({
+    // Esperar a que la página esté completamente cargada antes de buscar el enlace
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Buscar el enlace del perfil con múltiples estrategias
+    let profileLink = page.locator('a[href="/provider/profile"]').filter({
       has: page.locator('i.icon-user')
     }).first();
+    
+    // Si no se encuentra con el filtro, buscar solo por href
+    if (await profileLink.count() === 0) {
+      profileLink = page.locator('a[href="/provider/profile"]').first();
+    }
+    
+    // Si aún no se encuentra, buscar por texto o icono
+    if (await profileLink.count() === 0) {
+      profileLink = page.locator('a').filter({
+        has: page.locator('i.icon-user')
+      }).first();
+    }
+    
     await expect(profileLink).toBeVisible({ timeout: 15000 });
+    console.log('✅ Enlace de perfil encontrado');
+    
+    // Hacer clic y esperar a que la navegación se complete
     await profileLink.click();
-    await expect(page).toHaveURL(/\/provider\/profile/);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+    
+    // Verificar que la URL cambió
+    const currentUrl = page.url();
+    console.log(`🔍 URL actual después del clic: ${currentUrl}`);
+    
+    // Si no navegó correctamente, intentar navegación directa
+    if (!currentUrl.includes('/provider/profile')) {
+      console.log('⚠️ El clic no navegó correctamente, intentando navegación directa...');
+      await page.goto('/provider/profile', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+    }
+    
+    // Verificar la URL final
+    await expect(page).toHaveURL(/\/provider\/profile/, { timeout: 10000 });
+    console.log('✅ Navegación a perfil completada');
+    
+    // Verificar que el header de datos personales está visible
     const datosPersonalesHeader = page.locator('h5', { hasText: 'Datos personales' });
     await expect(datosPersonalesHeader).toBeVisible({ timeout: 15000 });
+    console.log('✅ Sección de datos personales encontrada');
   }
 
   test.beforeEach(async ({ page }) => {

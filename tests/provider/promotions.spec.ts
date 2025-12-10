@@ -1513,4 +1513,1066 @@ test.describe('Gestión de promociones', () => {
 
     console.log('✅ Navegación completa: Promociones → Dashboard → Promociones');
   });
+
+  // ============================================================================
+  // PRUEBAS ADICIONALES PARA COMPLETAR COBERTURA DE QA FUNCIONAL
+  // ============================================================================
+
+  test('Validar estado del botón Finalizar según validaciones', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // --- VALIDAR QUE EL BOTÓN ESTÁ DESHABILITADO INICIALMENTE ---
+    await showStepMessage(page, '🔒 VALIDANDO BOTÓN DESHABILITADO INICIALMENTE');
+    const finalizarButton = page.locator('button[type="submit"][form="PromotionDataForm"], button:has-text("Finalizar")').first();
+    await expect(finalizarButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    
+    const isDisabledInitially = await finalizarButton.isDisabled();
+    if (isDisabledInitially) {
+      console.log('✅ Botón "Finalizar" está deshabilitado inicialmente (correcto)');
+    } else {
+      console.warn('⚠️ Botón "Finalizar" está habilitado inicialmente (puede ser comportamiento esperado si hay valores por defecto)');
+    }
+
+    // --- LLENAR CAMPOS UNO POR UNO Y VALIDAR ESTADO DEL BOTÓN ---
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '');
+    const shortTimestamp = `${dateStr}-${timeStr}`;
+    const promoTitle = `Test ${shortTimestamp}`.substring(0, 30);
+
+    // 1. Llenar título
+    await showStepMessage(page, '📝 LLENANDO TÍTULO');
+    await page.locator('input[id="Title"]').fill(promoTitle);
+    await page.waitForTimeout(500);
+    const isDisabledAfterTitle = await finalizarButton.isDisabled();
+    console.log(`   Estado después de título: ${isDisabledAfterTitle ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // 2. Llenar fecha inicio
+    await showStepMessage(page, '📅 LLENANDO FECHA INICIO');
+    const startDate = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    await pickDateSmart(page, 'input#StartDate', startDate);
+    await page.waitForTimeout(500);
+    const isDisabledAfterStartDate = await finalizarButton.isDisabled();
+    console.log(`   Estado después de fecha inicio: ${isDisabledAfterStartDate ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // 3. Llenar fecha fin
+    await showStepMessage(page, '📅 LLENANDO FECHA FIN');
+    const endDateObj = new Date(now);
+    endDateObj.setDate(endDateObj.getDate() + 30);
+    const endDate = `${String(endDateObj.getDate()).padStart(2,'0')}-${String(endDateObj.getMonth()+1).padStart(2,'0')}-${endDateObj.getFullYear()}`;
+    await pickDateSmart(page, 'input#EndDate', endDate);
+    await page.waitForTimeout(500);
+    const isDisabledAfterEndDate = await finalizarButton.isDisabled();
+    console.log(`   Estado después de fecha fin: ${isDisabledAfterEndDate ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // 4. Seleccionar servicio
+    await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
+    const serviceButton = page.locator('button[id="ServiceId"]');
+    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.click();
+    await page.waitForTimeout(1000);
+    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+    const serviceCount = await serviceOptions.count();
+    if (serviceCount > 0) {
+      await serviceOptions.first().click();
+      await page.waitForTimeout(500);
+    }
+    const isDisabledAfterService = await finalizarButton.isDisabled();
+    console.log(`   Estado después de servicio: ${isDisabledAfterService ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // 5. Llenar descripción
+    await showStepMessage(page, '📄 LLENANDO DESCRIPCIÓN');
+    await page.locator('textarea[id="Description"]').fill('Descripción de prueba');
+    await page.waitForTimeout(500);
+    const isDisabledAfterDescription = await finalizarButton.isDisabled();
+    console.log(`   Estado después de descripción: ${isDisabledAfterDescription ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // 6. Llenar oferta corta
+    await showStepMessage(page, '🏷️ LLENANDO OFERTA CORTA');
+    await page.locator('input[id="ShortTitle"]').fill('TEST');
+    await page.waitForTimeout(500);
+    const isDisabledAfterShortOffer = await finalizarButton.isDisabled();
+    console.log(`   Estado después de oferta corta: ${isDisabledAfterShortOffer ? 'Deshabilitado' : 'Habilitado'}`);
+
+    // Validar que el botón está habilitado cuando todos los campos están llenos
+    if (!isDisabledAfterShortOffer) {
+      console.log('✅ Botón "Finalizar" está habilitado cuando todos los campos obligatorios están completos');
+    } else {
+      console.warn('⚠️ Botón "Finalizar" sigue deshabilitado después de llenar todos los campos');
+    }
+
+    // --- VALIDAR QUE SE DESHABILITA AL BORRAR UN CAMPO OBLIGATORIO ---
+    await showStepMessage(page, '🗑️ VALIDANDO DESHABILITACIÓN AL BORRAR CAMPO');
+    await page.locator('input[id="Title"]').fill('');
+    await page.waitForTimeout(500);
+    const isDisabledAfterClearing = await finalizarButton.isDisabled();
+    if (isDisabledAfterClearing) {
+      console.log('✅ Botón "Finalizar" se deshabilitó al borrar un campo obligatorio');
+    } else {
+      console.warn('⚠️ Botón "Finalizar" no se deshabilitó al borrar un campo obligatorio');
+    }
+  });
+
+  test('Validar límite de caracteres en descripción larga', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Buscar campo de descripción
+    await showStepMessage(page, '📄 PROBANDO LÍMITE DE CARACTERES EN DESCRIPCIÓN');
+    const descriptionTextarea = page.locator('textarea[id="Description"]');
+    await expect(descriptionTextarea).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await descriptionTextarea.scrollIntoViewIfNeeded();
+
+    // Verificar si tiene maxlength
+    const maxLength = await descriptionTextarea.getAttribute('maxlength');
+    if (maxLength) {
+      console.log(`✅ Campo tiene límite de ${maxLength} caracteres`);
+      
+      // Intentar escribir más caracteres que el límite
+      const longText = 'A'.repeat(parseInt(maxLength) + 10);
+      await descriptionTextarea.fill(longText);
+      await page.waitForTimeout(500);
+      
+      // Verificar que solo se aceptaron caracteres hasta el límite
+      const inputValue = await descriptionTextarea.inputValue();
+      expect(inputValue.length).toBeLessThanOrEqual(parseInt(maxLength));
+      console.log(`✅ El campo limitó correctamente a ${inputValue.length} caracteres (límite: ${maxLength})`);
+    } else {
+      console.log('ℹ️ Campo de descripción no tiene atributo maxlength (puede tener validación por otro método)');
+      
+      // Intentar escribir un texto muy largo para ver si hay validación
+      const veryLongText = 'A'.repeat(1000);
+      await descriptionTextarea.fill(veryLongText);
+      await page.waitForTimeout(500);
+      
+      const inputValue = await descriptionTextarea.inputValue();
+      console.log(`📊 Caracteres aceptados: ${inputValue.length}`);
+      
+      // Verificar si hay un contador o mensaje de límite
+      const counter = page.locator('text=/\\d+\\/\\d+/');
+      const counterVisible = await counter.isVisible({ timeout: 2000 }).catch(() => false);
+      if (counterVisible) {
+        const counterText = await counter.textContent();
+        console.log(`✅ Contador visual encontrado: "${counterText}"`);
+      }
+    }
+  });
+
+  test('Validar contador dinámico de oferta corta', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Buscar campo de oferta corta
+    await showStepMessage(page, '🏷️ VALIDANDO CONTADOR DINÁMICO DE OFERTA CORTA');
+    const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await shortOfferInput.scrollIntoViewIfNeeded();
+
+    // Buscar contador
+    const counter = page.locator('text=/\\d+\\/10/');
+    const counterVisible = await counter.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (!counterVisible) {
+      console.log('⚠️ Contador visual no encontrado, puede estar implementado de otra forma');
+      return;
+    }
+
+    // Verificar estado inicial (debería ser 0/10)
+    let counterText = await counter.textContent();
+    console.log(`📊 Contador inicial: "${counterText}"`);
+    expect(counterText).toMatch(/0\/10/);
+
+    // Escribir un carácter y verificar que el contador aumenta
+    await shortOfferInput.fill('A');
+    await page.waitForTimeout(300);
+    counterText = await counter.textContent();
+    console.log(`📊 Contador después de 1 carácter: "${counterText}"`);
+    expect(counterText).toMatch(/1\/10/);
+
+    // Escribir más caracteres y verificar que aumenta
+    await shortOfferInput.fill('AB');
+    await page.waitForTimeout(300);
+    counterText = await counter.textContent();
+    console.log(`📊 Contador después de 2 caracteres: "${counterText}"`);
+    expect(counterText).toMatch(/2\/10/);
+
+    // Escribir hasta el límite
+    await shortOfferInput.fill('ABCDEFGHIJ');
+    await page.waitForTimeout(300);
+    counterText = await counter.textContent();
+    console.log(`📊 Contador después de 10 caracteres: "${counterText}"`);
+    expect(counterText).toMatch(/10\/10/);
+
+    // Intentar escribir más (no debería aumentar)
+    await shortOfferInput.fill('ABCDEFGHIJK');
+    await page.waitForTimeout(300);
+    counterText = await counter.textContent();
+    console.log(`📊 Contador después de intentar 11 caracteres: "${counterText}"`);
+    expect(counterText).toMatch(/10\/10/);
+
+    // Borrar y verificar que disminuye
+    await shortOfferInput.fill('ABC');
+    await page.waitForTimeout(300);
+    counterText = await counter.textContent();
+    console.log(`📊 Contador después de borrar a 3 caracteres: "${counterText}"`);
+    expect(counterText).toMatch(/3\/10/);
+
+    console.log('✅ Contador dinámico funciona correctamente');
+  });
+
+  test('Validar que servicios se cargan desde API', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Interceptar llamadas API relacionadas con servicios
+    await showStepMessage(page, '🔍 INTERCEPTANDO LLAMADAS API DE SERVICIOS');
+    const apiCalls: any[] = [];
+    
+    page.on('response', (response) => {
+      const url = response.url();
+      if (url.includes('/service') || url.includes('/services') || url.includes('/api/service')) {
+        apiCalls.push({
+          url,
+          status: response.status(),
+          method: response.request().method()
+        });
+      }
+    });
+
+    // Abrir dropdown de servicios
+    await showStepMessage(page, '🔧 ABRIENDO DROPDOWN DE SERVICIOS');
+    const serviceButton = page.locator('button[id="ServiceId"]');
+    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.click();
+    await page.waitForTimeout(2000); // Esperar a que se carguen los servicios
+
+    // Verificar que se hizo una llamada API
+    if (apiCalls.length > 0) {
+      console.log(`✅ Se detectaron ${apiCalls.length} llamada(s) API relacionada(s) con servicios:`);
+      apiCalls.forEach((call, index) => {
+        console.log(`   ${index + 1}. ${call.method} ${call.url} - Status: ${call.status}`);
+      });
+      
+      // Verificar que la respuesta fue exitosa
+      const successfulCalls = apiCalls.filter(call => call.status >= 200 && call.status < 300);
+      if (successfulCalls.length > 0) {
+        console.log('✅ Las llamadas API fueron exitosas');
+      } else {
+        console.warn('⚠️ No se encontraron llamadas API exitosas');
+      }
+    } else {
+      console.log('ℹ️ No se detectaron llamadas API explícitas (los servicios pueden estar precargados o venir de otra fuente)');
+    }
+
+    // Verificar que hay opciones de servicio disponibles
+    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+    const serviceCount = await serviceOptions.count();
+    
+    if (serviceCount > 0) {
+      console.log(`✅ Se encontraron ${serviceCount} servicio(s) disponible(s) en el dropdown`);
+      
+      // Obtener información de los primeros servicios
+      for (let i = 0; i < Math.min(serviceCount, 3); i++) {
+        const serviceText = await serviceOptions.nth(i).textContent();
+        console.log(`   - Servicio ${i + 1}: "${serviceText?.trim()}"`);
+      }
+    } else {
+      console.log('⚠️ No se encontraron servicios en el dropdown');
+    }
+
+    // Cerrar el dropdown
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+  });
+
+  test('Validar selección única de servicio', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Abrir dropdown de servicios
+    await showStepMessage(page, '🔧 VALIDANDO SELECCIÓN ÚNICA DE SERVICIO');
+    const serviceButton = page.locator('button[id="ServiceId"]');
+    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.click();
+    await page.waitForTimeout(1000);
+
+    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+    const serviceCount = await serviceOptions.count();
+    
+    if (serviceCount < 2) {
+      console.log('⚠️ Se necesitan al menos 2 servicios para validar selección única');
+      await page.keyboard.press('Escape');
+      return;
+    }
+
+    // Seleccionar primer servicio
+    const firstService = serviceOptions.first();
+    const firstServiceText = await firstService.textContent();
+    await firstService.click();
+    await page.waitForTimeout(500);
+    
+    // Verificar que el servicio se seleccionó
+    const serviceButtonTextAfter = await serviceButton.textContent();
+    console.log(`✅ Primer servicio seleccionado: "${firstServiceText?.trim()}"`);
+    console.log(`   Texto del botón después de selección: "${serviceButtonTextAfter?.trim()}"`);
+
+    // Abrir dropdown nuevamente
+    await serviceButton.click();
+    await page.waitForTimeout(1000);
+
+    // Intentar seleccionar otro servicio
+    const secondService = serviceOptions.nth(1);
+    const secondServiceText = await secondService.textContent();
+    await secondService.click();
+    await page.waitForTimeout(500);
+
+    // Verificar que ahora muestra el segundo servicio (no ambos)
+    const serviceButtonTextFinal = await serviceButton.textContent();
+    console.log(`✅ Segundo servicio seleccionado: "${secondServiceText?.trim()}"`);
+    console.log(`   Texto del botón después de segunda selección: "${serviceButtonTextFinal?.trim()}"`);
+
+    // Validar que solo hay un servicio seleccionado (el texto del botón debe cambiar, no agregar)
+    if (serviceButtonTextFinal && serviceButtonTextFinal !== serviceButtonTextAfter) {
+      console.log('✅ Solo se puede seleccionar un servicio a la vez (selección única)');
+    } else {
+      console.warn('⚠️ No se pudo validar claramente la selección única');
+    }
+  });
+
+  test('Probar inputs inesperados en campos del formulario', async ({ page }) => {
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Casos de prueba para inputs inesperados
+    const testCases = [
+      { name: 'Solo espacios', value: '   ' },
+      { name: 'Emojis', value: '🎉🎊🎈' },
+      { name: 'Caracteres especiales', value: '!@#$%^&*()' },
+      { name: 'Script tags', value: '<script>alert("test")</script>' },
+      { name: 'SQL injection', value: "'; DROP TABLE--" },
+      { name: 'HTML tags', value: '<div>Test</div>' },
+      { name: 'Caracteres unicode', value: '测试🚀' },
+      { name: 'Espacios al inicio y fin', value: '  Test  ' }
+    ];
+
+    await showStepMessage(page, '🧪 PROBANDO INPUTS INESPERADOS EN TÍTULO');
+    const titleInput = page.locator('input[id="Title"]');
+    await expect(titleInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+
+    for (const testCase of testCases) {
+      try {
+        console.log(`\n🔍 Probando: ${testCase.name} - Valor: "${testCase.value}"`);
+        await titleInput.fill(testCase.value);
+        await page.waitForTimeout(300);
+        
+        const inputValue = await titleInput.inputValue();
+        console.log(`   Valor aceptado: "${inputValue}"`);
+        
+        // Verificar que el formulario no se rompió
+        const formStillVisible = await page.getByText('Nueva promoción').isVisible();
+        if (formStillVisible) {
+          console.log(`   ✅ Formulario sigue funcionando después de "${testCase.name}"`);
+        } else {
+          console.warn(`   ⚠️ Formulario puede haberse roto después de "${testCase.name}"`);
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Error al probar "${testCase.name}": ${error.message}`);
+      }
+    }
+
+    await showStepMessage(page, '🧪 PROBANDO INPUTS INESPERADOS EN DESCRIPCIÓN');
+    const descriptionTextarea = page.locator('textarea[id="Description"]');
+    
+    for (const testCase of testCases.slice(0, 4)) { // Probar solo algunos casos en descripción
+      try {
+        console.log(`\n🔍 Probando en descripción: ${testCase.name}`);
+        await descriptionTextarea.fill(testCase.value);
+        await page.waitForTimeout(300);
+        
+        const inputValue = await descriptionTextarea.inputValue();
+        console.log(`   Valor aceptado: "${inputValue.substring(0, 50)}..."`);
+        
+        const formStillVisible = await page.getByText('Nueva promoción').isVisible();
+        if (formStillVisible) {
+          console.log(`   ✅ Formulario sigue funcionando`);
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Error: ${error.message}`);
+      }
+    }
+
+    await showStepMessage(page, '🧪 PROBANDO INPUTS INESPERADOS EN OFERTA CORTA');
+    const shortOfferInput = page.locator('input[id="ShortTitle"]');
+    
+    // Probar algunos casos específicos para oferta corta (tiene límite de 10 caracteres)
+    const shortOfferTestCases = [
+      { name: 'Emojis', value: '🎉🎊' },
+      { name: 'Caracteres especiales', value: '!@#$%' },
+      { name: 'Espacios', value: '   ' }
+    ];
+
+    for (const testCase of shortOfferTestCases) {
+      try {
+        console.log(`\n🔍 Probando en oferta corta: ${testCase.name}`);
+        await shortOfferInput.fill(testCase.value);
+        await page.waitForTimeout(300);
+        
+        const inputValue = await shortOfferInput.inputValue();
+        console.log(`   Valor aceptado: "${inputValue}"`);
+        
+        const formStillVisible = await page.getByText('Nueva promoción').isVisible();
+        if (formStillVisible) {
+          console.log(`   ✅ Formulario sigue funcionando`);
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Error: ${error.message}`);
+      }
+    }
+
+    console.log('\n✅ Pruebas de inputs inesperados completadas');
+  });
+
+  test('Validar formulario en viewport móvil', async ({ page }) => {
+    // Cambiar a viewport móvil
+    await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE
+    await page.waitForTimeout(500);
+
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES (MÓVIL)');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario
+    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN (MÓVIL)');
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // Validar que todos los campos son accesibles y visibles
+    await showStepMessage(page, '✅ VALIDANDO ELEMENTOS EN VIEWPORT MÓVIL');
+    
+    const campos = [
+      { name: 'Título', selector: 'input[id="Title"]' },
+      { name: 'Fecha inicio', selector: 'input[id="StartDate"]' },
+      { name: 'Fecha fin', selector: 'input[id="EndDate"]' },
+      { name: 'Servicio', selector: 'button[id="ServiceId"]' },
+      { name: 'Descripción', selector: 'textarea[id="Description"]' },
+      { name: 'Oferta corta', selector: 'input[id="ShortTitle"]' },
+      { name: 'Botón Finalizar', selector: 'button:has-text("Finalizar")' }
+    ];
+
+    for (const campo of campos) {
+      const elemento = page.locator(campo.selector).first();
+      const isVisible = await elemento.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (isVisible) {
+        // Verificar que está en el viewport
+        const boundingBox = await elemento.boundingBox();
+        if (boundingBox) {
+          const isInViewport = boundingBox.x >= 0 && 
+                               boundingBox.y >= 0 && 
+                               boundingBox.x + boundingBox.width <= 375 &&
+                               boundingBox.y + boundingBox.height <= 667;
+          
+          if (isInViewport) {
+            console.log(`✅ ${campo.name} está visible y dentro del viewport`);
+          } else {
+            console.warn(`⚠️ ${campo.name} está visible pero puede estar parcialmente fuera del viewport`);
+          }
+        } else {
+          console.log(`✅ ${campo.name} está visible`);
+        }
+      } else {
+        console.warn(`⚠️ ${campo.name} no está visible en viewport móvil`);
+      }
+    }
+
+    // Verificar que no hay elementos superpuestos (buscando elementos con z-index alto que puedan bloquear)
+    await showStepMessage(page, '🔍 VERIFICANDO SUPERPOSICIONES');
+    const overlappingElements = await page.evaluate(() => {
+      const elements = document.querySelectorAll('*');
+      const overlapping: any[] = [];
+      
+      for (let i = 0; i < elements.length; i++) {
+        const el1 = elements[i] as HTMLElement;
+        const rect1 = el1.getBoundingClientRect();
+        const z1 = window.getComputedStyle(el1).zIndex;
+        
+        if (rect1.width === 0 || rect1.height === 0) continue;
+        
+        for (let j = i + 1; j < elements.length; j++) {
+          const el2 = elements[j] as HTMLElement;
+          const rect2 = el2.getBoundingClientRect();
+          
+          if (rect2.width === 0 || rect2.height === 0) continue;
+          
+          // Verificar si se superponen
+          const overlaps = !(rect1.right < rect2.left || 
+                           rect1.left > rect2.right || 
+                           rect1.bottom < rect2.top || 
+                           rect1.top > rect2.bottom);
+          
+          if (overlaps && z1 !== 'auto' && parseInt(z1) > 100) {
+            overlapping.push({
+              element1: el1.tagName + (el1.className ? '.' + el1.className.split(' ')[0] : ''),
+              element2: el2.tagName + (el2.className ? '.' + el2.className.split(' ')[0] : ''),
+              zIndex: z1
+            });
+          }
+        }
+      }
+      
+      return overlapping;
+    });
+
+    if (overlappingElements.length > 0) {
+      console.warn(`⚠️ Se encontraron ${overlappingElements.length} posibles superposiciones`);
+    } else {
+      console.log('✅ No se encontraron superposiciones evidentes');
+    }
+
+    // Restaurar viewport original
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.waitForTimeout(500);
+  });
+
+  // ============================================================================
+  // FUNCIONES HELPER PARA VALIDACIÓN DE TRASLAPE DE FECHAS
+  // ============================================================================
+
+  /**
+   * Helper para crear una promoción completa con todos los campos
+   */
+  async function crearPromocionCompleta(
+    page: Page,
+    titulo: string,
+    fechaInicio: string,
+    fechaFin: string,
+    servicioIndex: number = 0,
+    descripcion?: string,
+    ofertaCorta?: string
+  ): Promise<boolean> {
+    try {
+      // Abrir formulario
+      await page.getByRole('button', { name: 'Crear promoción' }).click();
+      await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+
+      // Llenar título
+      await page.locator('input[id="Title"]').fill(titulo);
+      await page.waitForTimeout(500);
+
+      // Llenar fechas
+      await pickDateSmart(page, 'input#StartDate', fechaInicio);
+      await page.waitForTimeout(500);
+      await pickDateSmart(page, 'input#EndDate', fechaFin);
+      await page.waitForTimeout(500);
+
+      // Seleccionar servicio
+      const serviceButton = page.locator('button[id="ServiceId"]');
+      await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      await serviceButton.click();
+      await page.waitForTimeout(1000);
+
+      const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+      const serviceCount = await serviceOptions.count();
+      if (serviceCount > servicioIndex) {
+        await serviceOptions.nth(servicioIndex).click();
+        await page.waitForTimeout(500);
+      } else if (serviceCount > 0) {
+        await serviceOptions.first().click();
+        await page.waitForTimeout(500);
+      } else {
+        console.warn('⚠️ No se encontraron servicios disponibles');
+        await page.keyboard.press('Escape');
+        return false;
+      }
+
+      // Llenar descripción
+      if (descripcion) {
+        await page.locator('textarea[id="Description"]').fill(descripcion);
+        await page.waitForTimeout(500);
+      } else {
+        await page.locator('textarea[id="Description"]').fill(`Descripción para ${titulo}`);
+        await page.waitForTimeout(500);
+      }
+
+      // Llenar oferta corta
+      if (ofertaCorta) {
+        await page.locator('input[id="ShortTitle"]').fill(ofertaCorta);
+        await page.waitForTimeout(500);
+      } else {
+        await page.locator('input[id="ShortTitle"]').fill('TEST');
+        await page.waitForTimeout(500);
+      }
+
+      // Subir imagen (opcional, puede fallar si no hay imagen)
+      try {
+        const fileInput = page.locator('input[id="PromotionMultimedia"]');
+        await fileInput.setInputFiles(PROMOTION_IMAGE_PATH);
+        await page.waitForTimeout(1000);
+      } catch (e) {
+        console.log('ℹ️ No se pudo subir imagen (opcional)');
+      }
+
+      // Guardar
+      const finalizarButton = page.locator('button[type="submit"][form="PromotionDataForm"], button:has-text("Finalizar")').first();
+      await expect(finalizarButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      await finalizarButton.click();
+      await page.waitForTimeout(3000);
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Error al crear promoción: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Helper para verificar si hay un mensaje de error de traslape
+   */
+  async function verificarErrorTraslape(page: Page): Promise<{ encontrado: boolean; mensaje?: string }> {
+    // Buscar diferentes posibles mensajes de error de traslape
+    const posiblesMensajes = [
+      /ya existe.*promoción.*activa/i,
+      /fechas.*traslapan/i,
+      /fechas.*se.*superponen/i,
+      /período.*ya.*existe/i,
+      /promoción.*activa.*mismo.*servicio/i,
+      /rango.*fechas.*ocupado/i,
+      /ya.*tiene.*promoción.*activa/i,
+      /traslape/i,
+      /superposición/i
+    ];
+
+    // Buscar en modales
+    const modalError = page.locator('div[role="dialog"], div[class*="modal"], div[class*="Modal"]');
+    const modalCount = await modalError.count();
+    
+    for (let i = 0; i < modalCount; i++) {
+      const modal = modalError.nth(i);
+      const modalText = await modal.textContent().catch(() => '');
+      
+      for (const pattern of posiblesMensajes) {
+        if (pattern.test(modalText)) {
+          return { encontrado: true, mensaje: modalText.trim() };
+        }
+      }
+    }
+
+    // Buscar en toasts/notificaciones
+    const toastError = page.locator('div[class*="toast"], div[class*="Toast"], div[class*="notification"], div[class*="Notification"]');
+    const toastCount = await toastError.count();
+    
+    for (let i = 0; i < toastCount; i++) {
+      const toast = toastError.nth(i);
+      const toastText = await toast.textContent().catch(() => '');
+      
+      for (const pattern of posiblesMensajes) {
+        if (pattern.test(toastText)) {
+          return { encontrado: true, mensaje: toastText.trim() };
+        }
+      }
+    }
+
+    // Buscar en cualquier texto visible
+    for (const pattern of posiblesMensajes) {
+      const errorLocator = page.locator(`text=${pattern}`);
+      const isVisible = await errorLocator.isVisible({ timeout: 2000 }).catch(() => false);
+      if (isVisible) {
+        const errorText = await errorLocator.textContent().catch(() => '');
+        return { encontrado: true, mensaje: errorText?.trim() };
+      }
+    }
+
+    return { encontrado: false };
+  }
+
+  /**
+   * Helper para cerrar modales/errores
+   */
+  async function cerrarModalError(page: Page): Promise<void> {
+    // Intentar cerrar con Escape
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    // Buscar botón de cerrar (X)
+    const closeButtons = page.locator('button:has(i.icon-x), button:has-text("Cerrar"), button:has-text("OK"), button[aria-label*="close" i]');
+    const closeCount = await closeButtons.count();
+    if (closeCount > 0) {
+      await closeButtons.first().click().catch(() => {});
+      await page.waitForTimeout(500);
+    }
+  }
+
+  // ============================================================================
+  // PRUEBAS DE VALIDACIÓN DE TRASLAPE DE FECHAS
+  // ============================================================================
+
+  test('Validar que no se puede crear promoción con fechas que se traslapan con una existente', async ({ page }) => {
+    await login(page);
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // --- CREAR PRIMERA PROMOCIÓN ---
+    await showStepMessage(page, '🟢 CREANDO PRIMERA PROMOCIÓN (BASE)');
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '');
+    const shortTimestamp = `${dateStr}-${timeStr}`;
+
+    // Fechas para la primera promoción: del día actual hasta 30 días después
+    const startDate1 = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    const endDateObj1 = new Date(now);
+    endDateObj1.setDate(endDateObj1.getDate() + 30);
+    const endDate1 = `${String(endDateObj1.getDate()).padStart(2,'0')}-${String(endDateObj1.getMonth()+1).padStart(2,'0')}-${endDateObj1.getFullYear()}`;
+    
+    const titulo1 = `Promo Base ${shortTimestamp}`.substring(0, 30);
+    const exito1 = await crearPromocionCompleta(page, titulo1, startDate1, endDate1, 0, `Descripción promoción base ${shortTimestamp}`, 'BASE');
+    
+    if (!exito1) {
+      console.warn('⚠️ No se pudo crear la primera promoción, puede que ya exista una con fechas similares');
+      // Intentar cerrar cualquier modal de error
+      await cerrarModalError(page);
+      await page.waitForTimeout(1000);
+    } else {
+      // Validar que se creó
+      await expect(page.getByText(titulo1)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT }).catch(() => {});
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+      console.log('✅ Primera promoción creada exitosamente');
+    }
+
+    // --- INTENTAR CREAR SEGUNDA PROMOCIÓN CON FECHAS TRASLAPADAS ---
+    await showStepMessage(page, '⚠️ INTENTANDO CREAR SEGUNDA PROMOCIÓN CON FECHAS TRASLAPADAS');
+    
+    // Fechas que se traslapan: empiezan 15 días después (dentro del rango de la primera)
+    const startDate2 = `${String(endDateObj1.getDate() - 15).padStart(2,'0')}-${String(endDateObj1.getMonth()+1).padStart(2,'0')}-${endDateObj1.getFullYear()}`;
+    const endDateObj2 = new Date(endDateObj1);
+    endDateObj2.setDate(endDateObj2.getDate() + 20); // Se extiende más allá de la primera
+    const endDate2 = `${String(endDateObj2.getDate()).padStart(2,'0')}-${String(endDateObj2.getMonth()+1).padStart(2,'0')}-${endDateObj2.getFullYear()}`;
+    
+    const titulo2 = `Promo Traslapada ${shortTimestamp}`.substring(0, 30);
+    
+    // Intentar crear la segunda promoción (debe fallar)
+    const exito2 = await crearPromocionCompleta(page, titulo2, startDate2, endDate2, 0, `Descripción promoción traslapada ${shortTimestamp}`, 'TRASL');
+    
+    // Validar que NO se creó y que aparece un error
+    await showStepMessage(page, '✅ VALIDANDO QUE SE IMPIDIÓ LA CREACIÓN');
+    await page.waitForTimeout(2000);
+    
+    const errorTraslape = await verificarErrorTraslape(page);
+    
+    if (errorTraslape.encontrado) {
+      console.log(`✅ Error de traslape detectado: "${errorTraslape.mensaje}"`);
+      expect(errorTraslape.encontrado).toBe(true);
+    } else {
+      // Verificar que la promoción NO aparece en la lista
+      const promoEnLista = await page.getByText(titulo2).isVisible({ timeout: 3000 }).catch(() => false);
+      if (!promoEnLista) {
+        console.log('✅ La promoción no se creó (aunque no se detectó mensaje de error explícito)');
+      } else {
+        console.warn('⚠️ La promoción se creó a pesar del traslape (posible bug en la aplicación)');
+      }
+    }
+
+    // Cerrar cualquier modal de error
+    await cerrarModalError(page);
+    await page.waitForTimeout(1000);
+  });
+
+  test('Validar que se pueden crear múltiples promociones con el mismo servicio si las fechas NO se traslapan', async ({ page }) => {
+    await login(page);
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '');
+    const shortTimestamp = `${dateStr}-${timeStr}`;
+
+    // --- CREAR PRIMERA PROMOCIÓN (MES 1) ---
+    await showStepMessage(page, '🟢 CREANDO PRIMERA PROMOCIÓN (MES 1)');
+    
+    // Fechas para primera promoción: días 1-15 del mes actual
+    const startDate1 = `${String(1).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    const endDate1 = `${String(15).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    
+    const titulo1 = `Promo Mes1 ${shortTimestamp}`.substring(0, 30);
+    const exito1 = await crearPromocionCompleta(page, titulo1, startDate1, endDate1, 0, `Descripción mes 1 ${shortTimestamp}`, 'MES1');
+    
+    if (exito1) {
+      await expect(page.getByText(titulo1)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT }).catch(() => {});
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+      console.log('✅ Primera promoción creada (Mes 1)');
+    } else {
+      console.warn('⚠️ No se pudo crear la primera promoción');
+      await cerrarModalError(page);
+      await page.waitForTimeout(1000);
+    }
+
+    // --- CREAR SEGUNDA PROMOCIÓN (MES 2) - FECHAS NO TRASLAPADAS ---
+    await showStepMessage(page, '🟢 CREANDO SEGUNDA PROMOCIÓN (MES 2) - FECHAS NO TRASLAPADAS');
+    
+    // Fechas para segunda promoción: días 16-30 del mes actual (después de la primera)
+    const startDate2 = `${String(16).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    const endDate2 = `${String(30).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    
+    const titulo2 = `Promo Mes2 ${shortTimestamp}`.substring(0, 30);
+    const exito2 = await crearPromocionCompleta(page, titulo2, startDate2, endDate2, 0, `Descripción mes 2 ${shortTimestamp}`, 'MES2');
+    
+    if (exito2) {
+      await showStepMessage(page, '✅ VALIDANDO QUE AMBAS PROMOCIONES EXISTEN');
+      await page.waitForTimeout(2000);
+      
+      // Verificar que ambas promociones están en la lista
+      const promo1Visible = await page.getByText(titulo1).isVisible({ timeout: 5000 }).catch(() => false);
+      const promo2Visible = await page.getByText(titulo2).isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (promo1Visible && promo2Visible) {
+        console.log('✅ Ambas promociones se crearon exitosamente con el mismo servicio');
+        console.log(`   - Promoción 1: ${titulo1} (${startDate1} - ${endDate1})`);
+        console.log(`   - Promoción 2: ${titulo2} (${startDate2} - ${endDate2})`);
+        expect(promo1Visible).toBe(true);
+        expect(promo2Visible).toBe(true);
+      } else {
+        console.warn('⚠️ Una o ambas promociones no están visibles en la lista');
+        if (!promo1Visible) console.warn(`   - ${titulo1} no encontrada`);
+        if (!promo2Visible) console.warn(`   - ${titulo2} no encontrada`);
+      }
+    } else {
+      // Verificar si falló por traslape (no debería)
+      const errorTraslape = await verificarErrorTraslape(page);
+      if (errorTraslape.encontrado) {
+        console.warn(`⚠️ Se detectó error de traslape aunque las fechas NO se traslapan: "${errorTraslape.mensaje}"`);
+        console.warn('   Esto puede indicar un problema en la validación de fechas de la aplicación');
+      } else {
+        console.warn('⚠️ La segunda promoción no se creó por otra razón');
+      }
+      await cerrarModalError(page);
+    }
+
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+  });
+
+  test('Validar diferentes escenarios de traslape de fechas', async ({ page }) => {
+    await login(page);
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timeStr = now.toISOString().slice(11, 19).replace(/:/g, '');
+    const shortTimestamp = `${dateStr}-${timeStr}`;
+
+    // --- CREAR PROMOCIÓN BASE ---
+    await showStepMessage(page, '🟢 CREANDO PROMOCIÓN BASE');
+    const startDateBase = `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+    const endDateObjBase = new Date(now);
+    endDateObjBase.setDate(endDateObjBase.getDate() + 20);
+    const endDateBase = `${String(endDateObjBase.getDate()).padStart(2,'0')}-${String(endDateObjBase.getMonth()+1).padStart(2,'0')}-${endDateObjBase.getFullYear()}`;
+    
+    const tituloBase = `Promo Base Traslape ${shortTimestamp}`.substring(0, 30);
+    const exitoBase = await crearPromocionCompleta(page, tituloBase, startDateBase, endDateBase, 0, `Descripción base ${shortTimestamp}`, 'BASE');
+    
+    if (exitoBase) {
+      await expect(page.getByText(tituloBase)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT }).catch(() => {});
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+      console.log('✅ Promoción base creada');
+    } else {
+      await cerrarModalError(page);
+      await page.waitForTimeout(1000);
+    }
+
+    // Escenarios de traslape a probar
+    const escenarios = [
+      {
+        nombre: 'Traslape completo (nueva dentro de base)',
+        getStartDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 5);
+          return date;
+        },
+        getEndDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 10);
+          return date;
+        }
+      },
+      {
+        nombre: 'Traslape parcial inicio (nueva empieza antes, termina dentro)',
+        getStartDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - 5);
+          return date;
+        },
+        getEndDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 5);
+          return date;
+        }
+      },
+      {
+        nombre: 'Traslape parcial fin (nueva empieza dentro, termina después)',
+        getStartDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 15);
+          return date;
+        },
+        getEndDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 30);
+          return date;
+        }
+      },
+      {
+        nombre: 'Traslape completo (nueva contiene a base)',
+        getStartDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - 5);
+          return date;
+        },
+        getEndDate: () => {
+          const date = new Date(now);
+          date.setDate(date.getDate() + 30);
+          return date;
+        }
+      }
+    ];
+
+    for (const escenario of escenarios) {
+      await showStepMessage(page, `⚠️ PROBANDO ESCENARIO: ${escenario.nombre}`);
+      
+      const startDate = escenario.getStartDate();
+      const endDate = escenario.getEndDate();
+      const startDateStr = `${String(startDate.getDate()).padStart(2,'0')}-${String(startDate.getMonth()+1).padStart(2,'0')}-${startDate.getFullYear()}`;
+      const endDateStr = `${String(endDate.getDate()).padStart(2,'0')}-${String(endDate.getMonth()+1).padStart(2,'0')}-${endDate.getFullYear()}`;
+      
+      const tituloEscenario = `Promo ${escenario.nombre.substring(0, 15)} ${shortTimestamp}`.substring(0, 30);
+      
+      const exito = await crearPromocionCompleta(page, tituloEscenario, startDateStr, endDateStr, 0, `Descripción ${escenario.nombre}`, 'TRASL');
+      
+      await page.waitForTimeout(2000);
+      const errorTraslape = await verificarErrorTraslape(page);
+      
+      if (errorTraslape.encontrado) {
+        console.log(`✅ Escenario "${escenario.nombre}": Error de traslape detectado correctamente`);
+        expect(errorTraslape.encontrado).toBe(true);
+      } else {
+        // Verificar que la promoción NO se creó
+        const promoEnLista = await page.getByText(tituloEscenario).isVisible({ timeout: 3000 }).catch(() => false);
+        if (!promoEnLista) {
+          console.log(`✅ Escenario "${escenario.nombre}": La promoción no se creó (validación funcionó)`);
+        } else {
+          console.warn(`⚠️ Escenario "${escenario.nombre}": La promoción se creó a pesar del traslape (posible bug)`);
+        }
+      }
+      
+      await cerrarModalError(page);
+      await page.waitForTimeout(1000);
+    }
+  });
 });

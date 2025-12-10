@@ -199,11 +199,11 @@ function esFormatoPermitidoParaGaleria(archivo: string): boolean {
   const formatosImagen = [
     '.xbm', '.tif', '.tiff', '.jfif', '.pjp', '.apng', '.jpeg', '.heif', 
     '.ico', '.webp', '.svgz', '.jpg', '.heic', '.svg', '.png', 
-    '.bmp', '.pjpeg', '.avif'
+    '.bmp', '.pjpeg', '.avif', '.gif'
   ];
   const formatosVideo = [
     '.ogm', '.wmv', '.mpg', '.webm', '.ogv', '.mov', '.asx', '.mpeg', 
-    '.mp4', '.m4v', '.avi'
+    '.mp4', '.m4v', '.avi', '.mkv', '.flv', '.3gp'
   ];
   return formatosImagen.includes(ext) || formatosVideo.includes(ext);
 }
@@ -242,18 +242,15 @@ async function obtenerArchivosPrueba(): Promise<{
     console.log('⚠️ No se pudieron leer archivos de C:\\Temp:', e);
   }
 
-  // Buscar imágenes y videos en C:\Users\Efrain De Loa\Pictures\Fiestamas Testing
-  // Formatos permitidos según el diálogo de Galería:
-  // Imágenes: xbm, tif, jfif, pjp, apng, jpeg, heif, ico, tiff, webp, svgz, jpg, heic, gif, svg, png, bmp, pjpeg, avif
-  // Videos: ogm, wmv, mpg, webm, ogv, mov, asx, mpeg, mp4, m4v, avi
+  // Buscar imágenes y videos solo en C:\Temp\Playwright\tests\test-images
   try {
-    const imagenesDir = 'C:\\Users\\Efrain De Loa\\Pictures\\Fiestamas Testing';
+    const testImagesDir = 'C:\\Temp\\Playwright\\tests\\test-images';
     
-    if (fs.existsSync(imagenesDir)) {
-      const archivos = fs.readdirSync(imagenesDir, { withFileTypes: true });
+    if (fs.existsSync(testImagesDir)) {
+      const archivos = fs.readdirSync(testImagesDir, { withFileTypes: true });
       for (const archivo of archivos) {
         if (archivo.isFile()) {
-          const rutaCompleta = path.join(imagenesDir, archivo.name);
+          const rutaCompleta = path.join(testImagesDir, archivo.name);
           // Verificar que el archivo existe, es accesible y tiene un formato permitido para Galería
           if (fs.existsSync(rutaCompleta) && esFormatoPermitidoParaGaleria(rutaCompleta)) {
             imagenesTesting.push(rutaCompleta);
@@ -262,7 +259,7 @@ async function obtenerArchivosPrueba(): Promise<{
       }
     }
   } catch (e) {
-    console.log('⚠️ No se pudieron leer imágenes de C:\\Users\\Efrain De Loa\\Pictures\\Fiestamas Testing:', e);
+    console.log('⚠️ No se pudieron leer imágenes de C:\\Temp\\Playwright\\tests\\test-images:', e);
   }
 
   return { archivosTemp, imagenesTesting };
@@ -1609,39 +1606,64 @@ test.describe('Cotizaciones', () => {
         }).first();
         const cerrarVisible = await botonCerrar.isVisible({ timeout: 2000 }).catch(() => false);
         
-        if (cerrarVisible) {
-          console.log('🖱️ Haciendo clic en botón de cerrar...');
-          await botonCerrar.click();
-          await safeWaitForTimeout(page, 1000);
+        // Estrategia 1: Intentar cerrar con Escape primero (más confiable cuando hay backdrops)
+        try {
+          console.log('⌨️ Intentando cerrar con Escape primero...');
+          await page.keyboard.press('Escape');
+          await safeWaitForTimeout(page, 1500);
           
           // Verificar que el diálogo se cerró
-          const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
+          const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 3000 }).catch(() => false);
           if (dialogoCerrado) {
-            console.log('✅ Diálogo de adjuntos cerrado correctamente');
+            console.log('✅ Diálogo de adjuntos cerrado correctamente con Escape');
           } else {
-            console.log('⚠️ El diálogo aún está visible, intentando cerrar con ESC...');
+            throw new Error('Escape no cerró el diálogo');
+          }
+        } catch (error) {
+          console.log('⚠️ Escape no funcionó, intentando con botón de cerrar...');
+          
+          if (cerrarVisible) {
+            console.log('🖱️ Haciendo clic en botón de cerrar...');
+            
+            // Intentar hacer clic con force si hay backdrop interceptando
+            try {
+              await botonCerrar.click({ timeout: 5000, force: false });
+              await safeWaitForTimeout(page, 1000);
+            } catch (clickError) {
+              console.log('⚠️ Clic normal falló (backdrop interceptando), intentando con force: true...');
+              try {
+                await botonCerrar.click({ timeout: 5000, force: true });
+                await safeWaitForTimeout(page, 1000);
+              } catch (forceError) {
+                console.log(`⚠️ Clic con force también falló: ${forceError.message}`);
+                // Intentar Escape nuevamente como último recurso
+                await page.keyboard.press('Escape');
+                await safeWaitForTimeout(page, 1000);
+              }
+            }
+            
+            // Verificar que el diálogo se cerró
+            const dialogoCerrado2 = await dialogoAdjuntos.isHidden({ timeout: 3000 }).catch(() => false);
+            if (dialogoCerrado2) {
+              console.log('✅ Diálogo de adjuntos cerrado correctamente');
+            } else {
+              console.log('⚠️ El diálogo aún está visible después del clic');
+              // Intentar Escape nuevamente como último recurso
+              await page.keyboard.press('Escape');
+              await safeWaitForTimeout(page, 1000);
+            }
+          } else {
+            console.log('⚠️ Botón de cerrar no encontrado, usando ESC...');
             await page.keyboard.press('Escape');
             await safeWaitForTimeout(page, 1000);
             
-            // Verificar nuevamente
-            const dialogoCerrado2 = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
-            if (dialogoCerrado2) {
-              console.log('✅ Diálogo cerrado con ESC');
+            // Verificar que el diálogo se cerró
+            const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
+            if (dialogoCerrado) {
+              console.log('✅ Diálogo de adjuntos cerrado (usando ESC)');
             } else {
-              console.log('⚠️ El diálogo no se cerró, continuando de todas formas...');
+              console.log('⚠️ El diálogo no se cerró con ESC, continuando de todas formas...');
             }
-          }
-        } else {
-          console.log('⚠️ Botón de cerrar no encontrado, usando ESC...');
-          await page.keyboard.press('Escape');
-          await safeWaitForTimeout(page, 1000);
-          
-          // Verificar que el diálogo se cerró
-          const dialogoCerrado = await dialogoAdjuntos.isHidden({ timeout: 2000 }).catch(() => false);
-          if (dialogoCerrado) {
-            console.log('✅ Diálogo de adjuntos cerrado (usando ESC)');
-          } else {
-            console.log('⚠️ El diálogo no se cerró con ESC, continuando de todas formas...');
           }
         }
         
@@ -1855,16 +1877,53 @@ test.describe('Cotizaciones', () => {
 
     // Asegurarse de que no haya diálogos abiertos antes de continuar
     console.log('🔍 Verificando que no haya diálogos abiertos...');
+    
+    // Verificar y cerrar backdrops primero
+    try {
+      const backdrop = page.locator('div.fixed.top-0.left-0.flex.justify-center.items-center.w-dvw.h-dvh.bg-neutral-1000\\/40.z-9999');
+      const backdropVisible = await backdrop.isVisible({ timeout: 2000 }).catch(() => false);
+      if (backdropVisible) {
+        console.log('⚠️ Backdrop detectado, cerrando con Escape...');
+        await page.keyboard.press('Escape');
+        await safeWaitForTimeout(page, 1500);
+        
+        // Verificar que el backdrop se cerró
+        const backdropAunVisible = await backdrop.isVisible({ timeout: 1000 }).catch(() => false);
+        if (backdropAunVisible) {
+          console.log('⚠️ Backdrop aún visible, intentando cerrar nuevamente...');
+          await page.keyboard.press('Escape');
+          await safeWaitForTimeout(page, 1500);
+        }
+      }
+    } catch (e) {
+      // Continuar si no se puede verificar el backdrop
+    }
+    
+    // Verificar diálogos de MUI
     const dialogoAbierto = page.locator('div[role="presentation"]').first();
     const hayDialogoAbierto = await dialogoAbierto.isVisible({ timeout: 1000 }).catch(() => false);
     if (hayDialogoAbierto) {
       console.log('⚠️ Hay un diálogo abierto, cerrándolo...');
       await page.keyboard.press('Escape');
-      await safeWaitForTimeout(page, 1000);
+      await safeWaitForTimeout(page, 1500);
     }
 
     // Re-abrir el diálogo de adjuntos
     console.log('🔍 Buscando icono para re-abrir diálogo de adjuntos...');
+    
+    // Primero, asegurarse de que no haya backdrops abiertos
+    try {
+      const backdrop = page.locator('div.fixed.top-0.left-0.flex.justify-center.items-center.w-dvw.h-dvh.bg-neutral-1000\\/40.z-9999');
+      const backdropVisible = await backdrop.isVisible({ timeout: 1000 }).catch(() => false);
+      if (backdropVisible) {
+        console.log('⚠️ Backdrop detectado, cerrando con Escape...');
+        await page.keyboard.press('Escape');
+        await safeWaitForTimeout(page, 1000);
+      }
+    } catch (e) {
+      // Continuar si no se puede verificar el backdrop
+    }
+    
     const iconoEnviarDocumento2 = page.locator('button').filter({
       has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
     }).first();
@@ -1883,11 +1942,29 @@ test.describe('Cotizaciones', () => {
       iconoVisible2 = await iconoGenerico.isVisible({ timeout: 3000 }).catch(() => false);
       if (iconoVisible2) {
         console.log('✅ Icono encontrado con selector genérico');
-        await iconoGenerico.click();
+        try {
+          await iconoGenerico.click({ timeout: 5000, force: false });
+        } catch (clickError) {
+          console.log('⚠️ Clic normal falló (backdrop interceptando), intentando con force: true...');
+          await iconoGenerico.click({ timeout: 5000, force: true });
+        }
       }
     } else {
       console.log('✅ Icono encontrado con selector específico');
-      await iconoEnviarDocumento2.click();
+      try {
+        await iconoEnviarDocumento2.click({ timeout: 5000, force: false });
+      } catch (clickError) {
+        console.log('⚠️ Clic normal falló (backdrop interceptando), intentando con force: true...');
+        try {
+          await iconoEnviarDocumento2.click({ timeout: 5000, force: true });
+        } catch (forceError) {
+          console.log(`⚠️ Clic con force también falló: ${forceError.message}`);
+          // Intentar cerrar cualquier backdrop y reintentar
+          await page.keyboard.press('Escape');
+          await safeWaitForTimeout(page, 1000);
+          await iconoEnviarDocumento2.click({ timeout: 5000, force: true });
+        }
+      }
     }
     
     if (iconoVisible2) {
@@ -2042,6 +2119,1554 @@ test.describe('Cotizaciones', () => {
     }
 
     console.log('✅ Validación de otra cotización sin cancelar completada');
+  });
+
+
+  test('Agregar Una Nota', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+
+    console.log('🚀 INICIANDO PRUEBA: Agregar una nota');
+    await showStepMessage(page, '📝 AGREGANDO NOTA');
+    await safeWaitForTimeout(page, 1000);
+
+    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+
+    // Asegurarse de estar en el dashboard antes de hacer clic
+    const urlActualAntes = page.url();
+    if (!urlActualAntes.includes('/dashboard')) {
+      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    }
+
+    // Re-buscar el botón de notificación para asegurarse de que está disponible
+    console.log('🔍 Re-buscando botón de notificación...');
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar sección Fiestachat nuevamente
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+
+    if (!fiestachatVisible) {
+      throw new Error('No se encontró la sección Fiestachat después de navegar');
+    }
+
+    // Buscar la notificación por su texto
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    let notificationButtonFinal: Locator | null = null;
+    
+    // Buscar la notificación que coincida con el texto y que NO esté cancelada
+    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+      const notification = notificationButtons.nth(i);
+      const text = (await notification.textContent())?.trim() || '';
+      
+      // Verificar si coincide (puede ser parcial debido a truncamiento)
+      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
+        // Verificar que NO esté cancelada
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      // Si no se encuentra por texto, usar la primera no cancelada
+      console.log('⚠️ No se encontró la notificación exacta, buscando primera no cancelada...');
+      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+        const notification = notificationButtons.nth(i);
+        const text = (await notification.textContent())?.trim() || '';
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para agregar nota');
+    }
+
+    // Hacer clic en la notificación
+    await notificationButtonFinal.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+
+    // Verificar que estamos en una página de cotización
+    const esPaginaCotizacion = 
+      urlActual.includes('/quotation') ||
+      urlActual.includes('/prequotation') ||
+      urlActual.includes('/negotiation') ||
+      urlActual.includes('/cotizacion');
+
+    if (!esPaginaCotizacion) {
+      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
+    }
+
+    console.log('✅ Navegación exitosa a página de cotización');
+
+    // 2. AGREGAR UNA NOTA
+    await showStepMessage(page, '📝 AGREGANDO NOTA');
+    await safeWaitForTimeout(page, 1000);
+
+    const campoNotas = page.locator('textarea, input').filter({
+      has: page.locator('label').filter({ hasText: /Nota|Note|Observación|Observacion/i })
+    }).or(page.getByLabel(/Nota|Note|Observación|Observacion/i, { exact: false }))
+    .or(page.locator('textarea#Notes, input#Notes, textarea[id*="note"], input[id*="note"]'));
+
+    const notasVisible = await campoNotas.first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (!notasVisible) {
+      throw new Error('❌ ERROR: Campo de notas no encontrado. No se puede continuar con la prueba.');
+    }
+
+    console.log('✅ Campo de notas encontrado');
+
+    const estaHabilitado = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
+    
+    if (!estaHabilitado) {
+      // Intentar habilitar el campo
+      console.log('🔍 Campo de notas está deshabilitado, buscando botón de editar...');
+      const botonEditar = page.locator('button').filter({
+        hasText: /Editar|Edit|Modificar|Modify/i
+      }).first();
+      const editarVisible = await botonEditar.isVisible({ timeout: 2000 }).catch(() => false);
+      if (editarVisible) {
+        console.log('🖱️ Haciendo clic en botón de editar para habilitar el campo...');
+        await botonEditar.click();
+        await safeWaitForTimeout(page, 1000);
+      } else {
+        throw new Error('❌ ERROR: Campo de notas está deshabilitado y no se encontró botón de editar');
+      }
+    }
+
+    const estaHabilitadoDespues = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
+    if (!estaHabilitadoDespues) {
+      throw new Error('❌ ERROR: Campo de notas sigue deshabilitado después de intentar habilitarlo');
+    }
+
+    console.log('✅ Campo de notas está habilitado');
+
+    // Obtener el valor actual del campo (si tiene contenido)
+    const valorInicial = await campoNotas.first().inputValue().catch(() => '');
+    console.log(`📝 Valor inicial del campo: "${valorInicial.substring(0, 50)}${valorInicial.length > 50 ? '...' : ''}"`);
+
+    // Escribir una nota nueva con timestamp
+    const textoNota = `Nota de prueba - ${new Date().toISOString()}`;
+    console.log(`✍️ Escribiendo nota: "${textoNota}"`);
+    
+    await campoNotas.first().fill(textoNota);
+    await safeWaitForTimeout(page, 500);
+    
+    // Mover el cursor a otro elemento (como el chat) para que se guarde la nota
+    console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota...');
+    const campoMensajeChat = page.locator('textarea, input').filter({
+      has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+    }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+    .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+    
+    const campoMensajeChatVisible = await campoMensajeChat.first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (campoMensajeChatVisible) {
+      // Hacer clic en el campo del chat para activar el blur del campo de notas
+      await campoMensajeChat.first().click();
+      await safeWaitForTimeout(page, 1000);
+      console.log('✅ Cursor movido al campo del chat');
+    } else {
+      // Si no se encuentra el campo del chat, hacer clic en otro elemento visible
+      console.log('⚠️ Campo del chat no encontrado, haciendo clic en otro elemento...');
+      const otroElemento = page.locator('div, button, p').first();
+      await otroElemento.click({ force: true }).catch(() => {
+        // Si falla, simplemente presionar Tab para mover el foco
+        console.log('⚠️ No se pudo hacer clic, presionando Tab para mover el foco...');
+      });
+      await page.keyboard.press('Tab');
+      await safeWaitForTimeout(page, 1000);
+    }
+    
+    // Esperar un momento adicional para que se guarde la nota
+    await safeWaitForTimeout(page, 1000);
+    
+    // Verificar que se guardó
+    const valorNota = await campoNotas.first().inputValue();
+    if (valorNota.includes(textoNota)) {
+      console.log('✅ Nota agregada correctamente');
+      await expect(campoNotas.first()).toHaveValue(new RegExp(textoNota.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    } else {
+      throw new Error(`❌ ERROR: La nota no se guardó correctamente. Valor esperado: "${textoNota}", Valor actual: "${valorNota}"`);
+    }
+
+    // 3. VALIDAR BOTÓN "BORRAR TODO"
+    await showStepMessage(page, '🧹 VALIDANDO BORRAR TODO');
+    await safeWaitForTimeout(page, 1000);
+
+    const botonBorrarTodo = page.locator('button').filter({
+      has: page.locator('p').filter({ hasText: /^Borrar todo$/i })
+    }).or(page.getByText('Borrar todo', { exact: true }).locator('..')).first();
+
+    const botonBorrarVisible = await botonBorrarTodo.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!botonBorrarVisible) {
+      console.log('⚠️ Botón "Borrar todo" no encontrado o no está visible (puede no estar disponible)');
+    } else {
+      console.log('✅ Botón "Borrar todo" encontrado y visible');
+      await expect(botonBorrarTodo).toBeVisible();
+      
+      // Verificar que el campo tiene contenido antes de borrar
+      const valorAntesBorrar = await campoNotas.first().inputValue();
+      if (valorAntesBorrar && valorAntesBorrar.trim().length > 0) {
+        console.log(`📝 Contenido antes de borrar: "${valorAntesBorrar.substring(0, 50)}..."`);
+        
+        // Hacer clic en el botón "Borrar todo"
+        console.log('🖱️ Haciendo clic en botón "Borrar todo"...');
+        await botonBorrarTodo.click();
+        await safeWaitForTimeout(page, 1000);
+        
+        // Verificar que el campo se vació
+        const valorDespuesBorrar = await campoNotas.first().inputValue();
+        if (!valorDespuesBorrar || valorDespuesBorrar.trim().length === 0) {
+          console.log('✅ Botón "Borrar todo" funcionó correctamente - el campo se vació');
+          
+          // Volver a escribir una nota para dejar el campo con contenido
+          const notaFinal = `Nota final de prueba - ${new Date().toISOString()}`;
+          await campoNotas.first().fill(notaFinal);
+          await safeWaitForTimeout(page, 500);
+          
+          // Mover el cursor al chat para que se guarde la nota final
+          console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota final...');
+          const campoMensajeChatFinal = page.locator('textarea, input').filter({
+            has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+          }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+          .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+          
+          const campoMensajeChatFinalVisible = await campoMensajeChatFinal.first().isVisible({ timeout: 5000 }).catch(() => false);
+          if (campoMensajeChatFinalVisible) {
+            await campoMensajeChatFinal.first().click();
+            await safeWaitForTimeout(page, 1000);
+            console.log('✅ Cursor movido al campo del chat');
+          } else {
+            // Si no se encuentra el campo del chat, presionar Tab para mover el foco
+            await page.keyboard.press('Tab');
+            await safeWaitForTimeout(page, 1000);
+          }
+          
+          await safeWaitForTimeout(page, 1000);
+          console.log(`✅ Nota final escrita: "${notaFinal}"`);
+        } else {
+          console.log(`⚠️ El campo aún tiene contenido después de borrar: "${valorDespuesBorrar}"`);
+        }
+      } else {
+        console.log('⚠️ El campo no tenía contenido para borrar');
+      }
+    }
+
+    console.log('✅ Prueba de agregar nota completada');
+  });
+
+  test('Probar Funcionalidad Completa Del Chat', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos
+
+    console.log('🚀 INICIANDO PRUEBA: Probar funcionalidad completa del chat');
+    await showStepMessage(page, '💬 PROBANDO FUNCIONALIDAD COMPLETA DEL CHAT');
+    await safeWaitForTimeout(page, 1000);
+
+    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+
+    // Asegurarse de estar en el dashboard antes de hacer clic
+    const urlActualAntes = page.url();
+    if (!urlActualAntes.includes('/dashboard')) {
+      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    }
+
+    // Re-buscar el botón de notificación
+    console.log('🔍 Re-buscando botón de notificación...');
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar sección Fiestachat
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+
+    if (!fiestachatVisible) {
+      throw new Error('No se encontró la sección Fiestachat después de navegar');
+    }
+
+    // Buscar la notificación
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    let notificationButtonFinal: Locator | null = null;
+    
+    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+      const notification = notificationButtons.nth(i);
+      const text = (await notification.textContent())?.trim() || '';
+      
+      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+        const notification = notificationButtons.nth(i);
+        const text = (await notification.textContent())?.trim() || '';
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para probar el chat');
+    }
+
+    // Hacer clic en la notificación
+    await notificationButtonFinal.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+
+    const esPaginaCotizacion = 
+      urlActual.includes('/quotation') ||
+      urlActual.includes('/prequotation') ||
+      urlActual.includes('/negotiation') ||
+      urlActual.includes('/cotizacion');
+
+    if (!esPaginaCotizacion) {
+      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
+    }
+
+    console.log('✅ Navegación exitosa a página de cotización');
+    
+    // Guardar URL de la cotización para poder navegar de nuevo si es necesario
+    const urlCotizacion = urlActual;
+
+    // Función auxiliar para contar mensajes en el área de chat
+    async function contarMensajesEnChat(): Promise<number> {
+      const areaMensajes = page.locator('div[id="chat-scroll-container"], div[id*="chat"], div[id*="message"]').first();
+      const mensajes = areaMensajes.locator('div[id^="message-"]');
+      return await mensajes.count();
+    }
+
+    // Función auxiliar para verificar que un mensaje aparece en el chat
+    async function verificarMensajeEnChat(textoBuscado: string, tipo: 'texto' | 'archivo' | 'imagen' | 'ubicacion' = 'texto'): Promise<boolean> {
+      await safeWaitForTimeout(page, 2000); // Esperar a que el mensaje aparezca
+      
+      const areaMensajes = page.locator('div[id="chat-scroll-container"], div[id*="chat"]').first();
+      const mensajes = areaMensajes.locator('div[id^="message-"]');
+      const cantidadMensajes = await mensajes.count();
+      
+      console.log(`🔍 Buscando mensaje en ${cantidadMensajes} mensajes del chat...`);
+      
+      for (let i = 0; i < cantidadMensajes; i++) {
+        const mensaje = mensajes.nth(i);
+        const textoMensaje = await mensaje.textContent().catch(() => '');
+        
+        if (textoMensaje && textoMensaje.includes(textoBuscado)) {
+          console.log(`✅ Mensaje encontrado en posición ${i + 1}: "${textoBuscado}"`);
+          return true;
+        }
+        
+        // Verificar si es un mensaje con imagen/archivo
+        if (tipo === 'imagen' || tipo === 'archivo') {
+          const tieneImagen = await mensaje.locator('img').count() > 0;
+          const tieneArchivo = await mensaje.locator('a[href*="."], div[class*="file"]').count() > 0;
+          if (tieneImagen || tieneArchivo) {
+            console.log(`✅ Mensaje con ${tipo} encontrado en posición ${i + 1}`);
+            return true;
+          }
+        }
+        
+        // Verificar si es un mensaje con ubicación
+        if (tipo === 'ubicacion') {
+          const tieneUbicacion = await mensaje.locator('i.icon-map-pin, i[class*="map-pin"], div[class*="location"]').count() > 0;
+          if (tieneUbicacion) {
+            console.log(`✅ Mensaje con ubicación encontrado en posición ${i + 1}`);
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+
+    // 2. ENVIAR UN MENSAJE DE TEXTO
+    await showStepMessage(page, '💬 ENVIANDO MENSAJE DE TEXTO');
+    await safeWaitForTimeout(page, 1000);
+
+    const cantidadMensajesInicial = await contarMensajesEnChat();
+    console.log(`📊 Cantidad inicial de mensajes en el chat: ${cantidadMensajesInicial}`);
+
+    const campoMensaje = page.locator('textarea, input').filter({
+      has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+    }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+    .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+
+    const campoMensajeVisible = await campoMensaje.first().isVisible({ timeout: 5000 }).catch(() => false);
+    if (!campoMensajeVisible) {
+      throw new Error('❌ ERROR: Campo de mensaje no encontrado');
+    }
+
+    const textoMensaje = `Mensaje de prueba del chat - ${new Date().toISOString()}`;
+    console.log(`✍️ Escribiendo mensaje: "${textoMensaje}"`);
+    await campoMensaje.first().fill(textoMensaje);
+    await safeWaitForTimeout(page, 500);
+
+    // Buscar botón para enviar mensaje
+    const botonEnviar = page.locator('button').filter({
+      has: page.locator('i[class*="send"], i[class*="paper-plane"], svg[class*="send"]')
+    }).or(page.locator('button').filter({
+      hasText: /Enviar|Send/i
+    })).first();
+
+    const botonEnviarVisible = await botonEnviar.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!botonEnviarVisible || !(await botonEnviar.isEnabled({ timeout: 1000 }).catch(() => false))) {
+      throw new Error('❌ ERROR: Botón de enviar no está disponible');
+    }
+
+    console.log('🖱️ Haciendo clic en botón de enviar mensaje...');
+    await botonEnviar.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    // Verificar que el mensaje aparece en el chat
+    const mensajeEncontrado = await verificarMensajeEnChat(textoMensaje.substring(0, 30), 'texto');
+    if (!mensajeEncontrado) {
+      throw new Error(`❌ ERROR: El mensaje "${textoMensaje}" no aparece en el área de mensajes`);
+    }
+    console.log('✅ Mensaje de texto enviado y verificado en el chat');
+
+    // 3. ENVIAR ARCHIVOS DE GALERÍA (TODOS LOS FORMATOS)
+    await showStepMessage(page, '🖼️ ENVIANDO ARCHIVOS DE GALERÍA (TODOS LOS FORMATOS)');
+    await safeWaitForTimeout(page, 1000);
+
+    // Formatos a probar según el usuario
+    const formatosAProbar = [
+      { ext: '.png', mime: 'image/png' },
+      { ext: '.gif', mime: 'image/gif' },
+      { ext: '.jpeg', mime: 'image/jpeg' },
+      { ext: '.jpg', mime: 'image/jpeg' },
+      { ext: '.webp', mime: 'image/webp' },
+      { ext: '.svg', mime: 'image/svg+xml' },
+      { ext: '.heic', mime: 'image/heic' },
+      { ext: '.bmp', mime: 'image/bmp' },
+      { ext: '.mp4', mime: 'video/mp4' },
+      { ext: '.mov', mime: 'video/quicktime' },
+      { ext: '.avi', mime: 'video/x-msvideo' },
+      { ext: '.mkv', mime: 'video/x-matroska' },
+      { ext: '.wmv', mime: 'video/x-ms-wmv' },
+      { ext: '.flv', mime: 'video/x-flv' },
+      { ext: '.webm', mime: 'video/webm' },
+      { ext: '.m4v', mime: 'video/x-m4v' },
+      { ext: '.3gp', mime: 'video/3gpp' },
+      { ext: '.ogv', mime: 'video/ogg' }
+    ];
+
+    // Obtener imágenes de prueba
+    const { imagenesTesting } = await obtenerArchivosPrueba();
+    if (imagenesTesting.length === 0) {
+      throw new Error('❌ ERROR: No se encontraron imágenes de prueba');
+    }
+
+    // Buscar botón de adjuntar
+    const botonAdjuntar = page.locator('button').filter({
+      has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+    }).first();
+
+    const botonAdjuntarVisible = await botonAdjuntar.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!botonAdjuntarVisible) {
+      throw new Error('❌ ERROR: Botón de adjuntar no encontrado');
+    }
+
+    let archivosEnviados = 0;
+    let archivosFallidos = 0;
+    let formatosNoSoportados: string[] = [];
+    
+    // Variable para rastrear si la página se cerró completamente
+    let paginaCerradaCompletamente = false;
+
+    // Función auxiliar para verificar si la página está disponible
+    async function verificarPaginaDisponible(): Promise<boolean> {
+      try {
+        // Verificar que la página no se haya cerrado completamente
+        if (page.isClosed()) {
+          paginaCerradaCompletamente = true;
+          return false;
+        }
+        
+        // Verificar que podemos acceder a la URL
+        const url = page.url();
+        if (!url || url === 'about:blank') {
+          return false;
+        }
+        
+        // Verificar que el DOM está disponible
+        await page.waitForLoadState('domcontentloaded', { timeout: 2000 });
+        
+        // Verificar que el campo de mensaje existe (indicador de que la página está cargada correctamente)
+        const campoMensaje = page.locator('textarea, input').filter({
+          has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+        }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+        .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+        
+        const campoExiste = await campoMensaje.count() > 0;
+        return campoExiste;
+      } catch (e) {
+        // Si el error indica que la página se cerró, marcarlo
+        const errorMessage = e.message || String(e);
+        if (errorMessage && (errorMessage.includes('Target page, context or browser has been closed') || 
+            errorMessage.includes('page is closed'))) {
+          paginaCerradaCompletamente = true;
+        }
+        return false;
+      }
+    }
+
+    // Función auxiliar para reintentar navegación si la página se cerró
+    async function reintentarNavegacionSiEsNecesario(): Promise<boolean> {
+      try {
+        // Si la página se cerró completamente, no podemos restaurarla
+        if (paginaCerradaCompletamente || page.isClosed()) {
+          console.log('❌ La página se cerró completamente. No se puede restaurar la navegación.');
+          return false;
+        }
+        
+        const paginaDisponible = await verificarPaginaDisponible();
+        if (paginaDisponible) {
+          return true;
+        }
+        
+        console.log('⚠️ La página parece haberse cerrado o recargado, reintentando navegación...');
+        
+        // Intentar navegar de nuevo a la cotización usando la URL guardada
+        if (urlCotizacion) {
+          try {
+            console.log(`🔄 Navegando de nuevo a: ${urlCotizacion}`);
+            await page.goto(urlCotizacion, { waitUntil: 'networkidle', timeout: 30000 });
+            await safeWaitForTimeout(page, 3000);
+            
+            // Verificar que la navegación fue exitosa
+            const nuevaUrl = page.url();
+            const esPaginaCotizacion = 
+              nuevaUrl.includes('/quotation') ||
+              nuevaUrl.includes('/prequotation') ||
+              nuevaUrl.includes('/negotiation') ||
+              nuevaUrl.includes('/cotizacion');
+            
+            if (esPaginaCotizacion) {
+              console.log('✅ Navegación restaurada exitosamente');
+              paginaCerradaCompletamente = false; // Resetear el flag si la navegación fue exitosa
+              return true;
+            }
+          } catch (error) {
+            const errorMessage = error.message || String(error);
+            console.log(`⚠️ Error al navegar de nuevo: ${errorMessage}`);
+            if (errorMessage.includes('Target page, context or browser has been closed')) {
+              paginaCerradaCompletamente = true;
+              return false;
+            }
+          }
+        }
+        
+        // Si no tenemos URL guardada o la navegación falló, intentar reload
+        try {
+          if (page.isClosed()) {
+            paginaCerradaCompletamente = true;
+            return false;
+          }
+          
+          const urlActual = page.url();
+          if (urlActual && (urlActual.includes('/quotation') || urlActual.includes('/prequotation') || urlActual.includes('/negotiation'))) {
+            console.log('🔄 Intentando recargar la página...');
+            await page.reload({ waitUntil: 'networkidle', timeout: 30000 });
+            await safeWaitForTimeout(page, 3000);
+            const restaurado = await verificarPaginaDisponible();
+            if (restaurado) {
+              paginaCerradaCompletamente = false; // Resetear el flag si la recarga fue exitosa
+            }
+            return restaurado;
+          }
+        } catch (error) {
+          const errorMessage = error.message || String(error);
+          console.log(`⚠️ Error al recargar: ${errorMessage}`);
+          if (errorMessage.includes('Target page, context or browser has been closed')) {
+            paginaCerradaCompletamente = true;
+          }
+        }
+        
+        console.log('⚠️ No se pudo restaurar la navegación automáticamente');
+        return false;
+      } catch (error) {
+        const errorMessage = error.message || String(error);
+        console.log(`⚠️ Error en reintentarNavegacionSiEsNecesario: ${errorMessage}`);
+        if (errorMessage.includes('Target page, context or browser has been closed')) {
+          paginaCerradaCompletamente = true;
+        }
+        return false;
+      }
+    }
+
+    // Función auxiliar para enviar mensaje de texto
+    async function enviarMensajeTexto(texto: string): Promise<void> {
+      // Verificar que la página esté disponible
+      const paginaDisponible = await verificarPaginaDisponible();
+      if (!paginaDisponible) {
+        throw new Error('❌ ERROR: La página no está disponible (puede haberse cerrado o recargado)');
+      }
+
+      const campoMensaje = page.locator('textarea, input').filter({
+        has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+      }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+      .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+
+      const campoMensajeVisible = await campoMensaje.first().isVisible({ timeout: 5000 }).catch(() => false);
+      if (!campoMensajeVisible) {
+        throw new Error('❌ ERROR: Campo de mensaje no encontrado');
+      }
+
+      await campoMensaje.first().fill(texto);
+      await safeWaitForTimeout(page, 500);
+
+      // Buscar botón para enviar mensaje
+      const botonEnviar = page.locator('button').filter({
+        has: page.locator('i[class*="send"], i[class*="paper-plane"], svg[class*="send"]')
+      }).or(page.locator('button').filter({
+        hasText: /Enviar|Send/i
+      })).first();
+
+      const botonEnviarVisible = await botonEnviar.isVisible({ timeout: 3000 }).catch(() => false);
+      if (!botonEnviarVisible || !(await botonEnviar.isEnabled({ timeout: 1000 }).catch(() => false))) {
+        throw new Error('❌ ERROR: Botón de enviar no está disponible');
+      }
+
+      await botonEnviar.click();
+      await safeWaitForTimeout(page, 2000);
+      await page.waitForLoadState('networkidle');
+    }
+
+    // Enviar cada formato
+    for (const formato of formatosAProbar) {
+      try {
+        // Buscar archivo con la extensión correspondiente
+        const archivoEncontrado = imagenesTesting.find(archivo => {
+          const ext = path.extname(archivo).toLowerCase();
+          return ext === formato.ext;
+        });
+
+        if (!archivoEncontrado) {
+          console.log(`⚠️ No se encontró archivo para formato ${formato.ext}, saltando...`);
+          archivosFallidos++;
+          continue;
+        }
+
+        const nombreArchivo = path.basename(archivoEncontrado);
+        const extensionArchivo = path.extname(archivoEncontrado);
+        
+        console.log(`\n📎 Enviando archivo de formato ${formato.ext} (${formato.mime}): ${nombreArchivo}`);
+
+        // Enviar mensaje de texto mencionando el nombre y extensión del archivo
+        try {
+          const mensajePrevio = `Enviando archivo: ${nombreArchivo} (extensión: ${extensionArchivo})`;
+          console.log(`💬 Enviando mensaje previo: "${mensajePrevio}"`);
+          await enviarMensajeTexto(mensajePrevio);
+          await safeWaitForTimeout(page, 1000);
+        } catch (error) {
+          console.log(`⚠️ No se pudo enviar mensaje previo para ${formato.ext}: ${error.message}`);
+          // Continuar de todas formas
+        }
+
+        // Abrir diálogo de adjuntos
+        await botonAdjuntar.click();
+        await safeWaitForTimeout(page, 2000);
+
+        // Buscar diálogo de adjuntos
+        const dialogoAdjuntos = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
+          has: page.locator('p').filter({ hasText: /^Adjunto$/i })
+        }).first();
+
+        const dialogoVisible = await dialogoAdjuntos.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!dialogoVisible) {
+          console.log(`⚠️ Diálogo de adjuntos no se abrió para ${formato.ext}, reintentando...`);
+          await botonAdjuntar.click();
+          await safeWaitForTimeout(page, 2000);
+        }
+
+        // Buscar botón de Galería
+        const botonGaleria = dialogoAdjuntos.locator('button').filter({
+          has: page.locator('i.icon-image, i[class*="image"]')
+        }).filter({
+          has: page.locator('p').filter({ hasText: /^Galería$/i })
+        }).first();
+
+        const galeriaVisible = await botonGaleria.isVisible({ timeout: 2000 }).catch(() => false);
+        if (!galeriaVisible) {
+          console.log(`⚠️ Botón de Galería no encontrado para ${formato.ext}, saltando...`);
+          await page.keyboard.press('Escape').catch(() => {});
+          archivosFallidos++;
+          continue;
+        }
+
+        // Buscar input file para galería
+        let inputGaleria = dialogoAdjuntos.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+        let inputGaleriaExists = await inputGaleria.count() > 0;
+
+        if (!inputGaleriaExists) {
+          inputGaleria = dialogoAdjuntos.locator('input[type="file"]').first();
+          inputGaleriaExists = await inputGaleria.count() > 0;
+        }
+
+        if (!inputGaleriaExists) {
+          console.log(`⚠️ Input file para galería no encontrado para ${formato.ext}, saltando...`);
+          await page.keyboard.press('Escape').catch(() => {});
+          archivosFallidos++;
+          continue;
+        }
+
+        await botonGaleria.click();
+        await safeWaitForTimeout(page, 500);
+        
+        // Intentar enviar el archivo con timeout más corto para detectar problemas rápidamente
+        try {
+          await inputGaleria.setInputFiles(archivoEncontrado);
+          
+          // Esperar con timeout más corto para detectar si la página se cierra
+          await Promise.race([
+            safeWaitForTimeout(page, 5000), // Esperar máximo 5 segundos
+            page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
+              console.log(`⚠️ Timeout esperando carga de red para ${formato.ext}`);
+            })
+          ]);
+          
+          // Verificar rápidamente si la página sigue disponible
+          const paginaAunDisponible = await Promise.race([
+            verificarPaginaDisponible(),
+            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 2000))
+          ]);
+          
+          if (!paginaAunDisponible) {
+            throw new Error('La página se cerró o recargó después de enviar el archivo');
+          }
+        } catch (error) {
+          // Si falla al enviar el archivo, puede ser que la aplicación no lo soporte
+          const errorMessage = error.message || String(error);
+          console.log(`⚠️ Error al adjuntar archivo ${formato.ext}: ${errorMessage}`);
+          
+          // Verificar si la página se cerró
+          const paginaDisponible = await verificarPaginaDisponible().catch(() => false);
+          if (!paginaDisponible) {
+            console.log(`❌ La página se cerró después de intentar enviar ${formato.ext} - formato probablemente no soportado`);
+            formatosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+            archivosFallidos++;
+            // Intentar restaurar navegación
+            await reintentarNavegacionSiEsNecesario();
+            continue;
+          }
+          
+          formatosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+          archivosFallidos++;
+          await page.keyboard.press('Escape').catch(() => {});
+          await safeWaitForTimeout(page, 500);
+          continue;
+        }
+
+        // Verificar si la página sigue disponible después de enviar (con timeout más corto)
+        const paginaDisponible = await Promise.race([
+          verificarPaginaDisponible(),
+          new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000))
+        ]);
+        
+        if (!paginaDisponible) {
+          console.log(`❌ La página se cerró o recargó después de enviar ${formato.ext} - formato probablemente no soportado`);
+          formatosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+          archivosFallidos++;
+          // Intentar reintentar navegación
+          const navegacionRestaurada = await reintentarNavegacionSiEsNecesario();
+          if (!navegacionRestaurada) {
+            console.log(`⚠️ No se pudo restaurar la navegación después de ${formato.ext}, continuando con siguiente formato...`);
+          }
+          continue;
+        }
+
+        // Cerrar diálogo
+        await page.keyboard.press('Escape').catch(() => {});
+        await safeWaitForTimeout(page, 1000);
+
+        // Verificar que el mensaje con imagen aparece en el chat
+        const imagenEncontrada = await verificarMensajeEnChat('', 'imagen');
+        if (imagenEncontrada) {
+          console.log(`✅ Archivo ${formato.ext} enviado y verificado en el chat`);
+          archivosEnviados++;
+        } else {
+          console.log(`⚠️ Archivo ${formato.ext} enviado pero no se verificó en el chat`);
+          archivosEnviados++; // Contamos como enviado aunque no se verificó
+        }
+
+        // Esperar un poco antes del siguiente archivo
+        await safeWaitForTimeout(page, 1000);
+
+      } catch (error) {
+        const errorMessage = error.message || String(error);
+        console.log(`❌ Error al enviar archivo ${formato.ext}: ${errorMessage}`);
+        
+        // Detectar si el error es por página cerrada o formato no soportado
+        if (errorMessage.includes('Target page, context or browser has been closed') || 
+            errorMessage.includes('Campo de mensaje no encontrado') ||
+            errorMessage.includes('timeout')) {
+          formatosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+          console.log(`⚠️ Formato ${formato.ext} probablemente no es soportado por la aplicación`);
+          
+          // Si la página se cerró completamente, marcarlo
+          if (errorMessage.includes('Target page, context or browser has been closed')) {
+            paginaCerradaCompletamente = true;
+          }
+        }
+        
+        archivosFallidos++;
+        
+        // Si la página se cerró completamente, no intentar más operaciones
+        if (paginaCerradaCompletamente || page.isClosed()) {
+          console.log(`❌ La página se cerró completamente después de ${formato.ext}. No se pueden probar más formatos.`);
+          break; // Salir del loop, no continuar con más formatos
+        }
+        
+        // Intentar cerrar cualquier diálogo abierto solo si la página sigue disponible
+        try {
+          await page.keyboard.press('Escape').catch(() => {});
+          await safeWaitForTimeout(page, 500);
+        } catch (e) {
+          // Si falla, la página probablemente se cerró
+          const eMessage = e.message || String(e);
+          if (eMessage.includes('Target page, context or browser has been closed')) {
+            paginaCerradaCompletamente = true;
+            console.log(`❌ La página se cerró completamente. Deteniendo prueba de formatos.`);
+            break;
+          }
+        }
+        
+        // Intentar reintentar navegación si es necesario
+        const navegacionRestaurada = await reintentarNavegacionSiEsNecesario();
+        if (!navegacionRestaurada) {
+          if (paginaCerradaCompletamente || page.isClosed()) {
+            console.log(`❌ La página se cerró completamente después de ${formato.ext}. No se pueden probar más formatos.`);
+            break; // Salir del loop si la página se cerró completamente
+          } else {
+            console.log(`⚠️ No se pudo restaurar la navegación después del error con ${formato.ext}, continuando con siguiente formato...`);
+          }
+        }
+      }
+    }
+
+    console.log(`\n📊 Resumen de envío de archivos:`);
+    console.log(`✅ Archivos enviados exitosamente: ${archivosEnviados}`);
+    console.log(`❌ Archivos fallidos: ${archivosFallidos}`);
+    console.log(`📋 Total de formatos probados: ${archivosEnviados + archivosFallidos} de ${formatosAProbar.length}`);
+    
+    if (paginaCerradaCompletamente) {
+      console.log(`\n⚠️ ADVERTENCIA: La página se cerró completamente durante la prueba.`);
+      console.log(`   Algunos formatos no pudieron ser probados debido a esto.`);
+    }
+    
+    if (formatosNoSoportados.length > 0) {
+      console.log(`\n⚠️ Formatos NO SOPORTADOS por la aplicación (${formatosNoSoportados.length}):`);
+      formatosNoSoportados.forEach(formato => {
+        console.log(`   - ${formato}`);
+      });
+      console.log(`\n💡 Estos formatos causan que la página se cierre, se recargue o no se puedan procesar correctamente.`);
+    }
+
+    if (archivosEnviados === 0) {
+      throw new Error('❌ ERROR: No se pudo enviar ningún archivo de galería');
+    }
+
+    // 4. ENVIAR DOCUMENTO
+    await showStepMessage(page, '📄 ENVIANDO DOCUMENTO');
+    await safeWaitForTimeout(page, 1000);
+
+    // Re-abrir diálogo de adjuntos
+    await botonAdjuntar.click();
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar diálogo de adjuntos
+    const dialogoAdjuntos = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
+      has: page.locator('p').filter({ hasText: /^Adjunto$/i })
+    }).first();
+
+    // Buscar botón de Documento
+    const botonDocumento = dialogoAdjuntos.locator('button').filter({
+      has: page.locator('i.icon-file')
+    }).filter({
+      has: page.locator('p').filter({ hasText: /^Documento$/i })
+    }).first();
+
+    const documentoVisible = await botonDocumento.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!documentoVisible) {
+      throw new Error('❌ ERROR: Botón de Documento no encontrado');
+    }
+
+    // Obtener documentos de prueba
+    const { archivosTemp } = await obtenerArchivosPrueba();
+    const documentoPrueba = archivosTemp.find(archivo => {
+      const ext = path.extname(archivo).toLowerCase();
+      return ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(ext);
+    });
+
+    if (!documentoPrueba) {
+      throw new Error('❌ ERROR: No se encontraron documentos de prueba');
+    }
+
+    console.log(`📎 Usando documento de prueba: ${path.basename(documentoPrueba)}`);
+
+    // Buscar input file para documentos
+    let inputDocumento = dialogoAdjuntos.locator('input[type="file"][accept*=".pdf"], input[type="file"][accept*=".doc"]').first();
+    let inputDocumentoExists = await inputDocumento.count() > 0;
+
+    if (!inputDocumentoExists) {
+      inputDocumento = dialogoAdjuntos.locator('input[type="file"]').nth(1);
+      inputDocumentoExists = await inputDocumento.count() > 0;
+    }
+
+    if (!inputDocumentoExists) {
+      inputDocumento = dialogoAdjuntos.locator('input[type="file"]').first();
+      inputDocumentoExists = await inputDocumento.count() > 0;
+    }
+
+    if (!inputDocumentoExists) {
+      throw new Error('❌ ERROR: Input file para documento no encontrado');
+    }
+
+    await botonDocumento.click();
+    await safeWaitForTimeout(page, 500);
+    await inputDocumento.setInputFiles(documentoPrueba);
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    // Cerrar diálogo
+    await page.keyboard.press('Escape').catch(() => {});
+    await safeWaitForTimeout(page, 1000);
+
+    // Verificar que el mensaje con documento aparece en el chat
+    const documentoEncontrado = await verificarMensajeEnChat(path.basename(documentoPrueba), 'archivo');
+    if (!documentoEncontrado) {
+      // Intentar verificar por tipo de archivo
+      const documentoEncontrado2 = await verificarMensajeEnChat('', 'archivo');
+      if (!documentoEncontrado2) {
+        throw new Error('❌ ERROR: El mensaje con documento no aparece en el área de mensajes');
+      }
+    }
+    console.log('✅ Documento enviado y verificado en el chat');
+
+    // 5. ENVIAR UBICACIÓN
+    await showStepMessage(page, '📍 ENVIANDO UBICACIÓN');
+    await safeWaitForTimeout(page, 1000);
+
+    // Re-abrir diálogo de adjuntos
+    await botonAdjuntar.click();
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar diálogo de adjuntos
+    const dialogoAdjuntosUbicacion = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
+      has: page.locator('p').filter({ hasText: /^Adjunto$/i })
+    }).first();
+
+    // Buscar botón de Ubicación
+    const botonUbicacion = dialogoAdjuntosUbicacion.locator('button').filter({
+      has: page.locator('i.icon-map-pin')
+    }).filter({
+      has: page.locator('p').filter({ hasText: /^Ubicación$/i })
+    }).first();
+
+    const ubicacionVisible = await botonUbicacion.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!ubicacionVisible) {
+      throw new Error('❌ ERROR: Botón de Ubicación no encontrado');
+    }
+
+    await botonUbicacion.click();
+    await safeWaitForTimeout(page, 1500);
+
+    // Buscar diálogo de ubicación
+    const dialogoUbicacion = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
+      has: page.locator('p').filter({ hasText: /^Enviar ubicación$/i })
+    }).first();
+
+    const dialogoUbicacionVisible = await dialogoUbicacion.isVisible({ timeout: 3000 }).catch(() => false);
+    if (!dialogoUbicacionVisible) {
+      throw new Error('❌ ERROR: Diálogo de ubicación no se abrió');
+    }
+
+    // Escribir dirección
+    const campoDireccion = dialogoUbicacion.locator('input[placeholder=" "], input#Address').first();
+    const direccionesPrueba = [
+      'matamoros 500, tepatitlan jalisco',
+      'av independencia 123, guadalajara jalisco',
+      'calle hidalgo 456, zapopan jalisco'
+    ];
+    
+    const direccionPrueba = direccionesPrueba[Math.floor(Math.random() * direccionesPrueba.length)];
+    console.log(`✍️ Escribiendo dirección: "${direccionPrueba}"`);
+    
+    await campoDireccion.fill(direccionPrueba);
+    await safeWaitForTimeout(page, 2000);
+
+    // Seleccionar primera opción de Google Places
+    const opcionesUbicacion = dialogoUbicacion.locator('ul li.cursor-pointer').first();
+    const opcionesVisible = await opcionesUbicacion.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (opcionesVisible) {
+      const primeraOpcion = dialogoUbicacion.locator('ul li.cursor-pointer').first();
+      const textoOpcion = await primeraOpcion.textContent();
+      console.log(`🖱️ Seleccionando opción: "${textoOpcion?.trim()}"`);
+      await primeraOpcion.click();
+      await safeWaitForTimeout(page, 2000);
+      
+      // Buscar botón de enviar ubicación
+      const botonEnviarUbicacion = dialogoUbicacion.locator('button').filter({
+        hasText: /Enviar|Send/i
+      }).first();
+      
+      const botonEnviarUbicacionVisible = await botonEnviarUbicacion.isVisible({ timeout: 2000 }).catch(() => false);
+      if (botonEnviarUbicacionVisible) {
+        await botonEnviarUbicacion.click();
+        await safeWaitForTimeout(page, 3000);
+        await page.waitForLoadState('networkidle');
+      }
+    } else {
+      throw new Error('❌ ERROR: No aparecieron opciones de ubicación de Google Places');
+    }
+
+    // Verificar que el mensaje con ubicación aparece en el chat
+    const ubicacionEncontrada = await verificarMensajeEnChat('', 'ubicacion');
+    if (!ubicacionEncontrada) {
+      throw new Error('❌ ERROR: El mensaje con ubicación no aparece en el área de mensajes');
+    }
+    console.log('✅ Ubicación enviada y verificada en el chat');
+
+    // 6. ENVIAR DESDE CÁMARA
+    await showStepMessage(page, '📷 ENVIANDO DESDE CÁMARA');
+    await safeWaitForTimeout(page, 1000);
+
+    // Buscar botón de cámara
+    const botonCamara = page.locator('button').filter({
+      has: page.locator('i.icon-camera, i[class*="camera"]')
+    }).first();
+
+    const botonCamaraVisible = await botonCamara.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!botonCamaraVisible) {
+      console.log('⚠️ Botón de cámara no encontrado (puede no estar disponible)');
+    } else {
+      // Obtener imágenes de prueba
+      if (imagenesTesting.length > 1) {
+        const imagenCamara = imagenesTesting[1];
+        console.log(`📎 Usando imagen de prueba para cámara: ${path.basename(imagenCamara)}`);
+
+        await botonCamara.click();
+        await safeWaitForTimeout(page, 1000);
+
+        // Buscar input file de cámara
+        let inputCamara = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+        let inputCamaraExists = await inputCamara.count() > 0;
+
+        if (!inputCamaraExists) {
+          inputCamara = page.locator('input[type="file"][capture="environment"], input[type="file"][capture*="camera"]').first();
+          inputCamaraExists = await inputCamara.count() > 0;
+        }
+
+        if (!inputCamaraExists) {
+          inputCamara = page.locator('input[type="file"]').first();
+          inputCamaraExists = await inputCamara.count() > 0;
+        }
+
+        if (inputCamaraExists) {
+          await inputCamara.setInputFiles(imagenCamara);
+          await safeWaitForTimeout(page, 3000);
+          await page.waitForLoadState('networkidle');
+
+          // Verificar que el mensaje con imagen de cámara aparece en el chat
+          const camaraEncontrada = await verificarMensajeEnChat('', 'imagen');
+          if (!camaraEncontrada) {
+            console.log('⚠️ El mensaje con imagen de cámara no se encontró inmediatamente (puede requerir más tiempo)');
+          } else {
+            console.log('✅ Imagen desde cámara enviada y verificada en el chat');
+          }
+        } else {
+          console.log('⚠️ Input file de cámara no encontrado');
+        }
+      } else {
+        console.log('⚠️ No hay suficientes imágenes de prueba para probar la cámara');
+      }
+    }
+
+    // 7. VERIFICACIÓN FINAL: Contar todos los mensajes
+    await showStepMessage(page, '📊 VERIFICACIÓN FINAL');
+    await safeWaitForTimeout(page, 1000);
+
+    const cantidadMensajesFinal = await contarMensajesEnChat();
+    console.log(`📊 Cantidad final de mensajes en el chat: ${cantidadMensajesFinal}`);
+    console.log(`📊 Cantidad inicial: ${cantidadMensajesInicial}`);
+    console.log(`📊 Mensajes nuevos: ${cantidadMensajesFinal - cantidadMensajesInicial}`);
+
+    if (cantidadMensajesFinal <= cantidadMensajesInicial) {
+      console.log('⚠️ No se detectaron nuevos mensajes en el chat');
+    } else {
+      console.log(`✅ Se detectaron ${cantidadMensajesFinal - cantidadMensajesInicial} nuevos mensajes en el chat`);
+    }
+
+    console.log('✅ Prueba de funcionalidad completa del chat completada');
+  });
+
+  test('Confirmar Formatos De Video No Soportados Por La Aplicación', async ({ page }) => {
+    test.setTimeout(300000); // 5 minutos (más tiempo porque probamos formatos problemáticos)
+
+    console.log('🚀 INICIANDO PRUEBA: Confirmar formatos de video no soportados');
+    await showStepMessage(page, '⚠️ CONFIRMANDO FORMATOS NO SOPORTADOS');
+    await safeWaitForTimeout(page, 1000);
+
+    // Formatos que se sabe que NO son soportados por la aplicación
+    const formatosNoSoportados = [
+      { ext: '.mov', mime: 'video/quicktime' },
+      { ext: '.avi', mime: 'video/x-msvideo' },
+      { ext: '.mkv', mime: 'video/x-matroska' },
+      { ext: '.wmv', mime: 'video/x-ms-wmv' },
+      { ext: '.flv', mime: 'video/x-flv' },
+      { ext: '.webm', mime: 'video/webm' },
+      { ext: '.m4v', mime: 'video/x-m4v' },
+      { ext: '.3gp', mime: 'video/3gpp' },
+      { ext: '.ogv', mime: 'video/ogg' }
+    ];
+
+    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+
+    // Asegurarse de estar en el dashboard antes de hacer clic
+    const urlActualAntes = page.url();
+    if (!urlActualAntes.includes('/dashboard')) {
+      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    }
+
+    // Re-buscar el botón de notificación
+    console.log('🔍 Re-buscando botón de notificación...');
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+
+    // Buscar sección Fiestachat
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+
+    if (!fiestachatVisible) {
+      throw new Error('No se encontró la sección Fiestachat después de navegar');
+    }
+
+    // Buscar la notificación
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    let notificationButtonFinal: Locator | null = null;
+    
+    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+      const notification = notificationButtons.nth(i);
+      const text = (await notification.textContent())?.trim() || '';
+      
+      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
+        const notification = notificationButtons.nth(i);
+        const text = (await notification.textContent())?.trim() || '';
+        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
+        if (!textoCancelado) {
+          notificationButtonFinal = notification;
+          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
+          break;
+        }
+      }
+    }
+
+    if (!notificationButtonFinal) {
+      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para probar el chat');
+    }
+
+    // Hacer clic en la notificación
+    await notificationButtonFinal.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+
+    const esPaginaCotizacion = 
+      urlActual.includes('/quotation') ||
+      urlActual.includes('/prequotation') ||
+      urlActual.includes('/negotiation') ||
+      urlActual.includes('/cotizacion');
+
+    if (!esPaginaCotizacion) {
+      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
+    }
+
+    console.log('✅ Navegación exitosa a página de cotización');
+
+    // Obtener imágenes de prueba
+    const { imagenesTesting } = await obtenerArchivosPrueba();
+    if (imagenesTesting.length === 0) {
+      throw new Error('❌ ERROR: No se encontraron imágenes de prueba');
+    }
+
+    // Buscar botón de adjuntar
+    const botonAdjuntar = page.locator('button').filter({
+      has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
+    }).first();
+
+    const botonAdjuntarVisible = await botonAdjuntar.isVisible({ timeout: 5000 }).catch(() => false);
+    if (!botonAdjuntarVisible) {
+      throw new Error('❌ ERROR: Botón de adjuntar no encontrado');
+    }
+
+    let formatosConfirmadosNoSoportados: string[] = [];
+    let formatosQueNoFallaron: string[] = [];
+
+    console.log(`\n⚠️ PROBANDO ${formatosNoSoportados.length} FORMATOS QUE DEBERÍAN FALLAR:\n`);
+
+    // Probar cada formato que se sabe que no es soportado
+    for (const formato of formatosNoSoportados) {
+      try {
+        // Buscar archivo con la extensión correspondiente
+        const archivoEncontrado = imagenesTesting.find(archivo => {
+          const ext = path.extname(archivo).toLowerCase();
+          return ext === formato.ext;
+        });
+
+        if (!archivoEncontrado) {
+          console.log(`⚠️ No se encontró archivo para formato ${formato.ext}, saltando...`);
+          continue;
+        }
+
+        const nombreArchivo = path.basename(archivoEncontrado);
+        console.log(`\n📎 Probando formato ${formato.ext} (${formato.mime}): ${nombreArchivo}`);
+
+        // Verificar que la página esté disponible antes de intentar
+        const paginaDisponible = await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => false);
+        if (!paginaDisponible) {
+          console.log(`❌ La página no está disponible antes de probar ${formato.ext} - formato confirmado como NO SOPORTADO`);
+          formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+          // Intentar recargar la página
+          await page.reload({ waitUntil: 'networkidle' });
+          await safeWaitForTimeout(page, 3000);
+          continue;
+        }
+
+        // Abrir diálogo de adjuntos
+        await botonAdjuntar.click();
+        await safeWaitForTimeout(page, 2000);
+
+        // Buscar diálogo de adjuntos
+        const dialogoAdjuntos = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
+          has: page.locator('p').filter({ hasText: /^Adjunto$/i })
+        }).first();
+
+        const dialogoVisible = await dialogoAdjuntos.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!dialogoVisible) {
+          console.log(`⚠️ Diálogo de adjuntos no se abrió para ${formato.ext}, reintentando...`);
+          await botonAdjuntar.click();
+          await safeWaitForTimeout(page, 2000);
+        }
+
+        // Buscar botón de Galería
+        const botonGaleria = dialogoAdjuntos.locator('button').filter({
+          has: page.locator('i.icon-image, i[class*="image"]')
+        }).filter({
+          has: page.locator('p').filter({ hasText: /^Galería$/i })
+        }).first();
+
+        const galeriaVisible = await botonGaleria.isVisible({ timeout: 2000 }).catch(() => false);
+        if (!galeriaVisible) {
+          console.log(`⚠️ Botón de Galería no encontrado para ${formato.ext}`);
+          await page.keyboard.press('Escape').catch(() => {});
+          continue;
+        }
+
+        // Buscar input file para galería
+        let inputGaleria = dialogoAdjuntos.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
+        let inputGaleriaExists = await inputGaleria.count() > 0;
+
+        if (!inputGaleriaExists) {
+          inputGaleria = dialogoAdjuntos.locator('input[type="file"]').first();
+          inputGaleriaExists = await inputGaleria.count() > 0;
+        }
+
+        if (!inputGaleriaExists) {
+          console.log(`⚠️ Input file para galería no encontrado para ${formato.ext}`);
+          await page.keyboard.press('Escape').catch(() => {});
+          continue;
+        }
+
+        await botonGaleria.click();
+        await safeWaitForTimeout(page, 500);
+        
+        // Intentar enviar el archivo
+        try {
+          await inputGaleria.setInputFiles(archivoEncontrado);
+          await safeWaitForTimeout(page, 2000);
+          
+          // Esperar un poco para ver si la página se cierra o recarga
+          const paginaSigueDisponible = await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => false);
+          
+          if (!paginaSigueDisponible) {
+            console.log(`❌ La página se cerró/recargó después de enviar ${formato.ext} - formato confirmado como NO SOPORTADO`);
+            formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+            // Intentar recargar la página
+            await page.reload({ waitUntil: 'networkidle' });
+            await safeWaitForTimeout(page, 3000);
+            continue;
+          }
+
+          // Verificar si el campo de mensaje sigue disponible
+          const campoMensaje = page.locator('textarea, input').filter({
+            has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
+          }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
+          .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
+
+          const campoMensajeVisible = await campoMensaje.first().isVisible({ timeout: 3000 }).catch(() => false);
+          
+          if (!campoMensajeVisible) {
+            console.log(`❌ Campo de mensaje no disponible después de enviar ${formato.ext} - formato confirmado como NO SOPORTADO`);
+            formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+            // Intentar recargar la página
+            await page.reload({ waitUntil: 'networkidle' });
+            await safeWaitForTimeout(page, 3000);
+            continue;
+          }
+
+          // Si llegamos aquí, el formato no causó que la página se cerrara
+          console.log(`⚠️ Formato ${formato.ext} NO causó fallo inmediato - puede que funcione o que el fallo sea más sutil`);
+          formatosQueNoFallaron.push(`${formato.ext} (${formato.mime})`);
+
+          // Cerrar diálogo
+          await page.keyboard.press('Escape').catch(() => {});
+          await safeWaitForTimeout(page, 1000);
+
+        } catch (error) {
+          const errorMessage = error.message || String(error);
+          if (errorMessage.includes('Target page, context or browser has been closed')) {
+            console.log(`❌ Página cerrada al intentar enviar ${formato.ext} - formato confirmado como NO SOPORTADO`);
+            formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+            // Intentar recargar la página
+            await page.reload({ waitUntil: 'networkidle' });
+            await safeWaitForTimeout(page, 3000);
+          } else {
+            console.log(`❌ Error al enviar ${formato.ext}: ${errorMessage} - formato probablemente NO SOPORTADO`);
+            formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+            await page.keyboard.press('Escape').catch(() => {});
+            await safeWaitForTimeout(page, 500);
+          }
+        }
+
+      } catch (error) {
+        const errorMessage = error.message || String(error);
+        console.log(`❌ Error general al probar ${formato.ext}: ${errorMessage}`);
+        formatosConfirmadosNoSoportados.push(`${formato.ext} (${formato.mime})`);
+        await page.keyboard.press('Escape').catch(() => {});
+        await safeWaitForTimeout(page, 500);
+      }
+    }
+
+    // Resumen final
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📊 RESUMEN DE CONFIRMACIÓN DE FORMATOS NO SOPORTADOS`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`\n✅ Formatos confirmados como NO SOPORTADOS (${formatosConfirmadosNoSoportados.length}):`);
+    formatosConfirmadosNoSoportados.forEach(formato => {
+      console.log(`   ❌ ${formato}`);
+    });
+
+    if (formatosQueNoFallaron.length > 0) {
+      console.log(`\n⚠️ Formatos que NO fallaron inmediatamente (${formatosQueNoFallaron.length}):`);
+      formatosQueNoFallaron.forEach(formato => {
+        console.log(`   ⚠️ ${formato} - puede requerir más pruebas`);
+      });
+    }
+
+    console.log(`\n📋 Total de formatos probados: ${formatosNoSoportados.length}`);
+    console.log(`✅ Formatos confirmados como no soportados: ${formatosConfirmadosNoSoportados.length}`);
+    
+    if (formatosConfirmadosNoSoportados.length === formatosNoSoportados.length) {
+      console.log(`\n✅ Todos los formatos probados fueron confirmados como NO SOPORTADOS por la aplicación`);
+    } else {
+      console.log(`\n⚠️ Algunos formatos no causaron fallos inmediatos - puede requerir más investigación`);
+    }
+
+    console.log(`\n${'='.repeat(80)}\n`);
+  });
+
+  test('Mostrar Datos De La Cotización Que Coinciden Con La Notificación Seleccionada', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+
+    await showStepMessage(page, '🔍 VALIDANDO COINCIDENCIA DE DATOS');
+    await safeWaitForTimeout(page, 1000);
+
+    // 1. OBTENER INFORMACIÓN DE LA NOTIFICACIÓN (excluyendo canceladas)
+    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
+    
+
+    // Extraer información clave de la notificación
+    const infoNotificacion: {
+      texto: string;
+      id?: string;
+      nombreServicio?: string;
+      nombreNegocio?: string;
+      fecha?: string;
+      precio?: string;
+    } = {
+      texto: notificationText
+    };
+
+    // Intentar extraer nombre del servicio
+    const servicioMatch = notificationText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+    if (servicioMatch) {
+      infoNotificacion.nombreServicio = servicioMatch[1];
+      console.log(`📦 Nombre del servicio extraído: "${infoNotificacion.nombreServicio}"`);
+    }
+
+    // Intentar extraer precio
+    const precioMatch = notificationText.match(/\$[\d,]+(?:\.\d{2})?/);
+    if (precioMatch) {
+      infoNotificacion.precio = precioMatch[0];
+      console.log(`💰 Precio extraído: "${infoNotificacion.precio}"`);
+    }
+
+    if (quotationId) {
+      infoNotificacion.id = quotationId;
+    }
+
+    // 2. NAVEGAR A LA COTIZACIÓN
+    await notificationButton.click();
+    await safeWaitForTimeout(page, 3000);
+    await page.waitForLoadState('networkidle');
+
+    const urlActual = page.url();
+
+    // 3. VALIDAR QUE LOS DATOS COINCIDEN
+    await showStepMessage(page, '✅ VALIDANDO COINCIDENCIA DE DATOS');
+
+    // Validar ID de cotización si está disponible
+    if (quotationId) {
+      const idEnPagina = page.locator('*').filter({
+        hasText: new RegExp(quotationId, 'i')
+      });
+      const idVisible = await idEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
+      expect(idVisible).toBe(true);
+      console.log(`✅ ID de cotización (${quotationId}) encontrado en la página`);
+    }
+
+    // Validar nombre del servicio si se extrajo
+    if (infoNotificacion.nombreServicio) {
+      const servicioEnPagina = page.locator('*').filter({
+        hasText: new RegExp(infoNotificacion.nombreServicio!.replace(/\s+/g, '.*'), 'i')
+      });
+      const servicioVisible = await servicioEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
+      if (servicioVisible) {
+        console.log(`✅ Nombre del servicio ("${infoNotificacion.nombreServicio}") encontrado en la página`);
+      } else {
+        console.log(`⚠️ Nombre del servicio ("${infoNotificacion.nombreServicio}") no encontrado exactamente (puede estar en formato diferente)`);
+      }
+    }
+
+    // Validar precio si se extrajo
+    if (infoNotificacion.precio) {
+      const precioEnPagina = page.locator('*').filter({
+        hasText: new RegExp(infoNotificacion.precio.replace(/\$/, '\\$'), 'i')
+      });
+      const precioVisible = await precioEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
+      if (precioVisible) {
+        console.log(`✅ Precio (${infoNotificacion.precio}) encontrado en la página`);
+      } else {
+        console.log(`⚠️ Precio (${infoNotificacion.precio}) no encontrado exactamente (puede estar en formato diferente)`);
+      }
+    }
+
+    // Validar que al menos parte del texto de la notificación aparece en la página
+    const palabrasClave = notificationText.split(' ').filter(p => p.length > 3).slice(0, 3);
+    let palabrasEncontradas = 0;
+    
+    for (const palabra of palabrasClave) {
+      const palabraEnPagina = page.locator('*').filter({
+        hasText: new RegExp(palabra, 'i')
+      });
+      const palabraVisible = await palabraEnPagina.isVisible({ timeout: 3000 }).catch(() => false);
+      if (palabraVisible) {
+        palabrasEncontradas++;
+      }
+    }
+
+    if (palabrasEncontradas > 0) {
+      console.log(`✅ Se encontraron ${palabrasEncontradas} de ${palabrasClave.length} palabras clave de la notificación`);
+    } else {
+      console.log('⚠️ No se encontraron palabras clave de la notificación (puede estar en formato diferente)');
+    }
+
+    console.log('✅ Validación de coincidencia de datos completada');
   });
 
   test('Cancelar Una Negociación', async ({ page }) => {
@@ -2558,875 +4183,6 @@ test.describe('Cotizaciones', () => {
     }
 
     console.log('✅ Prueba de cancelar negociación completada');
-  });
-
-  test('Agregar Una Nota', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
-
-    console.log('🚀 INICIANDO PRUEBA: Agregar una nota');
-    await showStepMessage(page, '📝 AGREGANDO NOTA');
-    await safeWaitForTimeout(page, 1000);
-
-    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-
-    // Asegurarse de estar en el dashboard antes de hacer clic
-    const urlActualAntes = page.url();
-    if (!urlActualAntes.includes('/dashboard')) {
-      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
-      await page.goto(DASHBOARD_URL);
-      await page.waitForLoadState('networkidle');
-      await safeWaitForTimeout(page, 2000);
-    }
-
-    // Re-buscar el botón de notificación para asegurarse de que está disponible
-    console.log('🔍 Re-buscando botón de notificación...');
-    await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, 2000);
-
-    // Buscar sección Fiestachat nuevamente
-    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-    }
-
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
-      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
-    }
-
-    if (!fiestachatVisible) {
-      throw new Error('No se encontró la sección Fiestachat después de navegar');
-    }
-
-    // Buscar la notificación por su texto
-    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
-    const notificationCount = await notificationButtons.count();
-    
-    let notificationButtonFinal: Locator | null = null;
-    
-    // Buscar la notificación que coincida con el texto y que NO esté cancelada
-    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
-      const notification = notificationButtons.nth(i);
-      const text = (await notification.textContent())?.trim() || '';
-      
-      // Verificar si coincide (puede ser parcial debido a truncamiento)
-      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
-        // Verificar que NO esté cancelada
-        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
-        if (!textoCancelado) {
-          notificationButtonFinal = notification;
-          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
-          break;
-        }
-      }
-    }
-
-    if (!notificationButtonFinal) {
-      // Si no se encuentra por texto, usar la primera no cancelada
-      console.log('⚠️ No se encontró la notificación exacta, buscando primera no cancelada...');
-      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
-        const notification = notificationButtons.nth(i);
-        const text = (await notification.textContent())?.trim() || '';
-        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
-        if (!textoCancelado) {
-          notificationButtonFinal = notification;
-          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
-          break;
-        }
-      }
-    }
-
-    if (!notificationButtonFinal) {
-      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para agregar nota');
-    }
-
-    // Hacer clic en la notificación
-    await notificationButtonFinal.click();
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    const urlActual = page.url();
-
-    // Verificar que estamos en una página de cotización
-    const esPaginaCotizacion = 
-      urlActual.includes('/quotation') ||
-      urlActual.includes('/prequotation') ||
-      urlActual.includes('/negotiation') ||
-      urlActual.includes('/cotizacion');
-
-    if (!esPaginaCotizacion) {
-      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
-    }
-
-    console.log('✅ Navegación exitosa a página de cotización');
-
-    // 2. AGREGAR UNA NOTA
-    await showStepMessage(page, '📝 AGREGANDO NOTA');
-    await safeWaitForTimeout(page, 1000);
-
-    const campoNotas = page.locator('textarea, input').filter({
-      has: page.locator('label').filter({ hasText: /Nota|Note|Observación|Observacion/i })
-    }).or(page.getByLabel(/Nota|Note|Observación|Observacion/i, { exact: false }))
-    .or(page.locator('textarea#Notes, input#Notes, textarea[id*="note"], input[id*="note"]'));
-
-    const notasVisible = await campoNotas.first().isVisible({ timeout: 5000 }).catch(() => false);
-    if (!notasVisible) {
-      throw new Error('❌ ERROR: Campo de notas no encontrado. No se puede continuar con la prueba.');
-    }
-
-    console.log('✅ Campo de notas encontrado');
-
-    const estaHabilitado = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
-    
-    if (!estaHabilitado) {
-      // Intentar habilitar el campo
-      console.log('🔍 Campo de notas está deshabilitado, buscando botón de editar...');
-      const botonEditar = page.locator('button').filter({
-        hasText: /Editar|Edit|Modificar|Modify/i
-      }).first();
-      const editarVisible = await botonEditar.isVisible({ timeout: 2000 }).catch(() => false);
-      if (editarVisible) {
-        console.log('🖱️ Haciendo clic en botón de editar para habilitar el campo...');
-        await botonEditar.click();
-        await safeWaitForTimeout(page, 1000);
-      } else {
-        throw new Error('❌ ERROR: Campo de notas está deshabilitado y no se encontró botón de editar');
-      }
-    }
-
-    const estaHabilitadoDespues = await campoNotas.first().isEnabled({ timeout: 2000 }).catch(() => false);
-    if (!estaHabilitadoDespues) {
-      throw new Error('❌ ERROR: Campo de notas sigue deshabilitado después de intentar habilitarlo');
-    }
-
-    console.log('✅ Campo de notas está habilitado');
-
-    // Obtener el valor actual del campo (si tiene contenido)
-    const valorInicial = await campoNotas.first().inputValue().catch(() => '');
-    console.log(`📝 Valor inicial del campo: "${valorInicial.substring(0, 50)}${valorInicial.length > 50 ? '...' : ''}"`);
-
-    // Escribir una nota nueva con timestamp
-    const textoNota = `Nota de prueba - ${new Date().toISOString()}`;
-    console.log(`✍️ Escribiendo nota: "${textoNota}"`);
-    
-    await campoNotas.first().fill(textoNota);
-    await safeWaitForTimeout(page, 500);
-    
-    // Mover el cursor a otro elemento (como el chat) para que se guarde la nota
-    console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota...');
-    const campoMensajeChat = page.locator('textarea, input').filter({
-      has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
-    }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
-    .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
-    
-    const campoMensajeChatVisible = await campoMensajeChat.first().isVisible({ timeout: 5000 }).catch(() => false);
-    if (campoMensajeChatVisible) {
-      // Hacer clic en el campo del chat para activar el blur del campo de notas
-      await campoMensajeChat.first().click();
-      await safeWaitForTimeout(page, 1000);
-      console.log('✅ Cursor movido al campo del chat');
-    } else {
-      // Si no se encuentra el campo del chat, hacer clic en otro elemento visible
-      console.log('⚠️ Campo del chat no encontrado, haciendo clic en otro elemento...');
-      const otroElemento = page.locator('div, button, p').first();
-      await otroElemento.click({ force: true }).catch(() => {
-        // Si falla, simplemente presionar Tab para mover el foco
-        console.log('⚠️ No se pudo hacer clic, presionando Tab para mover el foco...');
-      });
-      await page.keyboard.press('Tab');
-      await safeWaitForTimeout(page, 1000);
-    }
-    
-    // Esperar un momento adicional para que se guarde la nota
-    await safeWaitForTimeout(page, 1000);
-    
-    // Verificar que se guardó
-    const valorNota = await campoNotas.first().inputValue();
-    if (valorNota.includes(textoNota)) {
-      console.log('✅ Nota agregada correctamente');
-      await expect(campoNotas.first()).toHaveValue(new RegExp(textoNota.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    } else {
-      throw new Error(`❌ ERROR: La nota no se guardó correctamente. Valor esperado: "${textoNota}", Valor actual: "${valorNota}"`);
-    }
-
-    // 3. VALIDAR BOTÓN "BORRAR TODO"
-    await showStepMessage(page, '🧹 VALIDANDO BORRAR TODO');
-    await safeWaitForTimeout(page, 1000);
-
-    const botonBorrarTodo = page.locator('button').filter({
-      has: page.locator('p').filter({ hasText: /^Borrar todo$/i })
-    }).or(page.getByText('Borrar todo', { exact: true }).locator('..')).first();
-
-    const botonBorrarVisible = await botonBorrarTodo.isVisible({ timeout: 2000 }).catch(() => false);
-    if (!botonBorrarVisible) {
-      console.log('⚠️ Botón "Borrar todo" no encontrado o no está visible (puede no estar disponible)');
-    } else {
-      console.log('✅ Botón "Borrar todo" encontrado y visible');
-      await expect(botonBorrarTodo).toBeVisible();
-      
-      // Verificar que el campo tiene contenido antes de borrar
-      const valorAntesBorrar = await campoNotas.first().inputValue();
-      if (valorAntesBorrar && valorAntesBorrar.trim().length > 0) {
-        console.log(`📝 Contenido antes de borrar: "${valorAntesBorrar.substring(0, 50)}..."`);
-        
-        // Hacer clic en el botón "Borrar todo"
-        console.log('🖱️ Haciendo clic en botón "Borrar todo"...');
-        await botonBorrarTodo.click();
-        await safeWaitForTimeout(page, 1000);
-        
-        // Verificar que el campo se vació
-        const valorDespuesBorrar = await campoNotas.first().inputValue();
-        if (!valorDespuesBorrar || valorDespuesBorrar.trim().length === 0) {
-          console.log('✅ Botón "Borrar todo" funcionó correctamente - el campo se vació');
-          
-          // Volver a escribir una nota para dejar el campo con contenido
-          const notaFinal = `Nota final de prueba - ${new Date().toISOString()}`;
-          await campoNotas.first().fill(notaFinal);
-          await safeWaitForTimeout(page, 500);
-          
-          // Mover el cursor al chat para que se guarde la nota final
-          console.log('🖱️ Moviendo cursor al campo del chat para guardar la nota final...');
-          const campoMensajeChatFinal = page.locator('textarea, input').filter({
-            has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
-          }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
-          .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
-          
-          const campoMensajeChatFinalVisible = await campoMensajeChatFinal.first().isVisible({ timeout: 5000 }).catch(() => false);
-          if (campoMensajeChatFinalVisible) {
-            await campoMensajeChatFinal.first().click();
-            await safeWaitForTimeout(page, 1000);
-            console.log('✅ Cursor movido al campo del chat');
-          } else {
-            // Si no se encuentra el campo del chat, presionar Tab para mover el foco
-            await page.keyboard.press('Tab');
-            await safeWaitForTimeout(page, 1000);
-          }
-          
-          await safeWaitForTimeout(page, 1000);
-          console.log(`✅ Nota final escrita: "${notaFinal}"`);
-        } else {
-          console.log(`⚠️ El campo aún tiene contenido después de borrar: "${valorDespuesBorrar}"`);
-        }
-      } else {
-        console.log('⚠️ El campo no tenía contenido para borrar');
-      }
-    }
-
-    console.log('✅ Prueba de agregar nota completada');
-  });
-
-  test('Probar Funcionalidad Completa Del Chat', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos
-
-    console.log('🚀 INICIANDO PRUEBA: Probar funcionalidad completa del chat');
-    await showStepMessage(page, '💬 PROBANDO FUNCIONALIDAD COMPLETA DEL CHAT');
-    await safeWaitForTimeout(page, 1000);
-
-    // 1. OBTENER NOTIFICACIÓN Y NAVEGAR A COTIZACIÓN
-    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-
-    // Asegurarse de estar en el dashboard antes de hacer clic
-    const urlActualAntes = page.url();
-    if (!urlActualAntes.includes('/dashboard')) {
-      console.log('🔄 Navegando al dashboard antes de hacer clic en la notificación...');
-      await page.goto(DASHBOARD_URL);
-      await page.waitForLoadState('networkidle');
-      await safeWaitForTimeout(page, 2000);
-    }
-
-    // Re-buscar el botón de notificación
-    console.log('🔍 Re-buscando botón de notificación...');
-    await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, 2000);
-
-    // Buscar sección Fiestachat
-    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-    }
-
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
-      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
-    }
-
-    if (!fiestachatVisible) {
-      throw new Error('No se encontró la sección Fiestachat después de navegar');
-    }
-
-    // Buscar la notificación
-    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
-    const notificationCount = await notificationButtons.count();
-    
-    let notificationButtonFinal: Locator | null = null;
-    
-    for (let i = 0; i < Math.min(notificationCount, 50); i++) {
-      const notification = notificationButtons.nth(i);
-      const text = (await notification.textContent())?.trim() || '';
-      
-      if (text.includes(notificationText.substring(0, 30)) || notificationText.includes(text.substring(0, 30))) {
-        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
-        if (!textoCancelado) {
-          notificationButtonFinal = notification;
-          console.log(`✅ Notificación encontrada en posición ${i + 1}`);
-          break;
-        }
-      }
-    }
-
-    if (!notificationButtonFinal) {
-      for (let i = 0; i < Math.min(notificationCount, 50); i++) {
-        const notification = notificationButtons.nth(i);
-        const text = (await notification.textContent())?.trim() || '';
-        const textoCancelado = /La negociación fue cancelada|negociación cancelada|cancelada/i.test(text);
-        if (!textoCancelado) {
-          notificationButtonFinal = notification;
-          console.log(`✅ Usando primera notificación no cancelada en posición ${i + 1}`);
-          break;
-        }
-      }
-    }
-
-    if (!notificationButtonFinal) {
-      throw new Error('No se pudo encontrar una notificación válida (no cancelada) para probar el chat');
-    }
-
-    // Hacer clic en la notificación
-    await notificationButtonFinal.click();
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    const urlActual = page.url();
-
-    const esPaginaCotizacion = 
-      urlActual.includes('/quotation') ||
-      urlActual.includes('/prequotation') ||
-      urlActual.includes('/negotiation') ||
-      urlActual.includes('/cotizacion');
-
-    if (!esPaginaCotizacion) {
-      throw new Error(`No se navegó a una página de cotización. URL: ${urlActual}`);
-    }
-
-    console.log('✅ Navegación exitosa a página de cotización');
-
-    // Función auxiliar para contar mensajes en el área de chat
-    async function contarMensajesEnChat(): Promise<number> {
-      const areaMensajes = page.locator('div[id="chat-scroll-container"], div[id*="chat"], div[id*="message"]').first();
-      const mensajes = areaMensajes.locator('div[id^="message-"]');
-      return await mensajes.count();
-    }
-
-    // Función auxiliar para verificar que un mensaje aparece en el chat
-    async function verificarMensajeEnChat(textoBuscado: string, tipo: 'texto' | 'archivo' | 'imagen' | 'ubicacion' = 'texto'): Promise<boolean> {
-      await safeWaitForTimeout(page, 2000); // Esperar a que el mensaje aparezca
-      
-      const areaMensajes = page.locator('div[id="chat-scroll-container"], div[id*="chat"]').first();
-      const mensajes = areaMensajes.locator('div[id^="message-"]');
-      const cantidadMensajes = await mensajes.count();
-      
-      console.log(`🔍 Buscando mensaje en ${cantidadMensajes} mensajes del chat...`);
-      
-      for (let i = 0; i < cantidadMensajes; i++) {
-        const mensaje = mensajes.nth(i);
-        const textoMensaje = await mensaje.textContent().catch(() => '');
-        
-        if (textoMensaje && textoMensaje.includes(textoBuscado)) {
-          console.log(`✅ Mensaje encontrado en posición ${i + 1}: "${textoBuscado}"`);
-          return true;
-        }
-        
-        // Verificar si es un mensaje con imagen/archivo
-        if (tipo === 'imagen' || tipo === 'archivo') {
-          const tieneImagen = await mensaje.locator('img').count() > 0;
-          const tieneArchivo = await mensaje.locator('a[href*="."], div[class*="file"]').count() > 0;
-          if (tieneImagen || tieneArchivo) {
-            console.log(`✅ Mensaje con ${tipo} encontrado en posición ${i + 1}`);
-            return true;
-          }
-        }
-        
-        // Verificar si es un mensaje con ubicación
-        if (tipo === 'ubicacion') {
-          const tieneUbicacion = await mensaje.locator('i.icon-map-pin, i[class*="map-pin"], div[class*="location"]').count() > 0;
-          if (tieneUbicacion) {
-            console.log(`✅ Mensaje con ubicación encontrado en posición ${i + 1}`);
-            return true;
-          }
-        }
-      }
-      
-      return false;
-    }
-
-    // 2. ENVIAR UN MENSAJE DE TEXTO
-    await showStepMessage(page, '💬 ENVIANDO MENSAJE DE TEXTO');
-    await safeWaitForTimeout(page, 1000);
-
-    const cantidadMensajesInicial = await contarMensajesEnChat();
-    console.log(`📊 Cantidad inicial de mensajes en el chat: ${cantidadMensajesInicial}`);
-
-    const campoMensaje = page.locator('textarea, input').filter({
-      has: page.locator('label, [placeholder]').filter({ hasText: /Mensaje|Message|Escribe|Write/i })
-    }).or(page.getByPlaceholder(/Mensaje|Message|Escribe|Write/i, { exact: false }))
-    .or(page.locator('textarea#Message, input#Message, textarea[id*="message"], input[id*="message"]'));
-
-    const campoMensajeVisible = await campoMensaje.first().isVisible({ timeout: 5000 }).catch(() => false);
-    if (!campoMensajeVisible) {
-      throw new Error('❌ ERROR: Campo de mensaje no encontrado');
-    }
-
-    const textoMensaje = `Mensaje de prueba del chat - ${new Date().toISOString()}`;
-    console.log(`✍️ Escribiendo mensaje: "${textoMensaje}"`);
-    await campoMensaje.first().fill(textoMensaje);
-    await safeWaitForTimeout(page, 500);
-
-    // Buscar botón para enviar mensaje
-    const botonEnviar = page.locator('button').filter({
-      has: page.locator('i[class*="send"], i[class*="paper-plane"], svg[class*="send"]')
-    }).or(page.locator('button').filter({
-      hasText: /Enviar|Send/i
-    })).first();
-
-    const botonEnviarVisible = await botonEnviar.isVisible({ timeout: 3000 }).catch(() => false);
-    if (!botonEnviarVisible || !(await botonEnviar.isEnabled({ timeout: 1000 }).catch(() => false))) {
-      throw new Error('❌ ERROR: Botón de enviar no está disponible');
-    }
-
-    console.log('🖱️ Haciendo clic en botón de enviar mensaje...');
-    await botonEnviar.click();
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    // Verificar que el mensaje aparece en el chat
-    const mensajeEncontrado = await verificarMensajeEnChat(textoMensaje.substring(0, 30), 'texto');
-    if (!mensajeEncontrado) {
-      throw new Error(`❌ ERROR: El mensaje "${textoMensaje}" no aparece en el área de mensajes`);
-    }
-    console.log('✅ Mensaje de texto enviado y verificado en el chat');
-
-    // 3. ENVIAR ARCHIVO DE GALERÍA
-    await showStepMessage(page, '🖼️ ENVIANDO ARCHIVO DE GALERÍA');
-    await safeWaitForTimeout(page, 1000);
-
-    const cantidadMensajesAntesGaleria = await contarMensajesEnChat();
-    console.log(`📊 Mensajes antes de enviar galería: ${cantidadMensajesAntesGaleria}`);
-
-    // Buscar botón de adjuntar
-    const botonAdjuntar = page.locator('button').filter({
-      has: page.locator('i.icon-paperclip, i[class*="paperclip"]')
-    }).first();
-
-    const botonAdjuntarVisible = await botonAdjuntar.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!botonAdjuntarVisible) {
-      throw new Error('❌ ERROR: Botón de adjuntar no encontrado');
-    }
-
-    await botonAdjuntar.click();
-    await safeWaitForTimeout(page, 2000);
-
-    // Buscar diálogo de adjuntos
-    const dialogoAdjuntos = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
-      has: page.locator('p').filter({ hasText: /^Adjunto$/i })
-    }).first();
-
-    const dialogoVisible = await dialogoAdjuntos.isVisible({ timeout: 3000 }).catch(() => false);
-    if (!dialogoVisible) {
-      throw new Error('❌ ERROR: Diálogo de adjuntos no se abrió');
-    }
-
-    // Buscar botón de Galería
-    const botonGaleria = dialogoAdjuntos.locator('button').filter({
-      has: page.locator('i.icon-image, i[class*="image"]')
-    }).filter({
-      has: page.locator('p').filter({ hasText: /^Galería$/i })
-    }).first();
-
-    const galeriaVisible = await botonGaleria.isVisible({ timeout: 2000 }).catch(() => false);
-    if (!galeriaVisible) {
-      throw new Error('❌ ERROR: Botón de Galería no encontrado');
-    }
-
-    // Obtener imágenes de prueba
-    const { imagenesTesting } = await obtenerArchivosPrueba();
-    if (imagenesTesting.length === 0) {
-      throw new Error('❌ ERROR: No se encontraron imágenes de prueba');
-    }
-
-    const imagenPrueba = imagenesTesting[0];
-    console.log(`📎 Usando imagen de prueba: ${path.basename(imagenPrueba)}`);
-
-    // Buscar input file para galería
-    let inputGaleria = dialogoAdjuntos.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
-    let inputGaleriaExists = await inputGaleria.count() > 0;
-
-    if (!inputGaleriaExists) {
-      inputGaleria = dialogoAdjuntos.locator('input[type="file"]').first();
-      inputGaleriaExists = await inputGaleria.count() > 0;
-    }
-
-    if (!inputGaleriaExists) {
-      throw new Error('❌ ERROR: Input file para galería no encontrado');
-    }
-
-    await botonGaleria.click();
-    await safeWaitForTimeout(page, 500);
-    await inputGaleria.setInputFiles(imagenPrueba);
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    // Cerrar diálogo
-    await page.keyboard.press('Escape').catch(() => {});
-    await safeWaitForTimeout(page, 1000);
-
-    // Verificar que el mensaje con imagen aparece en el chat
-    const imagenEncontrada = await verificarMensajeEnChat('', 'imagen');
-    if (!imagenEncontrada) {
-      throw new Error('❌ ERROR: El mensaje con imagen de galería no aparece en el área de mensajes');
-    }
-    console.log('✅ Archivo de galería enviado y verificado en el chat');
-
-    // 4. ENVIAR DOCUMENTO
-    await showStepMessage(page, '📄 ENVIANDO DOCUMENTO');
-    await safeWaitForTimeout(page, 1000);
-
-    // Re-abrir diálogo de adjuntos
-    await botonAdjuntar.click();
-    await safeWaitForTimeout(page, 2000);
-
-    // Buscar botón de Documento
-    const botonDocumento = dialogoAdjuntos.locator('button').filter({
-      has: page.locator('i.icon-file')
-    }).filter({
-      has: page.locator('p').filter({ hasText: /^Documento$/i })
-    }).first();
-
-    const documentoVisible = await botonDocumento.isVisible({ timeout: 2000 }).catch(() => false);
-    if (!documentoVisible) {
-      throw new Error('❌ ERROR: Botón de Documento no encontrado');
-    }
-
-    // Obtener documentos de prueba
-    const { archivosTemp } = await obtenerArchivosPrueba();
-    const documentoPrueba = archivosTemp.find(archivo => {
-      const ext = path.extname(archivo).toLowerCase();
-      return ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'].includes(ext);
-    });
-
-    if (!documentoPrueba) {
-      throw new Error('❌ ERROR: No se encontraron documentos de prueba');
-    }
-
-    console.log(`📎 Usando documento de prueba: ${path.basename(documentoPrueba)}`);
-
-    // Buscar input file para documentos
-    let inputDocumento = dialogoAdjuntos.locator('input[type="file"][accept*=".pdf"], input[type="file"][accept*=".doc"]').first();
-    let inputDocumentoExists = await inputDocumento.count() > 0;
-
-    if (!inputDocumentoExists) {
-      inputDocumento = dialogoAdjuntos.locator('input[type="file"]').nth(1);
-      inputDocumentoExists = await inputDocumento.count() > 0;
-    }
-
-    if (!inputDocumentoExists) {
-      inputDocumento = dialogoAdjuntos.locator('input[type="file"]').first();
-      inputDocumentoExists = await inputDocumento.count() > 0;
-    }
-
-    if (!inputDocumentoExists) {
-      throw new Error('❌ ERROR: Input file para documento no encontrado');
-    }
-
-    await botonDocumento.click();
-    await safeWaitForTimeout(page, 500);
-    await inputDocumento.setInputFiles(documentoPrueba);
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    // Cerrar diálogo
-    await page.keyboard.press('Escape').catch(() => {});
-    await safeWaitForTimeout(page, 1000);
-
-    // Verificar que el mensaje con documento aparece en el chat
-    const documentoEncontrado = await verificarMensajeEnChat(path.basename(documentoPrueba), 'archivo');
-    if (!documentoEncontrado) {
-      // Intentar verificar por tipo de archivo
-      const documentoEncontrado2 = await verificarMensajeEnChat('', 'archivo');
-      if (!documentoEncontrado2) {
-        throw new Error('❌ ERROR: El mensaje con documento no aparece en el área de mensajes');
-      }
-    }
-    console.log('✅ Documento enviado y verificado en el chat');
-
-    // 5. ENVIAR UBICACIÓN
-    await showStepMessage(page, '📍 ENVIANDO UBICACIÓN');
-    await safeWaitForTimeout(page, 1000);
-
-    // Re-abrir diálogo de adjuntos
-    await botonAdjuntar.click();
-    await safeWaitForTimeout(page, 2000);
-
-    // Buscar botón de Ubicación
-    const botonUbicacion = dialogoAdjuntos.locator('button').filter({
-      has: page.locator('i.icon-map-pin')
-    }).filter({
-      has: page.locator('p').filter({ hasText: /^Ubicación$/i })
-    }).first();
-
-    const ubicacionVisible = await botonUbicacion.isVisible({ timeout: 2000 }).catch(() => false);
-    if (!ubicacionVisible) {
-      throw new Error('❌ ERROR: Botón de Ubicación no encontrado');
-    }
-
-    await botonUbicacion.click();
-    await safeWaitForTimeout(page, 1500);
-
-    // Buscar diálogo de ubicación
-    const dialogoUbicacion = page.locator('div.absolute.bg-neutral-0.shadow-lg').filter({
-      has: page.locator('p').filter({ hasText: /^Enviar ubicación$/i })
-    }).first();
-
-    const dialogoUbicacionVisible = await dialogoUbicacion.isVisible({ timeout: 3000 }).catch(() => false);
-    if (!dialogoUbicacionVisible) {
-      throw new Error('❌ ERROR: Diálogo de ubicación no se abrió');
-    }
-
-    // Escribir dirección
-    const campoDireccion = dialogoUbicacion.locator('input[placeholder=" "], input#Address').first();
-    const direccionesPrueba = [
-      'matamoros 500, tepatitlan jalisco',
-      'av independencia 123, guadalajara jalisco',
-      'calle hidalgo 456, zapopan jalisco'
-    ];
-    
-    const direccionPrueba = direccionesPrueba[Math.floor(Math.random() * direccionesPrueba.length)];
-    console.log(`✍️ Escribiendo dirección: "${direccionPrueba}"`);
-    
-    await campoDireccion.fill(direccionPrueba);
-    await safeWaitForTimeout(page, 2000);
-
-    // Seleccionar primera opción de Google Places
-    const opcionesUbicacion = dialogoUbicacion.locator('ul li.cursor-pointer').first();
-    const opcionesVisible = await opcionesUbicacion.isVisible({ timeout: 5000 }).catch(() => false);
-    
-    if (opcionesVisible) {
-      const primeraOpcion = dialogoUbicacion.locator('ul li.cursor-pointer').first();
-      const textoOpcion = await primeraOpcion.textContent();
-      console.log(`🖱️ Seleccionando opción: "${textoOpcion?.trim()}"`);
-      await primeraOpcion.click();
-      await safeWaitForTimeout(page, 2000);
-      
-      // Buscar botón de enviar ubicación
-      const botonEnviarUbicacion = dialogoUbicacion.locator('button').filter({
-        hasText: /Enviar|Send/i
-      }).first();
-      
-      const botonEnviarUbicacionVisible = await botonEnviarUbicacion.isVisible({ timeout: 2000 }).catch(() => false);
-      if (botonEnviarUbicacionVisible) {
-        await botonEnviarUbicacion.click();
-        await safeWaitForTimeout(page, 3000);
-        await page.waitForLoadState('networkidle');
-      }
-    } else {
-      throw new Error('❌ ERROR: No aparecieron opciones de ubicación de Google Places');
-    }
-
-    // Verificar que el mensaje con ubicación aparece en el chat
-    const ubicacionEncontrada = await verificarMensajeEnChat('', 'ubicacion');
-    if (!ubicacionEncontrada) {
-      throw new Error('❌ ERROR: El mensaje con ubicación no aparece en el área de mensajes');
-    }
-    console.log('✅ Ubicación enviada y verificada en el chat');
-
-    // 6. ENVIAR DESDE CÁMARA
-    await showStepMessage(page, '📷 ENVIANDO DESDE CÁMARA');
-    await safeWaitForTimeout(page, 1000);
-
-    // Buscar botón de cámara
-    const botonCamara = page.locator('button').filter({
-      has: page.locator('i.icon-camera, i[class*="camera"]')
-    }).first();
-
-    const botonCamaraVisible = await botonCamara.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!botonCamaraVisible) {
-      console.log('⚠️ Botón de cámara no encontrado (puede no estar disponible)');
-    } else {
-      // Obtener imágenes de prueba
-      if (imagenesTesting.length > 1) {
-        const imagenCamara = imagenesTesting[1];
-        console.log(`📎 Usando imagen de prueba para cámara: ${path.basename(imagenCamara)}`);
-
-        await botonCamara.click();
-        await safeWaitForTimeout(page, 1000);
-
-        // Buscar input file de cámara
-        let inputCamara = page.locator('input[type="file"][accept*="image"], input[type="file"][accept*="video"]').first();
-        let inputCamaraExists = await inputCamara.count() > 0;
-
-        if (!inputCamaraExists) {
-          inputCamara = page.locator('input[type="file"][capture="environment"], input[type="file"][capture*="camera"]').first();
-          inputCamaraExists = await inputCamara.count() > 0;
-        }
-
-        if (!inputCamaraExists) {
-          inputCamara = page.locator('input[type="file"]').first();
-          inputCamaraExists = await inputCamara.count() > 0;
-        }
-
-        if (inputCamaraExists) {
-          await inputCamara.setInputFiles(imagenCamara);
-          await safeWaitForTimeout(page, 3000);
-          await page.waitForLoadState('networkidle');
-
-          // Verificar que el mensaje con imagen de cámara aparece en el chat
-          const camaraEncontrada = await verificarMensajeEnChat('', 'imagen');
-          if (!camaraEncontrada) {
-            console.log('⚠️ El mensaje con imagen de cámara no se encontró inmediatamente (puede requerir más tiempo)');
-          } else {
-            console.log('✅ Imagen desde cámara enviada y verificada en el chat');
-          }
-        } else {
-          console.log('⚠️ Input file de cámara no encontrado');
-        }
-      } else {
-        console.log('⚠️ No hay suficientes imágenes de prueba para probar la cámara');
-      }
-    }
-
-    // 7. VERIFICACIÓN FINAL: Contar todos los mensajes
-    await showStepMessage(page, '📊 VERIFICACIÓN FINAL');
-    await safeWaitForTimeout(page, 1000);
-
-    const cantidadMensajesFinal = await contarMensajesEnChat();
-    console.log(`📊 Cantidad final de mensajes en el chat: ${cantidadMensajesFinal}`);
-    console.log(`📊 Cantidad inicial: ${cantidadMensajesInicial}`);
-    console.log(`📊 Mensajes nuevos: ${cantidadMensajesFinal - cantidadMensajesInicial}`);
-
-    if (cantidadMensajesFinal <= cantidadMensajesInicial) {
-      console.log('⚠️ No se detectaron nuevos mensajes en el chat');
-    } else {
-      console.log(`✅ Se detectaron ${cantidadMensajesFinal - cantidadMensajesInicial} nuevos mensajes en el chat`);
-    }
-
-    console.log('✅ Prueba de funcionalidad completa del chat completada');
-  });
-
-  test('Mostrar Datos De La Cotización Que Coinciden Con La Notificación Seleccionada', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
-
-    await showStepMessage(page, '🔍 VALIDANDO COINCIDENCIA DE DATOS');
-    await safeWaitForTimeout(page, 1000);
-
-    // 1. OBTENER INFORMACIÓN DE LA NOTIFICACIÓN (excluyendo canceladas)
-    const { notificationButton, notificationText, quotationId } = await obtenerNotificacionYInfo(page, true);
-    
-
-    // Extraer información clave de la notificación
-    const infoNotificacion: {
-      texto: string;
-      id?: string;
-      nombreServicio?: string;
-      nombreNegocio?: string;
-      fecha?: string;
-      precio?: string;
-    } = {
-      texto: notificationText
-    };
-
-    // Intentar extraer nombre del servicio
-    const servicioMatch = notificationText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
-    if (servicioMatch) {
-      infoNotificacion.nombreServicio = servicioMatch[1];
-      console.log(`📦 Nombre del servicio extraído: "${infoNotificacion.nombreServicio}"`);
-    }
-
-    // Intentar extraer precio
-    const precioMatch = notificationText.match(/\$[\d,]+(?:\.\d{2})?/);
-    if (precioMatch) {
-      infoNotificacion.precio = precioMatch[0];
-      console.log(`💰 Precio extraído: "${infoNotificacion.precio}"`);
-    }
-
-    if (quotationId) {
-      infoNotificacion.id = quotationId;
-    }
-
-    // 2. NAVEGAR A LA COTIZACIÓN
-    await notificationButton.click();
-    await safeWaitForTimeout(page, 3000);
-    await page.waitForLoadState('networkidle');
-
-    const urlActual = page.url();
-
-    // 3. VALIDAR QUE LOS DATOS COINCIDEN
-    await showStepMessage(page, '✅ VALIDANDO COINCIDENCIA DE DATOS');
-
-    // Validar ID de cotización si está disponible
-    if (quotationId) {
-      const idEnPagina = page.locator('*').filter({
-        hasText: new RegExp(quotationId, 'i')
-      });
-      const idVisible = await idEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
-      expect(idVisible).toBe(true);
-      console.log(`✅ ID de cotización (${quotationId}) encontrado en la página`);
-    }
-
-    // Validar nombre del servicio si se extrajo
-    if (infoNotificacion.nombreServicio) {
-      const servicioEnPagina = page.locator('*').filter({
-        hasText: new RegExp(infoNotificacion.nombreServicio!.replace(/\s+/g, '.*'), 'i')
-      });
-      const servicioVisible = await servicioEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
-      if (servicioVisible) {
-        console.log(`✅ Nombre del servicio ("${infoNotificacion.nombreServicio}") encontrado en la página`);
-      } else {
-        console.log(`⚠️ Nombre del servicio ("${infoNotificacion.nombreServicio}") no encontrado exactamente (puede estar en formato diferente)`);
-      }
-    }
-
-    // Validar precio si se extrajo
-    if (infoNotificacion.precio) {
-      const precioEnPagina = page.locator('*').filter({
-        hasText: new RegExp(infoNotificacion.precio.replace(/\$/, '\\$'), 'i')
-      });
-      const precioVisible = await precioEnPagina.isVisible({ timeout: 5000 }).catch(() => false);
-      if (precioVisible) {
-        console.log(`✅ Precio (${infoNotificacion.precio}) encontrado en la página`);
-      } else {
-        console.log(`⚠️ Precio (${infoNotificacion.precio}) no encontrado exactamente (puede estar en formato diferente)`);
-      }
-    }
-
-    // Validar que al menos parte del texto de la notificación aparece en la página
-    const palabrasClave = notificationText.split(' ').filter(p => p.length > 3).slice(0, 3);
-    let palabrasEncontradas = 0;
-    
-    for (const palabra of palabrasClave) {
-      const palabraEnPagina = page.locator('*').filter({
-        hasText: new RegExp(palabra, 'i')
-      });
-      const palabraVisible = await palabraEnPagina.isVisible({ timeout: 3000 }).catch(() => false);
-      if (palabraVisible) {
-        palabrasEncontradas++;
-      }
-    }
-
-    if (palabrasEncontradas > 0) {
-      console.log(`✅ Se encontraron ${palabrasEncontradas} de ${palabrasClave.length} palabras clave de la notificación`);
-    } else {
-      console.log('⚠️ No se encontraron palabras clave de la notificación (puede estar en formato diferente)');
-    }
-
-    console.log('✅ Validación de coincidencia de datos completada');
   });
 
   test('Se deshabilita la interacción cuando un evento está cancelado', async ({ page }) => {

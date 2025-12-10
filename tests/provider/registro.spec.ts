@@ -41,7 +41,8 @@ export async function safeFill(page: Page, label: string, value: string, timeout
 /**
  * Función para hacer clic en el botón de registro, seleccionar "Proveedor" y continuar.
  */
-export async function registerProvider(page: Page, email: string = REGISTRATION_EMAIL_DEFAULT) {
+export async function registerProvider(page: Page, emailParam: string = REGISTRATION_EMAIL_DEFAULT) {
+  let email = emailParam; // Variable local que puede ser modificada
   // Paso 1: Hacer clic en el botón "Regístrate"
   const registerButton = page.locator('button[type="button"].font-bold.underline.text-primary-neutral').filter({
     hasText: 'Regístrate'
@@ -81,26 +82,96 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar a que aparezca el formulario de email
   await page.waitForTimeout(2000);
   
-  // Paso 4: Ingresar el email
+  // Paso 4: Ingresar el email con manejo de correos duplicados
   const emailInput = page.locator('input[id="Email"]');
   await emailInput.waitFor({ state: 'visible', timeout: 10000 });
-  await emailInput.fill(email);
-  console.log(`✓ Email ingresado: ${email}`);
   
-  // Esperar un momento para que el formulario se actualice
-  await page.waitForTimeout(500);
+  let emailActual = email;
+  let intentosEmail = 0;
+  const maxIntentosEmail = 10; // Máximo 10 intentos con diferentes números
   
-  // Paso 5: Hacer clic en el botón "Siguiente"
-  const siguienteButton = page.locator('button[type="submit"][form="RegisterEmailForm"]').filter({
-    hasText: 'Siguiente'
-  });
+  while (intentosEmail < maxIntentosEmail) {
+    // Limpiar el campo e ingresar el email actual
+    await emailInput.clear();
+    await emailInput.fill(emailActual);
+    console.log(`✓ Email ingresado (intento ${intentosEmail + 1}): ${emailActual}`);
+    
+    // Esperar un momento para que el formulario se actualice
+    await page.waitForTimeout(500);
+    
+    // Paso 5: Hacer clic en el botón "Siguiente"
+    const siguienteButton = page.locator('button[type="submit"][form="RegisterEmailForm"]').filter({
+      hasText: 'Siguiente'
+    });
+    
+    await siguienteButton.waitFor({ state: 'visible', timeout: 10000 });
+    await siguienteButton.click();
+    console.log('✓ Botón "Siguiente" presionado');
+    
+    // Esperar un momento para que se procese la respuesta
+    await page.waitForTimeout(2000);
+    
+    // Verificar si aparece el mensaje de error "Ingresa otro correo"
+    const mensajeError = page.locator('div.fixed.top-0.left-0').filter({
+      has: page.locator('p:has-text("Ingresa otro correo")')
+    });
+    
+    const errorVisible = await mensajeError.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (errorVisible) {
+      console.log(`⚠️ El correo ${emailActual} ya existe. Generando nuevo correo...`);
+      
+      // Cerrar el modal de error haciendo clic fuera o presionando ESC
+      try {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      } catch (e) {
+        // Intentar hacer clic fuera del modal
+        try {
+          await page.locator('body').click({ position: { x: 10, y: 10 } });
+          await page.waitForTimeout(500);
+        } catch (e2) {
+          // Continuar de todas formas
+        }
+      }
+      
+      // Generar nuevo email incrementando el número después del +
+      const match = emailActual.match(/^fiestamasqaprv\+(\d+)@gmail\.com$/);
+      if (match) {
+        const numeroActual = parseInt(match[1]);
+        const nuevoNumero = numeroActual + 1;
+        emailActual = `fiestamasqaprv+${nuevoNumero}@gmail.com`;
+        console.log(`🔄 Nuevo correo generado: ${emailActual}`);
+      } else {
+        // Si el formato no coincide, usar timestamp como fallback
+        const timestamp = Date.now();
+        emailActual = `fiestamasqaprv+${timestamp}@gmail.com`;
+        console.log(`🔄 Nuevo correo generado (con timestamp): ${emailActual}`);
+      }
+      
+      intentosEmail++;
+      
+      // Esperar un momento antes de reintentar
+      await page.waitForTimeout(1000);
+      
+      // Asegurarse de que el campo de email esté visible y listo
+      await emailInput.waitFor({ state: 'visible', timeout: 5000 });
+    } else {
+      // No hay error, el email es válido, continuar
+      console.log(`✅ Email ${emailActual} aceptado`);
+      break;
+    }
+  }
   
-  await siguienteButton.waitFor({ state: 'visible', timeout: 10000 });
-  await siguienteButton.click();
-  console.log('✓ Botón "Siguiente" presionado');
+  if (intentosEmail >= maxIntentosEmail) {
+    throw new Error(`❌ FALLO: No se pudo encontrar un correo disponible después de ${maxIntentosEmail} intentos`);
+  }
+  
+  // Actualizar el email para usarlo en el resto del flujo
+  email = emailActual;
   
   // Esperar a que aparezca la página de código de verificación
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
   
   // Verificar si estamos en la página de código de verificación
   // Verificamos si el primer input de código está presente y visible
@@ -429,36 +500,146 @@ export async function registerProvider(page: Page, email: string = REGISTRATION_
   // Esperar un momento para que el formulario se actualice
   await page.waitForTimeout(500);
   
-  // Paso 12: Ingresar el número de teléfono personal
+  // Paso 12: Ingresar números de teléfono (personal y negocio) con manejo de números duplicados
   const personalPhoneInput = page.locator('input[id="PersonalPhoneNumber"]');
   await personalPhoneInput.waitFor({ state: 'visible', timeout: 10000 });
-  await personalPhoneInput.fill('5559876543');
-  console.log('✓ Teléfono personal ingresado: 5559876543');
   
-  // Esperar un momento para que el formulario se actualice
-  await page.waitForTimeout(500);
+  let telefonoPersonalActual = '5559876543';
+  let telefonoNegocioActual = '5551234567';
+  let intentosTelefono = 0;
+  const maxIntentosTelefono = 10; // Máximo 10 intentos con diferentes números
   
-  // Paso 13: Ingresar el teléfono del negocio (opcional pero lo llenamos)
-  const landlineInput = page.locator('input[id="Landline"]');
-  const isLandlineVisible = await landlineInput.isVisible({ timeout: 3000 }).catch(() => false);
-  if (isLandlineVisible) {
-    await landlineInput.fill('5551234567');
-    console.log('✓ Teléfono del negocio ingresado: 5551234567');
+  // Función auxiliar para generar nuevo número de teléfono
+  const generarNuevoTelefono = (telefonoActual: string, incremento: number = 1): string => {
+    const match = telefonoActual.match(/^(\d{7})(\d{3})$/);
+    if (match) {
+      const base = match[1]; // Primeros 7 dígitos (ej: 5559876)
+      const ultimosTres = parseInt(match[2]); // Últimos 3 dígitos (ej: 543)
+      const nuevosUltimosTres = (ultimosTres + incremento) % 1000; // Incrementar y ciclar del 0 al 999
+      return base + nuevosUltimosTres.toString().padStart(3, '0');
+    } else {
+      // Si no coincide el formato, generar un número aleatorio de 10 dígitos
+      // Usar prefijo 555 (común en números de prueba) + 7 dígitos aleatorios
+      const ultimosSiete = Math.floor(Math.random() * 9000000) + 1000000;
+      return `555${ultimosSiete}`;
+    }
+  };
+  
+  while (intentosTelefono < maxIntentosTelefono) {
+    // Limpiar el campo e ingresar el teléfono personal actual
+    await personalPhoneInput.clear();
+    await personalPhoneInput.fill(telefonoPersonalActual);
+    console.log(`✓ Teléfono personal ingresado (intento ${intentosTelefono + 1}): ${telefonoPersonalActual}`);
+    
+    // Esperar un momento para que el formulario se actualice
     await page.waitForTimeout(500);
+    
+    // Paso 13: Ingresar el teléfono del negocio (opcional pero lo llenamos)
+    const landlineInput = page.locator('input[id="Landline"]');
+    const isLandlineVisible = await landlineInput.isVisible({ timeout: 3000 }).catch(() => false);
+    if (isLandlineVisible) {
+      await landlineInput.clear();
+      await landlineInput.fill(telefonoNegocioActual);
+      console.log(`✓ Teléfono del negocio ingresado: ${telefonoNegocioActual}`);
+      await page.waitForTimeout(500);
+    }
+    
+    // Paso 14: Hacer clic en el botón "Siguiente" del formulario de datos de contacto
+    const siguienteContactButton = page.locator('button[type="submit"][form="BusinessContactDataForm"]').filter({
+      hasText: 'Siguiente'
+    });
+    const isSiguienteVisible = await siguienteContactButton.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (isSiguienteVisible) {
+      await siguienteContactButton.waitFor({ state: 'visible', timeout: 10000 });
+      await siguienteContactButton.click();
+      console.log('✓ Botón "Siguiente" del formulario de datos de contacto presionado');
+      
+      // Esperar un momento para que se procese la respuesta
+      await page.waitForTimeout(2000);
+      
+      // Verificar si aparece el mensaje de error (similar al del correo)
+      // El modal tiene la estructura: div.fixed.top-0.left-0 con un div interno que contiene el mensaje
+      const mensajeError = page.locator('div.fixed.top-0.left-0').filter({
+        has: page.locator('div.relative.flex.flex-col').filter({
+          has: page.locator('p:has-text("otro"), p:has-text("Ingresa")')
+        })
+      });
+      
+      const errorVisible = await mensajeError.isVisible({ timeout: 3000 }).catch(() => false);
+      
+      if (errorVisible) {
+        // Obtener el texto del mensaje para confirmar que es sobre teléfono
+        const textoError = await mensajeError.locator('p').textContent().catch(() => '') || '';
+        const textoErrorLower = textoError.toLowerCase();
+        
+        // Verificar si el mensaje es sobre teléfono (no sobre correo)
+        const esErrorTelefono = (textoErrorLower.includes('teléfono') || 
+                                 textoErrorLower.includes('telefono') ||
+                                 textoErrorLower.includes('número') ||
+                                 textoErrorLower.includes('numero')) &&
+                                !textoErrorLower.includes('correo') &&
+                                !textoErrorLower.includes('email');
+        
+        // También considerar mensajes genéricos que podrían ser sobre teléfono
+        const esErrorGenerico = textoErrorLower.includes('otro') && 
+                               !textoErrorLower.includes('correo') &&
+                               !textoErrorLower.includes('email');
+        
+        if (esErrorTelefono || (esErrorGenerico && !textoErrorLower.includes('correo'))) {
+          console.log(`⚠️ El teléfono ya existe (personal: ${telefonoPersonalActual}, negocio: ${telefonoNegocioActual}). Generando nuevos números...`);
+          
+          // Cerrar el modal de error
+          try {
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(500);
+          } catch (e) {
+            try {
+              await page.locator('body').click({ position: { x: 10, y: 10 } });
+              await page.waitForTimeout(500);
+            } catch (e2) {
+              // Continuar de todas formas
+            }
+          }
+          
+          // Generar nuevos números para AMBOS teléfonos
+          // Incrementar ambos para asegurar que sean diferentes
+          telefonoPersonalActual = generarNuevoTelefono(telefonoPersonalActual, intentosTelefono + 1);
+          telefonoNegocioActual = generarNuevoTelefono(telefonoNegocioActual, intentosTelefono + 2); // Incremento diferente para asegurar diferencia
+          
+          console.log(`🔄 Nuevos teléfonos generados - Personal: ${telefonoPersonalActual}, Negocio: ${telefonoNegocioActual}`);
+          
+          intentosTelefono++;
+          
+          // Esperar un momento antes de reintentar
+          await page.waitForTimeout(1000);
+          
+          // Asegurarse de que los campos de teléfono estén visibles y listos
+          await personalPhoneInput.waitFor({ state: 'visible', timeout: 5000 });
+          if (isLandlineVisible) {
+            await landlineInput.waitFor({ state: 'visible', timeout: 5000 });
+          }
+          
+          // Continuar el loop para reintentar
+          continue;
+        }
+      }
+      
+      // No hay error o el error no es sobre teléfono, continuar normalmente
+      console.log(`✅ Teléfonos aceptados - Personal: ${telefonoPersonalActual}, Negocio: ${telefonoNegocioActual}`);
+      break;
+    } else {
+      // Si no hay botón siguiente, asumir que los teléfonos fueron aceptados
+      break;
+    }
   }
   
-  // Paso 14: Hacer clic en el botón "Siguiente" del formulario de datos de contacto
-  const siguienteContactButton = page.locator('button[type="submit"][form="BusinessContactDataForm"]').filter({
-    hasText: 'Siguiente'
-  });
-  const isSiguienteVisible = await siguienteContactButton.isVisible({ timeout: 3000 }).catch(() => false);
-  
-  if (isSiguienteVisible) {
-    await siguienteContactButton.waitFor({ state: 'visible', timeout: 10000 });
-    await siguienteContactButton.click();
-    console.log('✓ Botón "Siguiente" del formulario de datos de contacto presionado');
-    await page.waitForTimeout(2000);
+  if (intentosTelefono >= maxIntentosTelefono) {
+    throw new Error(`❌ FALLO: No se pudieron encontrar teléfonos disponibles después de ${maxIntentosTelefono} intentos`);
   }
+  
+  // Continuar con el resto del flujo
+  await page.waitForTimeout(1000);
   
   // Paso 15: Llenar aleatoriamente campos del formulario de presencia digital (Step_6)
   const businessRFCInput = page.locator('input[id="BusinessRFC"]');

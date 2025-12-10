@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { login, showStepMessage, safeWaitForTimeout } from '../utils';
+import { login, showStepMessage, safeWaitForTimeout, waitForBackdropToDisappear } from '../utils';
 import { DEFAULT_BASE_URL, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -438,12 +438,52 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
           await messageInput.fill(messageText);
           await page.waitForTimeout(500);
           
+          // Cerrar cualquier modal que pueda estar abierto
+          await waitForBackdropToDisappear(page);
+          await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(500);
+          
           // Enviar el mensaje de texto primero
           const sendButton = page.locator('button:has(i.icon-send), button:has(i.icon-paper-plane), button[type="submit"]').first();
           const sendButtonVisible = await sendButton.isVisible({ timeout: 3000 }).catch(() => false);
           
           if (sendButtonVisible) {
-            await sendButton.click();
+            // Esperar a que el botón esté completamente interactuable
+            await sendButton.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+            
+            // Verificar si hay un modal bloqueando
+            const modal = page.locator('div[role="presentation"].MuiModal-root, div[class*="MuiModal-root"]').first();
+            const modalVisible = await modal.isVisible({ timeout: 1000 }).catch(() => false);
+            
+            if (modalVisible) {
+              // Cerrar el modal
+              const closeButton = modal.locator('button:has(i.icon-x), button[aria-label*="close" i], button[aria-label*="cerrar" i]').first();
+              const closeButtonVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+              
+              if (closeButtonVisible) {
+                await closeButton.click();
+                await page.waitForTimeout(500);
+              } else {
+                // Intentar cerrar con Escape
+                await page.keyboard.press('Escape');
+                await page.waitForTimeout(500);
+              }
+            }
+            
+            // Intentar hacer scroll para asegurar que el botón esté visible
+            await sendButton.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(300);
+            
+            // Intentar hacer clic con múltiples estrategias
+            try {
+              await sendButton.click({ timeout: 5000 });
+            } catch (error) {
+              // Si falla el clic normal, intentar con JavaScript
+              await sendButton.evaluate((el: HTMLElement) => {
+                (el as HTMLButtonElement).click();
+              }).catch(() => {});
+            }
+            
             await page.waitForTimeout(2000); // Esperar a que se envíe el mensaje
             console.log(`✅ Mensaje enviado: "${messageText}"`);
           }
@@ -466,6 +506,22 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
         
         await attachButton.click();
         await page.waitForTimeout(1000);
+        
+        // Cerrar modal de adjuntos si está abierto (hacer clic en la X)
+        const attachModal = page.locator('div.absolute.bg-neutral-0.shadow-lg:has-text("Adjunto")').first();
+        const attachModalVisible = await attachModal.isVisible({ timeout: 2000 }).catch(() => false);
+        
+        if (attachModalVisible) {
+          // Buscar el botón X dentro del modal de adjuntos
+          const closeXButton = attachModal.locator('button:has(i.icon-x)').first();
+          const closeXVisible = await closeXButton.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          if (closeXVisible) {
+            await closeXButton.click();
+            await page.waitForTimeout(500);
+            // Continuar buscando el input file directamente
+          }
+        }
         
         // Buscar diálogo de adjuntos o input file
         let fileInput = page.locator('input[type="file"][accept*="image"]').first();
@@ -513,12 +569,50 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
         
         console.log(`✅ Archivo adjuntado: ${fileName}`);
         
+        // Cerrar cualquier modal antes de enviar
+        await waitForBackdropToDisappear(page);
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(500);
+        
         // Enviar el mensaje con archivo
         const sendFileButton = page.locator('button:has(i.icon-send), button:has(i.icon-paper-plane), button[type="submit"]').first();
         const sendFileVisible = await sendFileButton.isVisible({ timeout: 3000 }).catch(() => false);
         
         if (sendFileVisible) {
-          await sendFileButton.click();
+          // Verificar si hay un modal bloqueando
+          const modal = page.locator('div[role="presentation"].MuiModal-root, div[class*="MuiModal-root"]').first();
+          const modalVisible = await modal.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          if (modalVisible) {
+            // Cerrar el modal
+            const closeButton = modal.locator('button:has(i.icon-x), button[aria-label*="close" i], button[aria-label*="cerrar" i]').first();
+            const closeButtonVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+            
+            if (closeButtonVisible) {
+              await closeButton.click();
+              await page.waitForTimeout(500);
+            } else {
+              // Intentar cerrar con Escape
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(500);
+            }
+          }
+          
+          // Esperar a que el botón esté completamente interactuable
+          await sendFileButton.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+          await sendFileButton.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(300);
+          
+          // Intentar hacer clic con múltiples estrategias
+          try {
+            await sendFileButton.click({ timeout: 5000 });
+          } catch (error) {
+            // Si falla el clic normal, intentar con JavaScript
+            await sendFileButton.evaluate((el: HTMLElement) => {
+              (el as HTMLButtonElement).click();
+            }).catch(() => {});
+          }
+          
           await page.waitForTimeout(3000); // Esperar a que se envíe el archivo
         }
         
@@ -591,12 +685,88 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
         } else {
           console.log(`⚠️ No se pudo verificar el envío de ${format} (puede que se haya enviado pero no se detectó visualmente)`);
           // Considerar como éxito si no hay error explícito
-          // failedFormats.push(format);
           successFormats.push(format); // Asumir éxito si no hay error
         }
         
-        // Cerrar diálogo si está abierto
+        // --- CERRAR TODOS LOS MODALES Y DIÁLOGOS ANTES DE CONTINUAR CON EL SIGUIENTE FORMATO ---
+        await page.waitForTimeout(1000); // Esperar a que termine cualquier animación
+        
+        // Cerrar cualquier modal de Material-UI
+        const modals = page.locator('div[role="presentation"].MuiModal-root, div[class*="MuiModal-root"]');
+        const modalCount = await modals.count();
+        
+        for (let i = 0; i < modalCount; i++) {
+          const modal = modals.nth(i);
+          const isVisible = await modal.isVisible({ timeout: 500 }).catch(() => false);
+          
+          if (isVisible) {
+            // Intentar cerrar con botón de cerrar
+            const closeButton = modal.locator('button:has(i.icon-x), button[aria-label*="close" i], button[aria-label*="cerrar" i], button[aria-label*="Cerrar" i]').first();
+            const closeButtonVisible = await closeButton.isVisible({ timeout: 500 }).catch(() => false);
+            
+            if (closeButtonVisible) {
+              await closeButton.click();
+              await page.waitForTimeout(300);
+            } else {
+              // Cerrar con Escape
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(300);
+            }
+          }
+        }
+        
+        // Cerrar modal de adjuntos si está abierto (hacer clic en la X)
+        // El modal tiene la estructura: div.absolute.bg-neutral-0.shadow-lg con texto "Adjunto"
+        const attachModalAfterSend = page.locator('div.absolute.bg-neutral-0.shadow-lg:has-text("Adjunto")').first();
+        const attachModalVisibleAfterSend = await attachModalAfterSend.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        if (attachModalVisibleAfterSend) {
+          // Buscar el botón X dentro del modal: button > i.icon-x
+          const closeXButton = attachModalAfterSend.locator('div.flex.items-center.justify-between button:has(i.icon-x)').first();
+          const closeXVisible = await closeXButton.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          if (closeXVisible) {
+            await closeXButton.click();
+            await page.waitForTimeout(500);
+            console.log('✅ Modal de adjuntos cerrado haciendo clic en la X');
+          } else {
+            // Fallback: buscar cualquier botón con icon-x dentro del modal
+            const fallbackCloseButton = attachModalAfterSend.locator('button:has(i.icon-x)').first();
+            const fallbackVisible = await fallbackCloseButton.isVisible({ timeout: 500 }).catch(() => false);
+            
+            if (fallbackVisible) {
+              await fallbackCloseButton.click();
+              await page.waitForTimeout(500);
+            } else {
+              // Último recurso: presionar ESC
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(300);
+            }
+          }
+        }
+        
+        // Cerrar cualquier otro diálogo de adjuntos que pueda estar abierto
+        const attachDialogs = page.locator('div[role="dialog"]:has-text("Galería"), div[role="dialog"]:has-text("Archivo"), div[class*="dialog"]:has-text("Galería")');
+        const dialogCount = await attachDialogs.count();
+        
+        for (let i = 0; i < dialogCount; i++) {
+          const dialog = attachDialogs.nth(i);
+          const isVisible = await dialog.isVisible({ timeout: 500 }).catch(() => false);
+          
+          if (isVisible) {
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(300);
+          }
+        }
+        
+        // Esperar a que desaparezcan todos los backdrops
+        await waitForBackdropToDisappear(page, 5000);
+        
+        // Presionar Escape adicional por si acaso
         await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(500);
+        
+        // Esperar un poco más antes de continuar con el siguiente formato
         await page.waitForTimeout(1000);
         
       } catch (error: any) {
@@ -754,7 +924,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
         const attachDialog = page.locator('div[role="dialog"], div[class*="dialog"], div[class*="modal"]').first();
         const dialogVisible = await attachDialog.isVisible({ timeout: 3000 }).catch(() => false);
         
-        let fileInput = null;
+        let fileInput: ReturnType<typeof page.locator> | null = null;
         let fileInputExists = false;
         
         if (dialogVisible) {
@@ -784,7 +954,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
           fileInputExists = await fileInput.count() > 0;
         }
         
-        if (!fileInputExists) {
+        if (!fileInputExists || !fileInput) {
           console.log(`❌ Input file no encontrado para ${format}`);
           failedFormats.push(format);
           

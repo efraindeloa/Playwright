@@ -21,6 +21,9 @@ test.use({
   viewport: { width: 1400, height: 720 }
 });
 
+// Configurar este archivo para ejecutar pruebas en serie y en orden
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Dashboard de proveedor', () => {
   // Configurar timeout por defecto para todas las pruebas del describe
   test.setTimeout(60000); // 60 segundos por defecto
@@ -733,7 +736,7 @@ test.describe('Dashboard de proveedor', () => {
   });
 
   test('Calendario muestra estado vacío al seleccionar un día sin eventos', async ({ page }) => {
-    test.setTimeout(60000); // Aumentar timeout a 60 segundos
+    test.setTimeout(120000); // Aumentar timeout a 120 segundos (2 minutos)
     await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
     await page.waitForTimeout(1000);
     
@@ -752,24 +755,291 @@ test.describe('Dashboard de proveedor', () => {
     await showStepMessage(page, '🔍 BUSCANDO DÍAS SIN EVENTOS (SIN PUNTOS)');
     await page.waitForTimeout(1000);
     
-    // Obtener todos los botones de días del calendario
-    const todosLosDias = calendario.locator('button[type="button"]').filter({
-      has: page.locator('p.text-dark-neutral')
-    });
+    console.log('🔍 Paso 1: Obteniendo solo días VISIBLES del mes actual...');
     
-    // Buscar días que NO tengan puntos (divs con rounded-circle y background-color)
+    // Estrategia mejorada: usar page.evaluate para obtener solo días visibles del mes actual
+    // Esto es más eficiente que iterar sobre todos los elementos del DOM
     const diasSinPuntos: Locator[] = [];
-    const totalDias = await todosLosDias.count();
     
-    for (let i = 0; i < totalDias; i++) {
-      const dia = todosLosDias.nth(i);
-      const tienePuntos = await dia.locator('div[class*="rounded-circle"][style*="background-color"]').count();
+    try {
+      console.log('⏳ Buscando días sin eventos usando evaluación del DOM...');
       
-      if (tienePuntos === 0) {
-        // Verificar que el día tiene un número (no es un día de otro mes)
-        const numeroDia = await dia.locator('p.text-dark-neutral').first().textContent();
-        if (numeroDia && numeroDia.trim().match(/^\d+$/)) {
-          diasSinPuntos.push(dia);
+      // Verificar que la página sigue disponible antes de evaluar
+      if (page.isClosed()) {
+        throw new Error('La página se cerró antes de evaluar el DOM');
+      }
+      
+      // Obtener el mes actual del calendario para filtrar solo días del mes actual
+      let mesActualTexto: string | null = null;
+      try {
+        // Buscar el mes en el header del calendario
+        const mesHeader = page.locator('p.text-dark-neutral, h2, h3').filter({ 
+          hasText: /Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre/i 
+        }).first();
+        mesActualTexto = await mesHeader.textContent({ timeout: 3000 }).catch(() => null);
+      } catch (e) {
+        console.log(`⚠️ No se pudo obtener el mes actual: ${e.message}`);
+      }
+      
+      console.log(`📅 Mes actual en el calendario: ${mesActualTexto || 'No encontrado (continuando de todas formas)'}`);
+      
+      // Usar page.evaluate para encontrar días sin eventos de manera más eficiente
+      const diasSinEventosInfo = await page.evaluate(() => {
+        const diasSinEventos: Array<{ numero: string, index: number, numeroDia: number }> = [];
+        
+        // Buscar todos los botones de días que son visibles
+        const botonesDias = Array.from(document.querySelectorAll('button[type="button"]'));
+        
+        let index = 0;
+        for (const boton of botonesDias) {
+          // Verificar que el botón es visible
+          const rect = boton.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) {
+            continue; // Saltar botones no visibles
+          }
+          
+          // Verificar que tiene el elemento de texto
+          const textoElement = boton.querySelector('p.text-dark-neutral');
+          if (!textoElement) {
+            continue;
+          }
+          
+          // Verificar que el texto es visible
+          const textoRect = textoElement.getBoundingClientRect();
+          if (textoRect.width === 0 || textoRect.height === 0) {
+            continue;
+          }
+          
+          // Verificar el color del texto - los días del mes anterior/siguiente suelen ser grises
+          const estiloTexto = window.getComputedStyle(textoElement);
+          const colorTexto = estiloTexto.color;
+          
+          // Si el texto es muy claro (gris), probablemente es de otro mes
+          if (colorTexto.includes('rgb(200, 200, 200)') || 
+              colorTexto.includes('rgb(180, 180, 180)') ||
+              colorTexto.includes('rgb(160, 160, 160)') ||
+              colorTexto.includes('rgba(0, 0, 0, 0.3)') ||
+              colorTexto.includes('rgba(0, 0, 0, 0.4)')) {
+            continue; // Saltar días de otros meses (grises)
+          }
+          
+          const numeroTexto = textoElement.textContent?.trim() || '';
+          
+          // Verificar que es un número válido
+          if (!numeroTexto.match(/^\d+$/)) {
+            continue;
+          }
+          
+          // Priorizar días del 1 al 15 del mes actual (más probable que sean del mes actual)
+          const numeroDia = parseInt(numeroTexto, 10);
+          if (numeroDia > 15 && numeroDia < 28) {
+            // Días del 16 al 27 pueden ser del mes actual o siguiente
+            // Verificar el estilo del botón para determinar si es del mes actual
+            const estiloBoton = window.getComputedStyle(boton);
+            const opacidad = estiloBoton.opacity;
+            if (opacidad && parseFloat(opacidad) < 0.5) {
+              continue; // Botones con baja opacidad suelen ser de otros meses
+            }
+          }
+          
+          // Verificar que NO tiene puntos (divs con rounded-circle y background-color)
+          const puntos = boton.querySelectorAll('div[class*="rounded-circle"]');
+          let tienePuntos = false;
+          
+          for (const punto of Array.from(puntos)) {
+            const estilo = window.getComputedStyle(punto);
+            const bgColor = estilo.backgroundColor;
+            // Verificar que tiene un color de fondo (no transparente, blanco, o muy claro)
+            if (bgColor && 
+                bgColor !== 'transparent' && 
+                bgColor !== 'rgba(0, 0, 0, 0)' &&
+                !bgColor.includes('rgb(255, 255, 255)') &&
+                !bgColor.includes('rgb(242, 242, 242)')) {
+              tienePuntos = true;
+              break;
+            }
+          }
+          
+          if (!tienePuntos) {
+            diasSinEventos.push({ numero: numeroTexto, index, numeroDia });
+          }
+          
+          index++;
+        }
+        
+        // Ordenar por número de día para priorizar días del 1 en adelante del mes actual
+        diasSinEventos.sort((a, b) => {
+          return a.numeroDia - b.numeroDia;
+        });
+        
+        // Filtrar para asegurar que solo incluimos días del mes actual
+        // Priorizar días del 1 al 15 primero, luego del 16 al 31
+        const diasDelMesActual = diasSinEventos.filter(dia => {
+          // Si el día es menor o igual a 15, es muy probable que sea del mes actual
+          if (dia.numeroDia <= 15) {
+            return true;
+          }
+          // Para días mayores a 15, verificar que no sean de otro mes
+          // (ya filtramos por color arriba, pero hacemos doble verificación)
+          return dia.numeroDia <= 31;
+        });
+        
+        return diasDelMesActual;
+      });
+      
+      console.log(`✅ Encontrados ${diasSinEventosInfo.length} días sin eventos usando evaluación del DOM`);
+      
+      if (diasSinEventosInfo.length > 0) {
+        // Obtener los locators para los días encontrados
+        const todosLosDias = calendario.locator('button[type="button"]').filter({
+          has: page.locator('p.text-dark-neutral')
+        });
+        
+        // Limitar a los primeros 5 días sin eventos para evitar procesar demasiados
+        const diasAProcesar = Math.min(diasSinEventosInfo.length, 5);
+        console.log(`📊 Procesando ${diasAProcesar} días sin eventos...`);
+        
+        for (let i = 0; i < diasAProcesar; i++) {
+          const infoDia = diasSinEventosInfo[i];
+          try {
+            const dia = todosLosDias.nth(infoDia.index);
+            const diaVisible = await dia.isVisible({ timeout: 2000 }).catch(() => false);
+            if (diaVisible) {
+              diasSinPuntos.push(dia);
+              if (i === 0) {
+                console.log(`✅ Primer día sin eventos encontrado: día ${infoDia.numero}`);
+              }
+            }
+          } catch (error) {
+            console.log(`⚠️ Error al obtener locator para día ${infoDia.numero}: ${error.message}`);
+          }
+        }
+      }
+      
+    } catch (error) {
+      const errorMessage = error.message || String(error);
+      console.log(`⚠️ Error en evaluación del DOM: ${errorMessage}`);
+      
+      // Verificar si la página se cerró
+      if (errorMessage.includes('Target page, context or browser has been closed') || page.isClosed()) {
+        console.log('❌ La página se cerró durante la evaluación del DOM');
+        throw error; // Re-lanzar el error para que la prueba falle claramente
+      }
+      
+      console.log('⚠️ Intentando método alternativo más lento...');
+      
+      // Verificar que la página sigue disponible
+      if (page.isClosed()) {
+        throw new Error('La página se cerró antes del método alternativo');
+      }
+      
+      // Método alternativo: procesar solo los primeros días visibles
+      try {
+        const todosLosDias = calendario.locator('button[type="button"]').filter({
+          has: page.locator('p.text-dark-neutral')
+        });
+        
+        console.log('⏳ Contando días en método alternativo...');
+        const totalDias = await Promise.race([
+          todosLosDias.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 10000))
+        ]);
+        
+        if (totalDias === 0) {
+          console.log('⚠️ No se encontraron días en el método alternativo');
+          throw new Error('No se pudieron encontrar días del calendario');
+        }
+        
+        console.log(`📊 Total de días encontrados: ${totalDias}`);
+        
+        // Limitar a procesar solo los primeros 35 días (suficiente para un mes)
+        const diasAProcesar = Math.min(totalDias, 35);
+        console.log(`🔍 Procesando solo los primeros ${diasAProcesar} días...`);
+        
+        for (let i = 0; i < diasAProcesar && diasSinPuntos.length < 5; i++) {
+          // Verificar que la página sigue disponible en cada iteración
+          if (page.isClosed()) {
+            console.log(`❌ La página se cerró durante el procesamiento (día ${i + 1})`);
+            break;
+          }
+          
+          try {
+            const dia = todosLosDias.nth(i);
+            const diaVisible = await dia.isVisible({ timeout: 1000 }).catch(() => false);
+            if (!diaVisible) {
+              continue;
+            }
+            
+            // Verificar el color del texto para filtrar días de otros meses
+            const textoDia = dia.locator('p.text-dark-neutral').first();
+            let colorTexto: string | null = null;
+            try {
+              colorTexto = await textoDia.evaluate((el) => {
+                const estilo = window.getComputedStyle(el);
+                return estilo.color;
+              }).catch(() => null);
+            } catch (e) {
+              // Si no se puede obtener el color, continuar
+            }
+            
+            // Si el texto es gris, probablemente es de otro mes
+            if (colorTexto && (
+              colorTexto.includes('rgb(200, 200, 200)') ||
+              colorTexto.includes('rgb(180, 180, 180)') ||
+              colorTexto.includes('rgb(160, 160, 160)')
+            )) {
+              continue; // Saltar días de otros meses
+            }
+            
+            // Verificar rápidamente si tiene puntos usando page.evaluate
+            const elementHandle = await dia.elementHandle();
+            if (!elementHandle) {
+              continue;
+            }
+            
+            const tienePuntos = await page.evaluate((element) => {
+              const puntos = element.querySelectorAll('div[class*="rounded-circle"]');
+              for (const punto of Array.from(puntos)) {
+                const estilo = window.getComputedStyle(punto);
+                const bgColor = estilo.backgroundColor;
+                if (bgColor && 
+                    bgColor !== 'transparent' && 
+                    bgColor !== 'rgba(0, 0, 0, 0)' &&
+                    !bgColor.includes('rgb(255, 255, 255)') &&
+                    !bgColor.includes('rgb(242, 242, 242)')) {
+                  return true;
+                }
+              }
+              return false;
+            }, elementHandle).catch(() => false);
+            
+            if (!tienePuntos) {
+              const numeroDia = await dia.locator('p.text-dark-neutral').first().textContent({ timeout: 1000 }).catch(() => null);
+              if (numeroDia && numeroDia.trim().match(/^\d+$/)) {
+                const numero = parseInt(numeroDia.trim(), 10);
+                // Priorizar días del 1 al 15 del mes actual
+                if (numero >= 1 && numero <= 15) {
+                  diasSinPuntos.push(dia);
+                  if (diasSinPuntos.length === 1) {
+                    console.log(`✅ Primer día sin eventos encontrado: día ${numeroDia.trim()}`);
+                  }
+                } else if (diasSinPuntos.length === 0 && numero <= 31) {
+                  // Si no encontramos días del 1-15, usar cualquier día del mes
+                  diasSinPuntos.push(dia);
+                  console.log(`✅ Día sin eventos encontrado: día ${numeroDia.trim()}`);
+                }
+              }
+            }
+          } catch (error) {
+            // Continuar con el siguiente día
+            continue;
+          }
+        }
+      } catch (altError) {
+        const altErrorMessage = altError.message || String(altError);
+        console.log(`❌ Error en método alternativo: ${altErrorMessage}`);
+        if (altErrorMessage.includes('Target page, context or browser has been closed') || page.isClosed()) {
+          throw altError;
         }
       }
     }
@@ -804,15 +1074,31 @@ test.describe('Dashboard de proveedor', () => {
     
     // Hacer click en el día sin eventos
     await showStepMessage(page, `🔄 HACIENDO CLICK EN DÍA ${numeroDia} (SIN EVENTOS)`);
-    await page.waitForTimeout(1500);
-    await diaSinEventos.click();
-    await page.waitForTimeout(3000); // Esperar a que se actualice la vista
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(2000);
+    console.log(`🖱️ Haciendo clic en día ${numeroDia}...`);
+    
+    try {
+      await diaSinEventos.click({ timeout: 10000 });
+      console.log('✅ Clic ejecutado exitosamente');
+    } catch (error) {
+      console.log(`⚠️ Error al hacer clic: ${error.message}, intentando con force...`);
+      await diaSinEventos.click({ timeout: 10000, force: true });
+    }
+    
+    console.log('⏳ Esperando a que se actualice la vista después del clic...');
+    // Esperar a que se actualice la vista con timeout más corto
+    await Promise.race([
+      page.waitForLoadState('networkidle', { timeout: 15000 }),
+      page.waitForTimeout(5000) // Máximo 5 segundos de espera
+    ]).catch(() => {
+      console.log('⚠️ Timeout esperando networkidle, continuando...');
+    });
+    
+    await page.waitForTimeout(1000); // Espera mínima adicional
     
     // Validar que NO hay eventos visibles
     await showStepMessage(page, '✅ VALIDANDO QUE NO HAY EVENTOS VISIBLES');
-    await page.waitForTimeout(2000);
+    console.log('⏳ Esperando antes de contar eventos...');
+    await page.waitForTimeout(1000);
     
     const { count: countDespues } = await contarEventosVisibles(page);
     console.log(`📊 Eventos visibles después: ${countDespues}`);

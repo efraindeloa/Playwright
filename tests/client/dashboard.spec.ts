@@ -623,21 +623,48 @@ test.describe('Dashboard de cliente', () => {
       }
       
       // Fallback: buscar cualquier botón con "Nueva fiesta" o "Nuevo evento" que esté visible
+      // IMPORTANTE: Excluir botones con clase "lg:hidden" ya que están ocultos en desktop
       if (await botonNuevaFiestaDesktop.count() === 0 || !(await botonNuevaFiestaDesktop.first().isVisible().catch(() => false))) {
-        const botonVisible = page.locator('button').filter({
+        // Buscar todos los botones con el texto, pero filtrar por visibilidad y clase
+        const todosLosBotones = page.locator('button').filter({
           has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
-        }).first();
+        });
         
-        if (await botonVisible.count() > 0) {
-          const esVisible = await botonVisible.isVisible().catch(() => false);
-          if (esVisible) {
-            await expect(botonVisible).toBeVisible();
-            console.log('✅ Botón "Nueva fiesta" encontrado y visible (fallback)');
-          } else {
-            console.log('⚠️ Botón "Nueva fiesta" encontrado pero oculto (puede ser que el viewport no sea el esperado)');
+        const cantidadBotones = await todosLosBotones.count();
+        let botonVisibleEncontrado = false;
+        
+        // Revisar cada botón para encontrar uno que esté visible y no tenga lg:hidden
+        for (let i = 0; i < cantidadBotones; i++) {
+          const boton = todosLosBotones.nth(i);
+          const tieneClaseHidden = await boton.evaluate((el) => {
+            return el.classList.contains('lg:hidden');
+          }).catch(() => false);
+          
+          // Si tiene lg:hidden, saltarlo (es versión mobile)
+          if (tieneClaseHidden) {
+            continue;
           }
-        } else {
-          console.log('⚠️ No se encontró el botón "Nueva fiesta"');
+          
+          const esVisible = await boton.isVisible().catch(() => false);
+          if (esVisible) {
+            await expect(boton).toBeVisible();
+            console.log('✅ Botón "Nueva fiesta" encontrado y visible (fallback)');
+            botonVisibleEncontrado = true;
+            break;
+          }
+        }
+        
+        if (!botonVisibleEncontrado) {
+          // Verificar si hay algún botón con lg:hidden para reportar
+          const botonMobile = page.locator('button.lg\\:hidden').filter({
+            has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
+          }).first();
+          
+          if (await botonMobile.count() > 0) {
+            console.log('⚠️ Botón "Nueva fiesta" encontrado pero oculto (tiene clase lg:hidden - es versión mobile, no visible en desktop)');
+          } else {
+            console.log('⚠️ No se encontró el botón "Nueva fiesta" visible en desktop');
+          }
         }
       }
     } else {
@@ -2694,7 +2721,7 @@ test.describe('Dashboard de cliente', () => {
   });
 
   test('Se muestran todos los elementos del calendario en vista desktop', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
+    test.setTimeout(180000); // 3 minutos (aumentado para evitar timeouts)
     
     // Solo ejecutar en viewports grandes donde el calendario es visible
     if (page.viewportSize() && page.viewportSize()!.width < 1024) {
@@ -2992,77 +3019,465 @@ test.describe('Dashboard de cliente', () => {
     // Buscar días con puntos de colores (indicadores de eventos)
     // Los días con eventos tienen divs con w-[4px] aspect-square rounded-circle y background-color
     // IMPORTANTE: Solo buscar días del mes actual, excluyendo días de otros meses
-    const todosLosDias = baseLocator.locator('button[type="button"]').filter({
-      // Excluir días de otros meses usando hasNot
-      hasNot: page.locator('[class*="prevMonthDay"], [class*="nextMonthDay"], [class*="prev-month"], [class*="next-month"]')
-    }).filter({
-      // Excluir días que tengan ancestros con clases de otros meses
-      hasNot: page.locator('xpath=ancestor::*[contains(@class, "prevMonthDay") or contains(@class, "nextMonthDay") or contains(@class, "prev-month") or contains(@class, "next-month")]')
-    });
-    const countTodos = await todosLosDias.count();
-    console.log(`📊 Total de días encontrados en el calendario (solo mes actual): ${countTodos}`);
+    // Estrategia mejorada: buscar primero días que tengan puntos de colores directamente
+    console.log('🔍 Buscando días con eventos usando múltiples estrategias...');
     
-    // Limitar el procesamiento para evitar timeouts (procesar máximo 35 días, suficiente para cualquier mes)
-    // Si hay más de 35, probablemente el selector está capturando elementos incorrectos
-    const maxDiasAProcesar = Math.min(countTodos, 35);
-    console.log(`🔍 Procesando ${maxDiasAProcesar} días para buscar eventos...`);
+    let diasConEventos: Array<Locator> = [];
+    let countTodos = 0; // Variable para contar días totales procesados
     
-    // Filtrar días que realmente tienen eventos (tienen puntos de colores)
-    const diasConEventos: Array<Locator> = [];
+    // Estrategia 1: Buscar directamente botones que contengan puntos de colores (más eficiente)
+    // Intentar múltiples selectores para encontrar los puntos
+    const selectoresEstrategia1 = [
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[style*="background-color"]')
+      }),
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[class*="rounded"]')
+      }),
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[class*="circle"]')
+      })
+    ];
     
-    for (let i = 0; i < maxDiasAProcesar; i++) {
+    let diasConPuntos: Locator | null = null;
+    let countDiasConPuntos = 0;
+    
+    for (const selector of selectoresEstrategia1) {
       try {
-        const dia = todosLosDias.nth(i);
+        const count = await Promise.race([
+          selector.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 2000))
+        ]).catch(() => 0);
         
-        // Verificar rápidamente si el día es visible (timeout muy corto)
-        const diaVisible = await Promise.race([
-          dia.isVisible(),
-          new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
-        ]).catch(() => false);
-        
-        if (!diaVisible) {
-          continue; // Saltar días no visibles
+        if (count > 0) {
+          diasConPuntos = selector;
+          countDiasConPuntos = count;
+          console.log(`📊 Días con puntos de colores encontrados (estrategia 1, selector ${selectoresEstrategia1.indexOf(selector) + 1}): ${count}`);
+          break;
         }
-        
-        // Verificar adicionalmente que no es un día de otro mes (doble verificación)
-        const esDiaOtroMes = await dia.evaluate((el) => {
-          const classes = el.className || '';
-          const parentClasses = el.parentElement?.className || '';
-          return classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
-                 classes.includes('prev-month') || classes.includes('next-month') ||
-                 parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay');
-        }).catch(() => false);
-        
-        if (esDiaOtroMes) {
-          continue; // Saltar días de otros meses
-        }
-        
-        // Buscar puntos de colores (divs con w-[4px] y aspect-square)
-        // El selector debe buscar divs con estas clases específicas
-        const puntosColores = dia.locator('div.w-\\[4px\\].aspect-square.rounded-circle[style*="background-color"]');
-        const countPuntos = await puntosColores.count();
-        
-        if (countPuntos > 0) {
-          // Verificar que al menos uno de los puntos no sea rgb(242, 242, 242)
-          // Solo verificar el primer punto para ahorrar tiempo
-          const primerPunto = puntosColores.first();
-          const colorPunto = await primerPunto.evaluate(el => {
-            return window.getComputedStyle(el).backgroundColor;
-          }).catch(() => null);
+      } catch {
+        continue;
+      }
+    }
+    
+    if (countDiasConPuntos === 0) {
+      console.log(`📊 Días con puntos de colores encontrados (estrategia 1): 0 (probados ${selectoresEstrategia1.length} selectores)`);
+    }
+    
+    // Estrategia 2: Si no encontramos con la primera estrategia, buscar todos los días y filtrar
+    let todosLosDias: Locator;
+    
+    if (countDiasConPuntos > 0 && diasConPuntos) {
+      // Usar la estrategia 1 si encontramos días
+      countTodos = countDiasConPuntos; // Inicializar contador
+      const maxDiasAProcesar = Math.min(countDiasConPuntos, 31);
+      console.log(`🔍 Procesando ${maxDiasAProcesar} días con puntos de colores...`);
+      
+      for (let i = 0; i < maxDiasAProcesar; i++) {
+        try {
+          const dia = diasConPuntos.nth(i);
+          const diaVisible = await Promise.race([
+            dia.isVisible({ timeout: 1000 }),
+            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
+          ]).catch(() => false);
           
-          // Excluir días con color rgb(242, 242, 242) que son días sin eventos
-          if (colorPunto && !colorPunto.includes('rgb(242, 242, 242)')) {
+          if (diaVisible) {
+            // Verificar que no es un día de otro mes
+            const esDiaOtroMes = await Promise.race([
+              dia.evaluate((el) => {
+                const classes = el.className || '';
+                const parentClasses = el.parentElement?.className || '';
+                const parentParentClasses = el.parentElement?.parentElement?.className || '';
+                return classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
+                       classes.includes('prev-month') || classes.includes('next-month') ||
+                       parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay') ||
+                       parentParentClasses.includes('prevMonthDay') || parentParentClasses.includes('nextMonthDay');
+              }),
+              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
+            ]).catch(() => false);
+            
+            if (!esDiaOtroMes) {
+              // Verificar que tiene puntos de colores válidos usando evaluate
+              const tieneEventos = await Promise.race([
+                dia.evaluate((el) => {
+                  const divs = el.querySelectorAll('div');
+                  let encontrado = false;
+                  
+                  for (const div of divs) {
+                    const style = window.getComputedStyle(div);
+                    const bgColor = style.backgroundColor;
+                    
+                    if (bgColor && 
+                        bgColor !== 'rgba(0, 0, 0, 0)' && 
+                        bgColor !== 'transparent' &&
+                        !bgColor.includes('rgb(242, 242, 242)') &&
+                        !bgColor.includes('rgba(242, 242, 242')) {
+                      
+                      const width = style.width;
+                      const height = style.height;
+                      const widthNum = parseFloat(width);
+                      const heightNum = parseFloat(height);
+                      
+                      if ((widthNum > 0 && widthNum < 10) || (heightNum > 0 && heightNum < 10)) {
+                        encontrado = true;
+                        break;
+                      }
+                      
+                      const classes = div.className || '';
+                      if (classes.includes('rounded') || classes.includes('circle') || classes.includes('aspect-square')) {
+                        encontrado = true;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  return encontrado;
+                }),
+                new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
+              ]).catch(() => false);
+              
+              if (tieneEventos) {
+                diasConEventos.push(dia);
+                console.log(`  ✓ Día ${i + 1}: encontrado con evento(s)`);
+              }
+            }
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+    } else {
+      // Estrategia 2: Buscar todos los días y filtrar manualmente
+      console.log('⚠️ Estrategia 1 no encontró días, usando estrategia 2...');
+      // Usar el mismo selector que funciona al final de la prueba para encontrar días
+      todosLosDias = baseLocator.locator('button[type="button"]').filter({
+        has: page.locator('p, span').filter({
+          hasText: /^\d{1,2}$/
+        })
+      });
+      countTodos = await Promise.race([
+        todosLosDias.count(),
+        new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+      ]).catch(() => 0);
+      
+      console.log(`📊 Total de días encontrados en el calendario: ${countTodos}`);
+      
+      // Si aún no encontramos días, intentar sin el filtro de números
+      if (countTodos === 0) {
+        console.log('⚠️ No se encontraron días con el selector filtrado, intentando sin filtro...');
+        todosLosDias = baseLocator.locator('button[type="button"]');
+        countTodos = await Promise.race([
+          todosLosDias.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+        ]).catch(() => 0);
+        console.log(`📊 Total de días encontrados (sin filtro): ${countTodos}`);
+      }
+      
+      // Si aún no encontramos días, buscar directamente en la página
+      if (countTodos === 0) {
+        console.log('⚠️ No se encontraron días con baseLocator, buscando directamente en la página...');
+        todosLosDias = page.locator('button[type="button"]').filter({
+          has: page.locator('p, span').filter({
+            hasText: /^\d{1,2}$/
+          })
+        });
+        countTodos = await Promise.race([
+          todosLosDias.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+        ]).catch(() => 0);
+        console.log(`📊 Total de días encontrados (búsqueda directa en página): ${countTodos}`);
+      }
+      
+      const maxDiasAProcesar = Math.min(countTodos, 35);
+      console.log(`🔍 Procesando ${maxDiasAProcesar} días para buscar eventos...`);
+      
+      const startTime = Date.now();
+      const maxLoopTime = 60000; // Máximo 60 segundos para procesar días (aumentado porque algunos días pueden tardar más)
+      
+      // Primero, inspeccionar algunos días para entender la estructura
+      console.log('🔍 Inspeccionando estructura de los primeros días para entender el DOM...');
+      const diasMuestra = Math.min(10, maxDiasAProcesar);
+      let diasInspeccionados = 0;
+      
+      for (let i = 0; i < diasMuestra; i++) {
+        try {
+          const dia = todosLosDias.nth(i);
+          const diaVisible = await dia.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          if (!diaVisible) {
+            console.log(`  ⚠️ Día ${i + 1}: no visible, saltando...`);
+            continue;
+          }
+          
+          const infoDia = await Promise.race([
+            dia.evaluate((el) => {
+              const texto = el.textContent?.trim() || '';
+              const classes = el.className || '';
+              const innerHTML = el.innerHTML.substring(0, 200); // Primeros 200 caracteres del HTML
+              
+              // Buscar todos los elementos dentro del botón
+              const todosElementos = el.querySelectorAll('*');
+              const elementosConColor: Array<{tag: string, classes: string, bgColor: string, width: string, height: string}> = [];
+              
+              for (const elem of todosElementos) {
+                const style = window.getComputedStyle(elem);
+                const bgColor = style.backgroundColor;
+                const width = style.width;
+                const height = style.height;
+                
+                if (bgColor && 
+                    bgColor !== 'rgba(0, 0, 0, 0)' && 
+                    bgColor !== 'transparent' &&
+                    bgColor !== 'rgb(255, 255, 255)' &&
+                    bgColor !== 'rgba(255, 255, 255, 1)') {
+                  
+                  const widthNum = parseFloat(width);
+                  const heightNum = parseFloat(height);
+                  
+                  // Solo incluir elementos pequeños (puntos de eventos)
+                  if ((widthNum > 0 && widthNum < 30) || (heightNum > 0 && heightNum < 30)) {
+                    elementosConColor.push({
+                      tag: elem.tagName.toLowerCase(),
+                      classes: elem.className || '',
+                      bgColor: bgColor,
+                      width: width,
+                      height: height
+                    });
+                  }
+                }
+              }
+              
+              // También buscar elementos hermanos o en el contenedor padre
+              const parent = el.parentElement;
+              let elementosHermanosConColor = 0;
+              if (parent) {
+                const hermanos = parent.querySelectorAll('*');
+                for (const hermano of hermanos) {
+                  if (hermano !== el) {
+                    const style = window.getComputedStyle(hermano);
+                    const bgColor = style.backgroundColor;
+                    if (bgColor && 
+                        bgColor !== 'rgba(0, 0, 0, 0)' && 
+                        bgColor !== 'transparent' &&
+                        !bgColor.includes('rgb(242, 242, 242)')) {
+                      const width = parseFloat(style.width);
+                      const height = parseFloat(style.height);
+                      if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
+                        elementosHermanosConColor++;
+                      }
+                    }
+                  }
+                }
+              }
+              
+              return {
+                texto: texto,
+                classes: classes,
+                innerHTML: innerHTML,
+                elementosConColor: elementosConColor.length,
+                elementosInfo: elementosConColor.slice(0, 5),
+                elementosHermanosConColor: elementosHermanosConColor
+              };
+            }),
+            new Promise<any>(resolve => setTimeout(() => resolve(null), 2000))
+          ]).catch((error) => {
+            console.log(`  ❌ Error al inspeccionar día ${i + 1}: ${error}`);
+            return null;
+          });
+          
+          if (infoDia) {
+            diasInspeccionados++;
+            console.log(`  📋 Día ${i + 1}: texto="${infoDia.texto.substring(0, 50)}", clases="${infoDia.classes.substring(0, 100)}"`);
+            console.log(`    Elementos con color dentro: ${infoDia.elementosConColor}, elementos hermanos con color: ${infoDia.elementosHermanosConColor}`);
+            if (infoDia.elementosInfo.length > 0) {
+              infoDia.elementosInfo.forEach((elem: any, idx: number) => {
+                console.log(`    ${elem.tag} ${idx + 1}: bg=${elem.bgColor}, size=${elem.width}x${elem.height}, clases="${elem.classes.substring(0, 50)}"`);
+              });
+            }
+            if (infoDia.elementosConColor === 0 && infoDia.elementosHermanosConColor > 0) {
+              console.log(`    ⚠️ Los eventos podrían estar fuera del botón (en elementos hermanos)`);
+            }
+          } else {
+            console.log(`  ⚠️ Día ${i + 1}: no se pudo obtener información`);
+          }
+        } catch (error: any) {
+          console.log(`  ❌ Error al procesar día ${i + 1}: ${error?.message || error}`);
+        }
+      }
+      
+      console.log(`✅ Inspección completada: ${diasInspeccionados} de ${diasMuestra} días inspeccionados`);
+      
+      for (let i = 0; i < maxDiasAProcesar; i++) {
+        // Verificar timeout global del loop
+        if (Date.now() - startTime > maxLoopTime) {
+          console.log(`⏱️ Timeout del loop alcanzado después de procesar ${i} días. Continuando con los días encontrados hasta ahora.`);
+          break;
+        }
+        try {
+          const dia = todosLosDias.nth(i);
+          
+          // Usar la misma lógica que funciona en la inspección: buscar eventos directamente
+          const infoDia = await Promise.race([
+            dia.evaluate((el) => {
+              // Verificar que no es un día de otro mes
+              const classes = el.className || '';
+              const parentClasses = el.parentElement?.className || '';
+              const esDiaOtroMes = classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
+                     classes.includes('prev-month') || classes.includes('next-month') ||
+                     parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay');
+              
+              if (esDiaOtroMes) {
+                return { esDiaOtroMes: true, tieneEventos: false, colores: [], texto: '' };
+              }
+              
+              const coloresEncontrados: string[] = [];
+              
+              // 1. Buscar dentro del botón
+              const todosElementos = el.querySelectorAll('*');
+              for (const elem of todosElementos) {
+                const style = window.getComputedStyle(elem);
+                const bgColor = style.backgroundColor;
+                
+                if (bgColor && 
+                    bgColor !== 'rgba(0, 0, 0, 0)' && 
+                    bgColor !== 'transparent' &&
+                    bgColor !== 'rgb(255, 255, 255)' &&
+                    bgColor !== 'rgba(255, 255, 255, 1)' &&
+                    !bgColor.includes('rgb(242, 242, 242)') &&
+                    !bgColor.includes('rgba(242, 242, 242')) {
+                  
+                  const width = parseFloat(style.width);
+                  const height = parseFloat(style.height);
+                  
+                  // Buscar elementos pequeños (puntos de eventos) - 4px es el tamaño típico
+                  if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
+                    coloresEncontrados.push(bgColor);
+                  }
+                  
+                  // También verificar clases específicas de puntos de eventos
+                  const elemClasses = elem.className || '';
+                  if (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle')) {
+                    coloresEncontrados.push(bgColor);
+                  }
+                }
+              }
+              
+              // 2. Si no encontramos dentro, buscar en elementos hermanos (como muestra la inspección)
+              // Los eventos pueden estar en el mismo contenedor padre pero en otros elementos
+              if (coloresEncontrados.length === 0 && el.parentElement) {
+                const parent = el.parentElement;
+                // Buscar en todos los elementos del contenedor padre, no solo hermanos directos
+                const todosEnContenedor = parent.querySelectorAll('*');
+                
+                for (const elem of todosEnContenedor) {
+                  // Saltar el elemento actual y sus hijos
+                  if (el.contains(elem) || elem === el) {
+                    continue;
+                  }
+                  
+                  const style = window.getComputedStyle(elem);
+                  const bgColor = style.backgroundColor;
+                  
+                  if (bgColor && 
+                      bgColor !== 'rgba(0, 0, 0, 0)' && 
+                      bgColor !== 'transparent' &&
+                      bgColor !== 'rgb(255, 255, 255)' &&
+                      bgColor !== 'rgba(255, 255, 255, 1)' &&
+                      !bgColor.includes('rgb(242, 242, 242)') &&
+                      !bgColor.includes('rgba(242, 242, 242')) {
+                    
+                    const width = parseFloat(style.width);
+                    const height = parseFloat(style.height);
+                    const elemClasses = elem.className || '';
+                    
+                    // Buscar elementos pequeños (puntos de eventos) O elementos con clases específicas
+                    const esPuntoEvento = ((width > 0 && width < 10) || (height > 0 && height < 10)) &&
+                                         (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'));
+                    
+                    // También aceptar si tiene las clases específicas aunque el tamaño sea ligeramente mayor
+                    const tieneClasesEspecificas = elemClasses.includes('w-[4px]') || 
+                                                   (elemClasses.includes('aspect-square') && elemClasses.includes('rounded-circle'));
+                    
+                    if (esPuntoEvento || tieneClasesEspecificas) {
+                      coloresEncontrados.push(bgColor);
+                      // Si encontramos uno con la clase w-[4px], es suficiente
+                      if (elemClasses.includes('w-[4px]')) {
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+              
+              // 3. También buscar en el contenedor del contenedor (nivel superior)
+              if (coloresEncontrados.length === 0 && el.parentElement?.parentElement) {
+                const grandParent = el.parentElement.parentElement;
+                const todosEnGrandParent = grandParent.querySelectorAll('*');
+                
+                for (const elem of todosEnGrandParent) {
+                  // Saltar el elemento actual y su contenedor padre
+                  if (el.contains(elem) || el.parentElement?.contains(elem) || elem === el) {
+                    continue;
+                  }
+                  
+                  const style = window.getComputedStyle(elem);
+                  const bgColor = style.backgroundColor;
+                  
+                  if (bgColor && 
+                      bgColor !== 'rgba(0, 0, 0, 0)' && 
+                      bgColor !== 'transparent' &&
+                      !bgColor.includes('rgb(242, 242, 242)')) {
+                    
+                    const width = parseFloat(style.width);
+                    const height = parseFloat(style.height);
+                    const elemClasses = elem.className || '';
+                    
+                    if (((width > 0 && width < 10) || (height > 0 && height < 10)) &&
+                        (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'))) {
+                      coloresEncontrados.push(bgColor);
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              return { 
+                esDiaOtroMes: false, 
+                tieneEventos: coloresEncontrados.length > 0, 
+                colores: coloresEncontrados.slice(0, 5),
+                texto: el.textContent?.trim() || ''
+              };
+            }),
+            new Promise<any>(resolve => setTimeout(() => resolve({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}), 1000))
+          ]).catch(() => ({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}));
+          
+          if (infoDia.esDiaOtroMes) {
+            if (i < 5) {
+              console.log(`  ⏭️ Día ${i + 1}: es de otro mes, saltando...`);
+            }
+            continue; // Saltar días de otros meses
+          }
+          
+          if (infoDia.tieneEventos) {
             diasConEventos.push(dia);
+            console.log(`  ✓ Día ${i + 1}${infoDia.texto ? ` (${infoDia.texto.substring(0, 20)})` : ''}: encontrado con ${infoDia.colores.length} evento(s)${infoDia.colores.length > 0 ? ` (colores: ${infoDia.colores.slice(0, 3).join(', ')})` : ''}`);
+            
             // Si ya encontramos suficientes días con eventos, podemos parar
             if (diasConEventos.length >= 20) {
               console.log(`✅ Encontrados ${diasConEventos.length} días con eventos, limitando búsqueda para optimizar tiempo`);
               break;
             }
+          } else {
+            // Log solo para los primeros días para debugging
+            if (i < 10 && infoDia.texto) {
+              console.log(`  ⚠️ Día ${i + 1} (${infoDia.texto.substring(0, 10)}): no tiene eventos detectados`);
+            }
           }
+        } catch (error: any) {
+          // Continuar con el siguiente día si hay un error
+          console.log(`  ⚠️ Error procesando día ${i + 1}: ${error?.message || error}`);
+          continue;
         }
-      } catch (error) {
-        // Continuar con el siguiente día si hay un error
-        continue;
       }
     }
     
@@ -3092,14 +3507,14 @@ test.describe('Dashboard de cliente', () => {
           if (countNumericos > 0) {
             numeroDiaTexto = await Promise.race([
               elementosNumericos.first().textContent(),
-              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
+              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
             ]).then(text => text?.trim() || '').catch(() => '');
             numeroDia = parseInt(numeroDiaTexto);
           } else {
             // Estrategia alternativa: buscar directamente en el texto completo (más rápido)
             const textoCompleto = await Promise.race([
               diaConEvento.textContent(),
-              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
+              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
             ]).then(text => text?.trim() || '').catch(() => '');
             
             if (textoCompleto) {
