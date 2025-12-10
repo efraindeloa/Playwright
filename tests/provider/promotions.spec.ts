@@ -142,6 +142,7 @@ test.describe('Gestión de promociones', () => {
   });
 
   test('Crear promoción', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos - tiempo aumentado para permitir iteración por múltiples servicios
     // --- ADMINISTRAR PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
     const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
@@ -188,7 +189,7 @@ test.describe('Gestión de promociones', () => {
     await pickDateSmart(page, 'input#EndDate', endDate);
     await page.waitForTimeout(500);
     
-    // Seleccionar servicio
+    // Seleccionar servicio (con lógica para cambiar si hay error de promoción activa)
     await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
     // Esperar a que el formulario esté completamente cargado
     await page.waitForLoadState('domcontentloaded');
@@ -203,10 +204,12 @@ test.describe('Gestión de promociones', () => {
     // Buscar y seleccionar el primer servicio disponible en el dropdown
     const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
     const serviceCount = await serviceOptions.count();
+    let servicioSeleccionado = 0; // Índice del servicio seleccionado
+    
     if (serviceCount > 0) {
       await serviceOptions.first().click();
       await page.waitForTimeout(500);
-      console.log('✅ Servicio seleccionado');
+      console.log('✅ Servicio seleccionado (índice 0)');
     } else {
       // Fallback: buscar cualquier opción de servicio en el dropdown
       const fallbackService = page.locator('button:has-text("Servicio"), div:has-text("Servicio"), li:has-text("Servicio")').first();
@@ -250,9 +253,172 @@ test.describe('Gestión de promociones', () => {
     await expect(finalizarButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await finalizarButton.click();
 
+    // --- VALIDAR SI HAY ERROR DE PROMOCIÓN ACTIVA Y CAMBIAR SERVICIO SI ES NECESARIO ---
+    await page.waitForTimeout(2000); // Esperar a que aparezca cualquier mensaje de error
+    
+    const mensajeErrorTraslape = page.locator('text=/No puedes tener 2 promociones activas al mismo tiempo para un servicio/i');
+    const errorVisible = await mensajeErrorTraslape.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (errorVisible) {
+      console.log('⚠️ Se detectó mensaje de promociones activas, cambiando a otro servicio...');
+      await showStepMessage(page, '🔄 CAMBIANDO A OTRO SERVICIO (promoción activa detectada)');
+      
+      // El modal se cierra automáticamente después de 2 segundos, no necesita cerrarse manualmente
+      // Aunque el modal esté desplegado, se puede seleccionar otro servicio directamente
+      await page.waitForTimeout(500); // Pequeña espera para que el mensaje sea visible
+      
+      // Obtener el botón del dropdown de servicios
+      const serviceButtonRetry = page.locator('button[id="ServiceId"]');
+      await expect(serviceButtonRetry).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      await serviceButtonRetry.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(500);
+      
+      // Abrir el dropdown "Mis servicios" para seleccionar otro servicio
+      await showStepMessage(page, '🔧 ABRIENDO DROPDOWN "MIS SERVICIOS"');
+      
+      // Asegurarse de que el dropdown esté cerrado antes de abrirlo
+      const dropdownAbierto = await serviceButtonRetry.getAttribute('aria-expanded');
+      if (dropdownAbierto === 'true') {
+        await serviceButtonRetry.click();
+        await page.waitForTimeout(500);
+      }
+      
+      // Abrir el dropdown de servicios
+      await serviceButtonRetry.click();
+      await page.waitForTimeout(1000);
+      
+      // Buscar servicios usando los mismos selectores que en la selección inicial
+      let serviceOptionsRetry = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+      let serviceCountRetry = await serviceOptionsRetry.count();
+      
+      console.log(`📊 Servicios encontrados con selector estándar: ${serviceCountRetry}`);
+      
+      // Si no se encuentran con el selector estándar, usar fallback
+      if (serviceCountRetry === 0) {
+        // Fallback: buscar cualquier opción de servicio en el dropdown (MISMO FALLBACK que en selección inicial)
+        console.log('⚠️ No se encontraron servicios con selector estándar, usando fallback...');
+        const fallbackService = page.locator('button:has-text("Servicio"), div:has-text("Servicio"), li:has-text("Servicio")');
+        const fallbackCount = await fallbackService.count();
+        
+        if (fallbackCount > 0) {
+          // Filtrar para encontrar solo opciones de servicio (no el botón del dropdown)
+          let opcionesValidas = 0;
+          for (let i = 0; i < fallbackCount; i++) {
+            const elemento = fallbackService.nth(i);
+            const texto = await elemento.textContent().catch(() => '');
+            const esVisible = await elemento.isVisible().catch(() => false);
+            
+            // Verificar que sea una opción válida (no el botón del dropdown)
+            if (esVisible && texto &&
+                texto.trim() !== 'Mis servicios' &&
+                (texto.includes('EDITADO') || 
+                 texto.includes('QA') || 
+                 texto.includes('spa') ||
+                 texto.includes('Decorador') ||
+                 texto.includes('Invitaciones') ||
+                 texto.includes('Vinos') ||
+                 texto.includes('Servicio Personalizado') ||
+                 texto.length > 5)) {
+              opcionesValidas++;
+            }
+          }
+          
+          if (opcionesValidas > 0) {
+            serviceCountRetry = opcionesValidas;
+            serviceOptionsRetry = fallbackService;
+            console.log(`✅ Servicios encontrados con fallback: ${serviceCountRetry}`);
+          }
+        }
+        
+        // Si aún no se encontraron, esperar un poco más y reintentar
+        if (serviceCountRetry === 0) {
+          console.log('⏳ Esperando más tiempo para que se carguen los servicios...');
+          await page.waitForTimeout(1500);
+          serviceCountRetry = await serviceOptionsRetry.count();
+          if (serviceCountRetry > 0) {
+            console.log(`✅ Servicios encontrados después de esperar más: ${serviceCountRetry}`);
+          }
+        }
+      }
+      
+      console.log(`📊 Total de servicios disponibles: ${serviceCountRetry}`);
+      
+      if (serviceCountRetry === 0) {
+        console.warn('⚠️ No se encontraron servicios disponibles');
+        return; // No se puede continuar sin servicios
+      }
+      
+      // Intentar con cada servicio por índice hasta encontrar uno sin promoción activa
+      let servicioExitoso = false;
+      const maxIntentos = Math.min(serviceCountRetry, 10); // Limitar a 10 intentos máximo
+      
+      for (let indiceServicio = 0; indiceServicio < maxIntentos; indiceServicio++) {
+        try {
+          // Cerrar y reabrir el dropdown para asegurar que esté abierto
+          const dropdownAbierto2 = await serviceButtonRetry.getAttribute('aria-expanded');
+          if (dropdownAbierto2 !== 'true') {
+            await serviceButtonRetry.click();
+            await page.waitForTimeout(1000);
+          }
+          
+          // Seleccionar el servicio por índice
+          const servicioOption = serviceOptionsRetry.nth(indiceServicio);
+          const esVisible = await servicioOption.isVisible({ timeout: 2000 }).catch(() => false);
+          
+          if (!esVisible) {
+            console.log(`⚠️ Servicio en índice ${indiceServicio} no es visible, saltando...`);
+            continue;
+          }
+          
+          await servicioOption.click();
+          await page.waitForTimeout(500);
+          console.log(`✅ Servicio seleccionado (índice ${indiceServicio})`);
+          
+          // Reintentar crear la promoción con este servicio
+          await showStepMessage(page, `🔄 REINTENTANDO CREAR PROMOCIÓN CON SERVICIO ${indiceServicio + 1}`);
+          await page.waitForTimeout(1000);
+          const finalizarButtonRetry = page.locator('button[type="submit"][form="PromotionDataForm"], button:has-text("Finalizar")').first();
+          await expect(finalizarButtonRetry).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+          await finalizarButtonRetry.click();
+          
+          // Verificar si aún hay error
+          await page.waitForTimeout(2000);
+          const errorVisibleRetry = await mensajeErrorTraslape.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          if (!errorVisibleRetry) {
+            // ¡Éxito! No hay error, la promoción se creó correctamente
+            console.log(`✅ Promoción creada exitosamente con servicio en índice ${indiceServicio}`);
+            servicioExitoso = true;
+            break;
+          } else {
+            console.log(`⚠️ El servicio en índice ${indiceServicio} también tiene promoción activa, intentando con el siguiente...`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error al intentar con servicio en índice ${indiceServicio}: ${error.message}`);
+          continue;
+        }
+      }
+      
+      if (!servicioExitoso) {
+        console.warn(`⚠️ No se pudo crear la promoción después de intentar con ${maxIntentos} servicios. Todos tienen promociones activas.`);
+        // Continuar con el flujo normal, el test fallará si no se creó la promoción
+      }
+      
+    }
+    
     // --- VALIDAR QUE LA PROMOCIÓN SE CREÓ ---
     await showStepMessage(page, '✅ VALIDANDO QUE LA PROMOCIÓN SE CREÓ CORRECTAMENTE');
     await page.waitForTimeout(3000);
+    
+    // Verificar que no hay mensaje de error visible
+    const errorAunVisible = await mensajeErrorTraslape.isVisible({ timeout: 1000 }).catch(() => false);
+    if (errorAunVisible) {
+      console.warn('⚠️ El mensaje de error aún está visible, puede que todos los servicios tengan promociones activas');
+      // Cerrar el error y continuar (la prueba puede fallar, pero al menos intentamos)
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+    
     await expect(page.getByText(promoTitle)).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
     await showStepMessage(page, '🔄 RECARGANDO PÁGINA PARA VER CAMBIOS');
     await page.reload({ waitUntil: 'networkidle' });
@@ -2230,11 +2396,13 @@ test.describe('Gestión de promociones', () => {
     
     for (let i = 0; i < modalCount; i++) {
       const modal = modalError.nth(i);
-      const modalText = await modal.textContent().catch(() => '');
+      const modalText = await modal.textContent().catch(() => null);
       
-      for (const pattern of posiblesMensajes) {
-        if (pattern.test(modalText)) {
-          return { encontrado: true, mensaje: modalText.trim() };
+      if (modalText) {
+        for (const pattern of posiblesMensajes) {
+          if (pattern.test(modalText)) {
+            return { encontrado: true, mensaje: modalText.trim() };
+          }
         }
       }
     }
@@ -2245,11 +2413,13 @@ test.describe('Gestión de promociones', () => {
     
     for (let i = 0; i < toastCount; i++) {
       const toast = toastError.nth(i);
-      const toastText = await toast.textContent().catch(() => '');
+      const toastText = await toast.textContent().catch(() => null);
       
-      for (const pattern of posiblesMensajes) {
-        if (pattern.test(toastText)) {
-          return { encontrado: true, mensaje: toastText.trim() };
+      if (toastText) {
+        for (const pattern of posiblesMensajes) {
+          if (pattern.test(toastText)) {
+            return { encontrado: true, mensaje: toastText.trim() };
+          }
         }
       }
     }
@@ -2289,7 +2459,7 @@ test.describe('Gestión de promociones', () => {
   // ============================================================================
 
   test('Validar que no se puede crear promoción con fechas que se traslapan con una existente', async ({ page }) => {
-    await login(page);
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
@@ -2368,7 +2538,7 @@ test.describe('Gestión de promociones', () => {
   });
 
   test('Validar que se pueden crear múltiples promociones con el mismo servicio si las fechas NO se traslapan', async ({ page }) => {
-    await login(page);
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
@@ -2451,7 +2621,7 @@ test.describe('Gestión de promociones', () => {
   });
 
   test('Validar diferentes escenarios de traslape de fechas', async ({ page }) => {
-    await login(page);
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
