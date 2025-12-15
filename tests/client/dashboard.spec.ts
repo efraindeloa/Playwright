@@ -1,6 +1,6 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 import path from 'path';
-import { login, showStepMessage, safeWaitForTimeout } from '../utils';
+import { login, showStepMessage, safeWaitForTimeout, mapearEstructuraCategoriasServicios } from '../utils';
 import {
   DEFAULT_BASE_URL,
   CLIENT_EMAIL,
@@ -3908,6 +3908,23 @@ test.describe('Dashboard de cliente', () => {
     
     await ejecutarFlujoCompletoCreacionEvento(page);
     console.log('✅ Flujo completo de creación de evento finalizado');
+  });
+
+  // ============================================================================
+  // TEST: Mapear estructura completa de categorías de servicios
+  // ============================================================================
+  test('Mapear estructura completa de categorías y subcategorías de servicios', async ({ page }) => {
+    test.setTimeout(600000); // 10 minutos para explorar todas las categorías
+    
+    await showStepMessage(page, '🗺️ Mapeando estructura completa de categorías de servicios');
+    
+    const resultado = await mapearEstructuraCategoriasServicios(page, DEFAULT_BASE_URL);
+    
+    // Validar que se encontraron categorías
+    expect(resultado.resumen.categoriasPrincipales).toBeGreaterThan(0);
+    
+    // Validar que al menos una ruta llegó a cards
+    expect(resultado.resumen.rutasConCards).toBeGreaterThan(0);
   });
 
 

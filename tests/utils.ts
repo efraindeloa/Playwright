@@ -401,3 +401,505 @@ export async function closeRegistrationModal(page: Page, timeout = 5000) {
     console.log('⚠️ Error al cerrar modal de registro:', error);
   }
 }
+
+/**
+ * Mapea la estructura completa de categorías y subcategorías de servicios desde el home.
+ * Explora recursivamente todas las categorías principales y sus subcategorías hasta encontrar cards de servicios.
+ * 
+ * @param page - Instancia de Page de Playwright
+ * @param baseUrl - URL base del sitio (por defecto usa DEFAULT_BASE_URL)
+ * @returns Mapa completo con la estructura de categorías, rutas, y cantidad de cards encontradas
+ */
+export async function mapearEstructuraCategoriasServicios(
+  page: Page,
+  baseUrl: string = DEFAULT_BASE_URL
+): Promise<{
+  mapaCompleto: Array<{
+    categoria: string;
+    ruta: string[];
+    tieneCards: boolean;
+    cardsCount?: number;
+    nivel: number;
+  }>;
+  resumen: {
+    categoriasPrincipales: number;
+    totalRutas: number;
+    rutasConCards: number;
+    rutasSinCards: number;
+    nivelMaximo: number;
+    totalCards: number;
+  };
+}> {
+  const WAIT_FOR_PAGE_LOAD = 2000;
+  const MAX_NIVELES = 10;
+  const MAX_SUBCATEGORIAS_POR_NIVEL = 10;
+  
+  // 1. Ir al home
+  await page.goto(baseUrl);
+  await page.waitForLoadState('networkidle');
+  await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+  
+  // 2. Buscar todas las categorías de servicios disponibles
+  const categoriasEncontradas: Array<{ 
+    nombre: string; 
+    selector: string; 
+    tipo: string;
+    href?: string;
+  }> = [];
+  
+  const categoriaButtons = page.locator('button.flex.flex-col.text-center.items-center').filter({
+    has: page.locator('div.flex.flex-row.text-xsmall.mt-2, div.text-xsmall')
+  });
+  
+  const categoriaButtonsCount = await categoriaButtons.count();
+  console.log(`📊 Botones de categorías encontrados: ${categoriaButtonsCount}`);
+  
+  for (let i = 0; i < categoriaButtonsCount; i++) {
+    const boton = categoriaButtons.nth(i);
+    const isVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (isVisible) {
+      const textoElement = boton.locator('div.flex.flex-row.text-xsmall.mt-2, div.text-xsmall').first();
+      const texto = await textoElement.textContent().catch(() => '');
+      const textoTrimmed = texto?.trim() || '';
+      
+      if (textoTrimmed.length > 0 && textoTrimmed.length < 50) {
+        const yaExiste = categoriasEncontradas.some(cat => cat.nombre === textoTrimmed);
+        
+        if (!yaExiste) {
+          const href = await boton.getAttribute('href').catch(() => undefined);
+          const tagName = await boton.evaluate(el => el.tagName.toLowerCase()).catch(() => 'button');
+          
+          categoriasEncontradas.push({
+            nombre: textoTrimmed,
+            selector: 'button.flex.flex-col.text-center.items-center',
+            tipo: tagName,
+            href: href || undefined
+          });
+        }
+      }
+    }
+  }
+  
+  const botonesServicios = page.locator('button:has-text("Servicios"), button:has-text("Explorar")');
+  const botonesServiciosCount = await botonesServicios.count();
+  
+  for (let i = 0; i < botonesServiciosCount; i++) {
+    const boton = botonesServicios.nth(i);
+    const isVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (isVisible) {
+      const texto = await boton.textContent().catch(() => '');
+      const textoTrimmed = texto?.trim() || '';
+      
+      if (textoTrimmed.length > 0) {
+        const yaExiste = categoriasEncontradas.some(cat => cat.nombre === textoTrimmed);
+        
+        if (!yaExiste) {
+          const tagName = await boton.evaluate(el => el.tagName.toLowerCase()).catch(() => 'button');
+          
+          categoriasEncontradas.push({
+            nombre: textoTrimmed,
+            selector: 'button:has-text',
+            tipo: tagName,
+            href: undefined
+          });
+        }
+      }
+    }
+  }
+  
+  console.log(`\n📊 Categorías de servicios encontradas en el home: ${categoriasEncontradas.length}`);
+  
+  if (categoriasEncontradas.length > 0) {
+    console.log('\n📋 Lista de categorías:');
+    categoriasEncontradas.forEach((categoria, index) => {
+      console.log(`   ${index + 1}. "${categoria.nombre}" (${categoria.tipo}${categoria.href ? `, href: ${categoria.href}` : ''})`);
+    });
+  }
+  
+  // Filtrar categorías principales
+  const categoriasPrincipales = categoriasEncontradas.filter(cat => {
+    const nombreLower = cat.nombre.toLowerCase();
+    const esServiciosGenerico = nombreLower === 'servicios' || nombreLower === 'servicio';
+    const esExplorar = nombreLower.includes('explorar');
+    const esValida = cat.nombre.length > 0 && cat.nombre.length < 30;
+    
+    return !esServiciosGenerico && !esExplorar && esValida;
+  });
+  
+  console.log(`\n📋 Categorías principales a explorar: ${categoriasPrincipales.length}`);
+  categoriasPrincipales.forEach((cat, index) => {
+    console.log(`   ${index + 1}. "${cat.nombre}"`);
+  });
+  
+  const mapaCompletoGlobal: Array<{
+    categoria: string;
+    ruta: string[];
+    tieneCards: boolean;
+    cardsCount?: number;
+    nivel: number;
+  }> = [];
+  
+  /**
+   * Función recursiva para explorar subcategorías hasta encontrar cards
+   */
+  async function explorarSubcategoriasRecursivamente(
+    rutaActual: string[],
+    nivel: number,
+    botonesSubcategorias: ReturnType<typeof page.locator>,
+    indicesVisitados: Set<number>,
+    mapaCompleto: Array<{
+      ruta: string[];
+      tieneCards: boolean;
+      cardsCount?: number;
+      nivel: number;
+    }>
+  ): Promise<void> {
+    if (nivel >= MAX_NIVELES) {
+      console.log(`   ⚠️ Límite de profundidad alcanzado (${MAX_NIVELES} niveles) en: ${rutaActual.join(' -> ')}`);
+      return;
+    }
+    
+    const indentacion = '   '.repeat(nivel);
+    console.log(`${indentacion}🔍 Nivel ${nivel}: Explorando ${rutaActual.join(' -> ')}`);
+    
+    const serviceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col, div.hidden.flex-row').filter({
+      has: page.locator('p, h3, h4, h5, h6').first()
+    });
+    const cardsCount = await serviceCards.count();
+    
+    let cardsVisibles = 0;
+    if (cardsCount > 0) {
+      for (let i = 0; i < Math.min(cardsCount, 5); i++) {
+        const card = serviceCards.nth(i);
+        const isVisible = await card.isVisible().catch(() => false);
+        if (isVisible) {
+          cardsVisibles++;
+        }
+      }
+    }
+    
+    const tieneCards = cardsVisibles > 0;
+    
+    if (tieneCards) {
+      console.log(`${indentacion}✅ Cards encontradas: ${cardsCount} (${cardsVisibles} visibles)`);
+      mapaCompleto.push({
+        ruta: [...rutaActual],
+        tieneCards: true,
+        cardsCount: cardsCount,
+        nivel: nivel
+      });
+      return;
+    }
+    
+    const subcategoriasButtons = page.locator('button.flex.flex-col.items-center.gap-3').filter({
+      has: page.locator('p.text-neutral-800.font-medium, p.text-neutral-800')
+    });
+    const subcategoriasCount = await subcategoriasButtons.count();
+    
+    if (subcategoriasCount === 0) {
+      console.log(`${indentacion}⚠️ No hay cards ni subcategorías en este nivel`);
+      mapaCompleto.push({
+        ruta: [...rutaActual],
+        tieneCards: false,
+        nivel: nivel
+      });
+      return;
+    }
+    
+    const subcategoriasInfo: Array<{ nombre: string; index: number; locator: ReturnType<typeof subcategoriasButtons.nth> }> = [];
+    
+    for (let i = 0; i < subcategoriasCount; i++) {
+      const boton = subcategoriasButtons.nth(i);
+      const isVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (isVisible) {
+        const textoElement = boton.locator('p.text-neutral-800.font-medium, p.text-neutral-800').first();
+        const texto = await textoElement.textContent().catch(() => '');
+        const textoTrimmed = texto?.trim() || '';
+        
+        if (textoTrimmed.length > 0) {
+          subcategoriasInfo.push({
+            nombre: textoTrimmed,
+            index: i,
+            locator: boton
+          });
+        }
+      }
+    }
+    
+    console.log(`${indentacion}📋 Subcategorías encontradas: ${subcategoriasInfo.length}`);
+    
+    const subcategoriasAExplorar = subcategoriasInfo.slice(0, MAX_SUBCATEGORIAS_POR_NIVEL);
+    
+    if (subcategoriasInfo.length > MAX_SUBCATEGORIAS_POR_NIVEL) {
+      console.log(`${indentacion}⚠️ Limitando exploración a ${MAX_SUBCATEGORIAS_POR_NIVEL} de ${subcategoriasInfo.length} subcategorías`);
+    }
+    
+    for (const subcategoriaInfo of subcategoriasAExplorar) {
+      if (rutaActual.includes(subcategoriaInfo.nombre)) {
+        console.log(`${indentacion}⏭️ Saltando "${subcategoriaInfo.nombre}" (ya en la ruta)`);
+        continue;
+      }
+      
+      console.log(`${indentacion}🔍 Explorando: "${subcategoriaInfo.nombre}"`);
+      
+      const urlAntes = page.url();
+      
+      try {
+        await subcategoriaInfo.locator.click();
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await safeWaitForTimeout(page, 1000);
+        
+        const urlDespues = page.url();
+        const navego = urlAntes !== urlDespues;
+        
+        if (navego) {
+          console.log(`${indentacion}   ✅ Navegó a: "${subcategoriaInfo.nombre}"`);
+        }
+        
+        const nuevaRuta = [...rutaActual, subcategoriaInfo.nombre];
+        await explorarSubcategoriasRecursivamente(nuevaRuta, nivel + 1, subcategoriasButtons, indicesVisitados, mapaCompleto);
+        
+        if (navego) {
+          console.log(`${indentacion}   ↩️ Volviendo atrás desde: "${subcategoriaInfo.nombre}"`);
+          await page.goBack();
+          await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+          await safeWaitForTimeout(page, 1000);
+        }
+      } catch (e) {
+        console.log(`${indentacion}   ❌ Error al explorar "${subcategoriaInfo.nombre}": ${e}`);
+        
+        try {
+          await page.goBack();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        } catch (backError) {
+          // Ignorar error al volver atrás
+        }
+      }
+    }
+  }
+  
+  // Explorar cada categoría principal
+  for (const categoriaPrincipal of categoriasPrincipales) {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🔍 EXPLORANDO CATEGORÍA: "${categoriaPrincipal.nombre}"`);
+    console.log(`${'='.repeat(60)}`);
+    
+    const urlActual = page.url();
+    if (!urlActual.includes(baseUrl) || urlActual !== baseUrl) {
+      try {
+        await page.goto(baseUrl, { timeout: 30000 });
+        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await safeWaitForTimeout(page, 1000);
+      } catch (e) {
+        console.log(`⚠️ Error al volver al home: ${e}`);
+        continue;
+      }
+    }
+    
+    const botonCategoria = page.locator('button.flex.flex-col.text-center.items-center').filter({
+      has: page.locator('div.text-xsmall').filter({
+        hasText: new RegExp(categoriaPrincipal.nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+      })
+    }).first();
+    
+    const botonCategoriaVisible = await botonCategoria.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!botonCategoriaVisible) {
+      console.log(`❌ No se encontró el botón de "${categoriaPrincipal.nombre}" para hacer clic`);
+      continue;
+    }
+    
+    await botonCategoria.click();
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await safeWaitForTimeout(page, 1000);
+    
+    console.log(`✅ Clic en categoría "${categoriaPrincipal.nombre}" realizado`);
+    
+    const subcategoriasButtons = page.locator('button.flex.flex-col.items-center.gap-3').filter({
+      has: page.locator('p.text-neutral-800.font-medium, p.text-neutral-800')
+    });
+    
+    const subcategoriasCount = await subcategoriasButtons.count();
+    
+    console.log(`\n📊 Subcategorías de "${categoriaPrincipal.nombre}" encontradas: ${subcategoriasCount}`);
+    
+    if (subcategoriasCount === 0) {
+      console.log(`⚠️ No se encontraron subcategorías para "${categoriaPrincipal.nombre}"`);
+      const serviceCardsDirect = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col, div.hidden.flex-row').filter({
+        has: page.locator('p, h3, h4, h5, h6').first()
+      });
+      const cardsCountDirect = await serviceCardsDirect.count();
+      
+      if (cardsCountDirect > 0) {
+        console.log(`✅ Cards encontradas directamente en "${categoriaPrincipal.nombre}": ${cardsCountDirect}`);
+        mapaCompletoGlobal.push({
+          categoria: categoriaPrincipal.nombre,
+          ruta: [categoriaPrincipal.nombre],
+          tieneCards: true,
+          cardsCount: cardsCountDirect,
+          nivel: 0
+        });
+      }
+      continue;
+    }
+    
+    const subcategoriasEncontradas: Array<{
+      nombre: string;
+      index: number;
+    }> = [];
+    
+    for (let i = 0; i < subcategoriasCount; i++) {
+      const boton = subcategoriasButtons.nth(i);
+      const isVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
+      
+      if (isVisible) {
+        const textoElement = boton.locator('p.text-neutral-800.font-medium, p.text-neutral-800').first();
+        const texto = await textoElement.textContent().catch(() => '');
+        const textoTrimmed = texto?.trim() || '';
+        
+        if (textoTrimmed.length > 0) {
+          subcategoriasEncontradas.push({
+            nombre: textoTrimmed,
+            index: i
+          });
+        }
+      }
+    }
+    
+    console.log(`\n📋 Lista de subcategorías de "${categoriaPrincipal.nombre}":`);
+    subcategoriasEncontradas.forEach((subcategoria, index) => {
+      console.log(`   ${index + 1}. "${subcategoria.nombre}"`);
+    });
+    
+    console.log(`\n✅ Total de subcategorías listadas: ${subcategoriasEncontradas.length}`);
+    
+    const mapaCompleto: Array<{
+      ruta: string[];
+      tieneCards: boolean;
+      cardsCount?: number;
+      nivel: number;
+    }> = [];
+    
+    console.log(`\n🗺️ Explorando recursivamente hasta encontrar cards...`);
+    
+    for (const subcategoria of subcategoriasEncontradas) {
+      console.log(`\n🔍 Explorando subcategoría principal: "${subcategoria.nombre}"`);
+      
+      const botonSubcategoria = subcategoriasButtons.nth(subcategoria.index);
+      const botonVisible = await botonSubcategoria.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (!botonVisible) {
+        console.log(`   ⚠️ Botón de "${subcategoria.nombre}" no está visible`);
+        continue;
+      }
+      
+      const urlAntes = page.url();
+      
+      try {
+        await botonSubcategoria.click();
+        await page.waitForLoadState('networkidle');
+        await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        
+        const urlDespues = page.url();
+        const navego = urlAntes !== urlDespues;
+        
+        if (navego) {
+          console.log(`   ✅ Navegó a: "${subcategoria.nombre}"`);
+        }
+        
+        const rutaInicial = [categoriaPrincipal.nombre, subcategoria.nombre];
+        await explorarSubcategoriasRecursivamente(rutaInicial, 1, subcategoriasButtons, new Set(), mapaCompleto);
+        
+        if (navego) {
+          console.log(`   ↩️ Volviendo atrás desde: "${subcategoria.nombre}"`);
+          await page.goBack();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        }
+      } catch (e) {
+        console.log(`   ❌ Error al explorar "${subcategoria.nombre}": ${e}`);
+        
+        try {
+          await page.goBack();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        } catch (backError) {
+          // Ignorar error al volver atrás
+        }
+      }
+    }
+    
+    mapaCompleto.forEach(item => {
+      mapaCompletoGlobal.push({
+        categoria: categoriaPrincipal.nombre,
+        ruta: item.ruta,
+        tieneCards: item.tieneCards,
+        cardsCount: item.cardsCount,
+        nivel: item.nivel
+      });
+    });
+    
+    const rutasConCardsCategoria = mapaCompleto.filter(item => item.tieneCards);
+    const totalCardsCategoria = rutasConCardsCategoria.reduce((sum, item) => sum + (item.cardsCount || 0), 0);
+    
+    console.log(`\n📊 Resumen de "${categoriaPrincipal.nombre}":`);
+    console.log(`   Rutas exploradas: ${mapaCompleto.length}`);
+    console.log(`   Rutas con cards: ${rutasConCardsCategoria.length}`);
+    console.log(`   Total cards: ${totalCardsCategoria}`);
+  }
+  
+  // Calcular resumen
+  const categoriasUnicas = [...new Set(mapaCompletoGlobal.map(item => item.categoria))];
+  const rutasConCardsGlobal = mapaCompletoGlobal.filter(item => item.tieneCards);
+  const rutasSinCardsGlobal = mapaCompletoGlobal.filter(item => !item.tieneCards);
+  const totalCardsGlobal = rutasConCardsGlobal.reduce((sum, item) => sum + (item.cardsCount || 0), 0);
+  const nivelMaximoGlobal = Math.max(...mapaCompletoGlobal.map(item => item.nivel), 0);
+  
+  // Mostrar mapa completo
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`🗺️ MAPA COMPLETO DE TODAS LAS CATEGORÍAS`);
+  console.log(`${'='.repeat(60)}`);
+  
+  categoriasUnicas.forEach(categoria => {
+    console.log(`\n📁 ${categoria}`);
+    
+    const itemsCategoria = mapaCompletoGlobal.filter(item => item.categoria === categoria);
+    
+    itemsCategoria.forEach((item) => {
+      const rutaStr = item.ruta.slice(1).join(' -> ');
+      const nivelStr = '   '.repeat(item.nivel);
+      
+      if (item.tieneCards) {
+        console.log(`   ${nivelStr}└─ ${rutaStr} (${item.cardsCount} cards)`);
+      } else {
+        console.log(`   ${nivelStr}└─ ${rutaStr} (sin cards)`);
+      }
+    });
+  });
+  
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`📊 RESUMEN ESTADÍSTICO GLOBAL`);
+  console.log(`${'='.repeat(60)}`);
+  console.log(`   Categorías principales exploradas: ${categoriasUnicas.length}`);
+  console.log(`   Total de rutas exploradas: ${mapaCompletoGlobal.length}`);
+  console.log(`   Rutas que llegaron a cards: ${rutasConCardsGlobal.length}`);
+  console.log(`   Rutas sin cards: ${rutasSinCardsGlobal.length}`);
+  console.log(`   Nivel máximo alcanzado: ${nivelMaximoGlobal}`);
+  console.log(`   Total de cards encontradas: ${totalCardsGlobal}`);
+  
+  return {
+    mapaCompleto: mapaCompletoGlobal,
+    resumen: {
+      categoriasPrincipales: categoriasUnicas.length,
+      totalRutas: mapaCompletoGlobal.length,
+      rutasConCards: rutasConCardsGlobal.length,
+      rutasSinCards: rutasSinCardsGlobal.length,
+      nivelMaximo: nivelMaximoGlobal,
+      totalCards: totalCardsGlobal
+    }
+  };
+}
