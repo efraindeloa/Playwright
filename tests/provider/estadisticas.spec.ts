@@ -114,7 +114,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Intentar hacer click en el enlace de visualizaciones
     await showStepMessage(page, '📊 NAVEGANDO A VISUALIZACIONES');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(5000);
 
     try {
       // Intentar encontrar el enlace dentro de la tarjeta
@@ -122,12 +122,53 @@ test.describe('Estadísticas de proveedor', () => {
       const existeEnlace = await enlaceVisualizaciones.count() > 0;
 
       if (existeEnlace) {
-        // Verificar que el enlace existe y tiene un valor mayor a 0
+        // Esperar a que el número de visualizaciones cargue completamente (cambie de 0 a otro número)
+        await showStepMessage(page, '⏳ ESPERANDO CARGA DE NÚMERO DE VISUALIZACIONES');
         const indicador = tarjetaVisualizaciones.locator('h4').first();
-        const texto = (await indicador.textContent())?.trim() ?? '';
-        const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10);
+        
+        // Obtener valor inicial
+        const textoInicial = (await indicador.textContent())?.trim() ?? '';
+        const valorInicial = Number.parseInt(textoInicial.replace(/[^\d-]/g, ''), 10) || 0;
+        console.log(`📊 Valor inicial de visualizaciones: ${valorInicial}`);
+        
+        // Esperar hasta que el número cambie de 0 a un valor mayor que 0
+        if (valorInicial === 0) {
+          await indicador.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+          await page.waitForFunction(
+            (valorInicial: number) => {
+              // Buscar todas las tarjetas con "Visualizaciones" y encontrar el h4
+              const tarjetas = Array.from(document.querySelectorAll('div'));
+              for (const tarjeta of tarjetas) {
+                const tieneTexto = tarjeta.textContent?.includes('Visualizaciones');
+                if (tieneTexto) {
+                  const h4 = tarjeta.querySelector('h4');
+                  if (h4) {
+                    const texto = h4.textContent?.trim() ?? '';
+                    const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10) || 0;
+                    if (valor > 0) {
+                      return true;
+                    }
+                  }
+                }
+              }
+              return false;
+            },
+            valorInicial,
+            { timeout: 10000 }
+          ).catch(() => {
+            console.log('⚠️ No se detectó cambio en el número de visualizaciones (puede que ya esté cargado)');
+          });
+        } else {
+          // Si ya tiene un valor, esperar un poco para asegurar que está cargado
+          await page.waitForTimeout(5000);
+        }
+        
+        // Verificar el valor final
+        const textoFinal = (await indicador.textContent())?.trim() ?? '';
+        const valorFinal = Number.parseInt(textoFinal.replace(/[^\d-]/g, ''), 10);
+        console.log(`📊 Valor final de visualizaciones: ${valorFinal}`);
 
-        if (Number.isFinite(valor) && valor > 0) {
+        if (Number.isFinite(valorFinal) && valorFinal > 0) {
           await enlaceVisualizaciones.click();
           await page.waitForURL(STATS_VIEWS_URL, { timeout: 10000 });
           await page.waitForLoadState('networkidle');
@@ -144,6 +185,39 @@ test.describe('Estadísticas de proveedor', () => {
         console.log('⚠️ No se encontró el enlace dentro de la tarjeta');
         // Intentar hacer click directamente en la tarjeta
         if (await tarjetaVisualizaciones.count() > 0) {
+          // Esperar a que el número de visualizaciones cargue completamente
+          await showStepMessage(page, '⏳ ESPERANDO CARGA DE NÚMERO DE VISUALIZACIONES');
+          const indicador = tarjetaVisualizaciones.locator('h4').first();
+          const textoInicial = (await indicador.textContent())?.trim() ?? '';
+          const valorInicial = Number.parseInt(textoInicial.replace(/[^\d-]/g, ''), 10) || 0;
+          
+          if (valorInicial === 0) {
+            await indicador.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+            await page.waitForFunction(
+              (valorInicial: number) => {
+                const tarjetas = Array.from(document.querySelectorAll('div'));
+                for (const tarjeta of tarjetas) {
+                  const tieneTexto = tarjeta.textContent?.includes('Visualizaciones');
+                  if (tieneTexto) {
+                    const h4 = tarjeta.querySelector('h4');
+                    if (h4) {
+                      const texto = h4.textContent?.trim() ?? '';
+                      const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10) || 0;
+                      if (valor > 0) return true;
+                    }
+                  }
+                }
+                return false;
+              },
+              valorInicial,
+              { timeout: 10000 }
+            ).catch(() => {
+              console.log('⚠️ No se detectó cambio en el número de visualizaciones');
+            });
+          } else {
+            await page.waitForTimeout(5000);
+          }
+          
           await tarjetaVisualizaciones.click();
           await page.waitForTimeout(2000);
           // Verificar si navegó
@@ -188,21 +262,21 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar título de la página
     await showStepMessage(page, '✅ VALIDANDO TÍTULO DE LA PÁGINA');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const titulo = page.locator('p.text-\\[20px\\].text-neutral-800').filter({ hasText: /Visualizaciones/i });
     await expect(titulo).toBeVisible({ timeout: 10000 });
     console.log('✅ Título "Visualizaciones" encontrado');
 
     // Validar botón de filtro
     await showStepMessage(page, '🔍 VALIDANDO BOTÓN DE FILTRO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonFiltro = page.locator('button:has(i.icon-filter)');
     await expect(botonFiltro).toBeVisible({ timeout: 5000 });
     console.log('✅ Botón de filtro encontrado');
 
     // Validar sección "Periodo"
     await showStepMessage(page, '📅 VALIDANDO SECCIÓN PERIODO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const seccionPeriodo = page.locator('p.text-dark-neutral').filter({ hasText: /Periodo/i });
     await expect(seccionPeriodo).toBeVisible({ timeout: 5000 });
     
@@ -214,7 +288,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Historial"
     await showStepMessage(page, '📊 VALIDANDO SECCIÓN HISTORIAL');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloHistorial = page.locator('p.text-dark-neutral.font-extrabold').filter({ hasText: /Historial/i });
     await expect(tituloHistorial).toBeVisible({ timeout: 5000 });
     
@@ -227,7 +301,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Resumen"
     await showStepMessage(page, '📈 VALIDANDO SECCIÓN RESUMEN');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloResumen = page.locator('p.font-extrabold.text-dark-neutral').filter({ hasText: /Resumen/i });
     await expect(tituloResumen).toBeVisible({ timeout: 5000 });
     
@@ -255,7 +329,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Servicios más vistos"
     await showStepMessage(page, '🏆 VALIDANDO SECCIÓN SERVICIOS MÁS VISTOS');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloServiciosVistos = page.locator('p.text-dark-neutral.font-extrabold').filter({ hasText: /Servicios más vistos/i });
     await expect(tituloServiciosVistos).toBeVisible({ timeout: 5000 });
     
@@ -358,7 +432,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar botón de regreso
     await showStepMessage(page, '🔙 VALIDANDO BOTÓN DE REGRESO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonRegreso = page.locator('button:has(i.icon-chevron-left-bold)');
     await expect(botonRegreso).toBeVisible({ timeout: 5000 });
     console.log('✅ Botón de regreso encontrado');
@@ -392,11 +466,11 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Hacer click en el botón de filtro
     await showStepMessage(page, '🔍 HACIENDO CLICK EN BOTÓN DE FILTRO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonFiltro = page.locator('button:has(i.icon-filter)');
     await expect(botonFiltro).toBeVisible({ timeout: 5000 });
     await botonFiltro.click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     // Verificar que se abrió un diálogo o menú de filtros
     // (Esto puede variar según la implementación, validamos que algo cambió)
@@ -424,7 +498,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Hacer click en el botón de regreso
     await showStepMessage(page, '🔙 REGRESANDO AL DASHBOARD');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonRegreso = page.locator('button:has(i.icon-chevron-left-bold)');
     await expect(botonRegreso).toBeVisible({ timeout: 5000 });
     await botonRegreso.click();
@@ -485,7 +559,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Intentar hacer click en el enlace de solicitudes
     await showStepMessage(page, '📊 NAVEGANDO A SOLICITUDES');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     try {
       // Intentar encontrar el enlace dentro de la tarjeta
@@ -493,12 +567,53 @@ test.describe('Estadísticas de proveedor', () => {
       const existeEnlace = await enlaceSolicitudes.count() > 0;
 
       if (existeEnlace) {
-        // Verificar que el enlace existe y tiene un valor mayor a 0
+        // Esperar a que el número de solicitudes cargue completamente (cambie de 0 a otro número)
+        await showStepMessage(page, '⏳ ESPERANDO CARGA DE NÚMERO DE SOLICITUDES');
         const indicador = tarjetaSolicitudes.locator('h4').first();
-        const texto = (await indicador.textContent())?.trim() ?? '';
-        const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10);
+        
+        // Obtener valor inicial
+        const textoInicial = (await indicador.textContent())?.trim() ?? '';
+        const valorInicial = Number.parseInt(textoInicial.replace(/[^\d-]/g, ''), 10) || 0;
+        console.log(`📊 Valor inicial de solicitudes: ${valorInicial}`);
+        
+        // Esperar hasta que el número cambie de 0 a un valor mayor que 0
+        if (valorInicial === 0) {
+          await indicador.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+          await page.waitForFunction(
+            (valorInicial: number) => {
+              // Buscar todas las tarjetas con "Solicitudes" y encontrar el h4
+              const tarjetas = Array.from(document.querySelectorAll('div'));
+              for (const tarjeta of tarjetas) {
+                const tieneTexto = tarjeta.textContent?.includes('Solicitudes');
+                if (tieneTexto) {
+                  const h4 = tarjeta.querySelector('h4');
+                  if (h4) {
+                    const texto = h4.textContent?.trim() ?? '';
+                    const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10) || 0;
+                    if (valor > 0) {
+                      return true;
+                    }
+                  }
+                }
+              }
+              return false;
+            },
+            valorInicial,
+            { timeout: 10000 }
+          ).catch(() => {
+            console.log('⚠️ No se detectó cambio en el número de solicitudes (puede que ya esté cargado)');
+          });
+        } else {
+          // Si ya tiene un valor, esperar un poco para asegurar que está cargado
+          await page.waitForTimeout(3000);
+        }
+        
+        // Verificar el valor final
+        const textoFinal = (await indicador.textContent())?.trim() ?? '';
+        const valorFinal = Number.parseInt(textoFinal.replace(/[^\d-]/g, ''), 10);
+        console.log(`📊 Valor final de solicitudes: ${valorFinal}`);
 
-        if (Number.isFinite(valor) && valor > 0) {
+        if (Number.isFinite(valorFinal) && valorFinal > 0) {
           await enlaceSolicitudes.click();
           await page.waitForURL(STATS_APPLICATIONS_URL, { timeout: 10000 });
           await page.waitForLoadState('networkidle');
@@ -514,6 +629,39 @@ test.describe('Estadísticas de proveedor', () => {
         console.log('⚠️ No se encontró el enlace dentro de la tarjeta');
         // Intentar hacer click directamente en la tarjeta
         if (await tarjetaSolicitudes.count() > 0) {
+          // Esperar a que el número de solicitudes cargue completamente
+          await showStepMessage(page, '⏳ ESPERANDO CARGA DE NÚMERO DE SOLICITUDES');
+          const indicador = tarjetaSolicitudes.locator('h4').first();
+          const textoInicial = (await indicador.textContent())?.trim() ?? '';
+          const valorInicial = Number.parseInt(textoInicial.replace(/[^\d-]/g, ''), 10) || 0;
+          
+          if (valorInicial === 0) {
+            await indicador.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+            await page.waitForFunction(
+              (valorInicial: number) => {
+                const tarjetas = Array.from(document.querySelectorAll('div'));
+                for (const tarjeta of tarjetas) {
+                  const tieneTexto = tarjeta.textContent?.includes('Solicitudes');
+                  if (tieneTexto) {
+                    const h4 = tarjeta.querySelector('h4');
+                    if (h4) {
+                      const texto = h4.textContent?.trim() ?? '';
+                      const valor = Number.parseInt(texto.replace(/[^\d-]/g, ''), 10) || 0;
+                      if (valor > 0) return true;
+                    }
+                  }
+                }
+                return false;
+              },
+              valorInicial,
+              { timeout: 10000 }
+            ).catch(() => {
+              console.log('⚠️ No se detectó cambio en el número de solicitudes');
+            });
+          } else {
+            await page.waitForTimeout(3000);
+          }
+          
           await tarjetaSolicitudes.click();
           await page.waitForTimeout(2000);
           // Verificar si navegó
@@ -555,21 +703,21 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar título de la página
     await showStepMessage(page, '✅ VALIDANDO TÍTULO DE LA PÁGINA');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const titulo = page.locator('p.text-\\[20px\\].text-neutral-800').filter({ hasText: /Solicitudes/i });
     await expect(titulo).toBeVisible({ timeout: 10000 });
     console.log('✅ Título "Solicitudes" encontrado');
 
     // Validar botón de filtro
     await showStepMessage(page, '🔍 VALIDANDO BOTÓN DE FILTRO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonFiltro = page.locator('button:has(i.icon-filter)');
     await expect(botonFiltro).toBeVisible({ timeout: 5000 });
     console.log('✅ Botón de filtro encontrado');
 
     // Validar sección "Periodo"
     await showStepMessage(page, '📅 VALIDANDO SECCIÓN PERIODO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const seccionPeriodo = page.locator('p.text-dark-neutral').filter({ hasText: /Periodo/i });
     await expect(seccionPeriodo).toBeVisible({ timeout: 5000 });
     
@@ -581,7 +729,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Historial"
     await showStepMessage(page, '📊 VALIDANDO SECCIÓN HISTORIAL');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloHistorial = page.locator('p.text-dark-neutral.font-extrabold').filter({ hasText: /Historial/i });
     await expect(tituloHistorial).toBeVisible({ timeout: 5000 });
     
@@ -594,7 +742,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Resumen"
     await showStepMessage(page, '📈 VALIDANDO SECCIÓN RESUMEN');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloResumen = page.locator('p.font-extrabold.text-dark-neutral').filter({ hasText: /Resumen/i });
     await expect(tituloResumen).toBeVisible({ timeout: 5000 });
     
@@ -622,7 +770,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar sección "Servicios con más solicitudes"
     await showStepMessage(page, '🏆 VALIDANDO SECCIÓN SERVICIOS CON MÁS SOLICITUDES');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const tituloServiciosSolicitudes = page.locator('p.text-dark-neutral.font-extrabold').filter({ hasText: /Servicios con más solicitudes/i });
     
     // Puede que el título sea diferente, intentar variaciones
@@ -733,7 +881,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Validar botón de regreso
     await showStepMessage(page, '🔙 VALIDANDO BOTÓN DE REGRESO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonRegreso = page.locator('button:has(i.icon-chevron-left-bold)');
     await expect(botonRegreso).toBeVisible({ timeout: 5000 });
     console.log('✅ Botón de regreso encontrado');
@@ -767,11 +915,11 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Hacer click en el botón de filtro
     await showStepMessage(page, '🔍 HACIENDO CLICK EN BOTÓN DE FILTRO');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonFiltro = page.locator('button:has(i.icon-filter)');
     await expect(botonFiltro).toBeVisible({ timeout: 5000 });
     await botonFiltro.click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     console.log('✅ Botón de filtro clickeado');
     await expect(botonFiltro).toBeEnabled();
@@ -794,7 +942,7 @@ test.describe('Estadísticas de proveedor', () => {
 
     // Hacer click en el botón de regreso
     await showStepMessage(page, '🔙 REGRESANDO AL DASHBOARD');
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     const botonRegreso = page.locator('button:has(i.icon-chevron-left-bold)');
     await expect(botonRegreso).toBeVisible({ timeout: 5000 });
     await botonRegreso.click();

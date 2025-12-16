@@ -197,12 +197,26 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
   });
 
   test('Filtrar conversaciones', async ({ page }) => {
+    // Aumentar tiempo de espera porque esta prueba recorre varias variantes de filtros
+    test.setTimeout(180000); // 3 minutos
+
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
     
     await page.goto(CHATS_URL);
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+
+    // --- MEDIR CONVERSACIONES INICIALES ---
+    await showStepMessage(page, '📊 CONTANDO CONVERSACIONES INICIALES');
+    await page.waitForTimeout(1000);
+
+    const initialConversationButtons = page.locator('button').filter({
+      hasText: /Cumpleaños|Baby Shower|Bautizo|Despedida|Corporativa|Fiestamas QA Cliente|cliente/i
+    });
+    const initialCount = await initialConversationButtons.count();
+    console.log(`📊 Conversaciones iniciales: ${initialCount}`);
+    expect(initialCount).toBeGreaterThan(0);
 
     // --- ABRIR FILTROS ---
     await showStepMessage(page, '🔽 ABRIENDO FILTROS');
@@ -211,34 +225,368 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     const filterButton = page.locator('button:has-text("Filtrar")');
     await expect(filterButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await filterButton.click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
     // --- VALIDAR QUE SE ABRIÓ EL DIALOG DE FILTROS ---
     await showStepMessage(page, '✅ VALIDANDO DIALOG DE FILTROS');
+    await page.waitForTimeout(2000);
+    
+    // Buscar el diálogo de filtros usando múltiples estrategias:
+    // 1. Buscar el contenedor MuiModal (Material-UI)
+    // 2. Buscar por el texto "Filtros" junto con botones "Aplicar" o "Limpiar"
+    // 3. Buscar por role="dialog" o role="presentation"
+    const filterDialogMui = page.locator('div[class*="MuiModal-root"]');
+    const filterDialogByContent = page.locator('div:has-text("Filtros"):has(button:has-text("Aplicar"))');
+    const filterDialogRole = page.locator('div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros"))');
+    
+    // Intentar detectar el diálogo con cualquiera de los selectores
+    const hasFilterDialogMui = await filterDialogMui.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasFilterDialogContent = await filterDialogByContent.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasFilterDialogRole = await filterDialogRole.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    const hasFilterDialog = hasFilterDialogMui || hasFilterDialogContent || hasFilterDialogRole;
+
+    // Si no se detectó el diálogo de filtros, la prueba debe fallar
+    if (!hasFilterDialog) {
+      console.log('❌ No se detectó un diálogo de filtros (la prueba debe fallar)');
+      expect(hasFilterDialog).toBe(true);
+    }
+
+    // Localizar la raíz del diálogo para limitar los selectores internos
+    const dialogRoot = page
+      .locator(
+        'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+      )
+      .first();
+
+    console.log('✅ Diálogo de filtros abierto');
+
+    // --- APLICAR FILTROS ---
+    await showStepMessage(page, '🎛️ APLICANDO FILTROS EN CHATS');
     await page.waitForTimeout(1000);
-    
-    // Buscar elementos comunes en diálogos de filtros
-    const filterDialog = page.locator('div[role="dialog"], div[class*="dialog"], div[class*="modal"]').first();
-    const hasFilterDialog = await filterDialog.isVisible({ timeout: 3000 }).catch(() => false);
-    
-    if (hasFilterDialog) {
-      console.log('✅ Diálogo de filtros abierto');
-      
-      // Intentar cerrar el diálogo
-      const closeButton = page.locator('button:has-text("Cerrar"), button:has-text("Cancelar"), button[aria-label*="close"], button[aria-label*="cerrar"]').first();
-      const hasCloseButton = await closeButton.isVisible({ timeout: 2000 }).catch(() => false);
-      
-      if (hasCloseButton) {
-        await closeButton.click();
-        await page.waitForTimeout(500);
+
+    // Seleccionar tipo de evento (si hay opciones dentro del diálogo)
+    const eventTypeButton = dialogRoot.locator('button#EventTypeId');
+    const hasEventTypeButton = await eventTypeButton.isVisible().catch(() => false);
+    if (hasEventTypeButton) {
+      await eventTypeButton.click();
+      await page.waitForTimeout(500);
+
+      // Las opciones están en un <ul> justo debajo del botón dentro del diálogo
+      const eventTypeOption = dialogRoot
+        .locator('ul li')
+        .filter({ hasText: /Boda|Cumpleaños|Baby Shower|Bautizo|Graduaciones|Posadas|Revelación/i })
+        .first();
+
+      const hasEventTypeOption = await eventTypeOption.isVisible({ timeout: 7000 }).catch(() => false);
+      if (hasEventTypeOption) {
+        const optionText = (await eventTypeOption.textContent())?.trim();
+        console.log(`🎯 Seleccionando tipo de evento: ${optionText}`);
+        await eventTypeOption.click();
+        await page.waitForTimeout(1000);
       } else {
-        // Intentar cerrar haciendo clic fuera o presionando Escape
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(500);
+        console.log('⚠️ No se encontraron opciones visibles para "Tipo de evento"');
       }
     } else {
-      console.log('ℹ️ No se detectó un diálogo de filtros (puede tener otra implementación)');
+      console.log('ℹ️ No se encontró el botón de "Tipo de evento" en el diálogo de filtros');
     }
+
+    // Seleccionar Servicio (si hay dropdown dentro del diálogo)
+    const serviceButton = dialogRoot.locator('button#ServiceId');
+    const hasServiceButton = await serviceButton.isVisible().catch(() => false);
+    if (hasServiceButton) {
+      await serviceButton.click();
+      await page.waitForTimeout(500);
+
+      // En este caso no conocemos los textos de servicios, seleccionamos la primera opción disponible
+      const serviceOption = dialogRoot.locator('ul li').first();
+      const hasServiceOption = await serviceOption.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (hasServiceOption) {
+        const serviceText = (await serviceOption.textContent())?.trim();
+        console.log(`🎯 Seleccionando servicio: ${serviceText}`);
+        await serviceOption.click();
+        await page.waitForTimeout(1000);
+      } else {
+        console.log('⚠️ No se encontraron opciones visibles para "Servicio"');
+      }
+    } else {
+      console.log('ℹ️ No se encontró el botón de "Servicio" en el diálogo de filtros');
+    }
+
+    // Seleccionar Fecha inicio y Fecha fin utilizando el datepicker (flatpickr)
+    const startDateInput = dialogRoot.locator('input#StartDate');
+    const endDateInput = dialogRoot.locator('input#EndDate');
+
+    const hasStartDateInput = await startDateInput.isVisible().catch(() => false);
+    const hasEndDateInput = await endDateInput.isVisible().catch(() => false);
+
+    if (hasStartDateInput && hasEndDateInput) {
+      // Fecha inicio: usar el PRIMER calendario de flatpickr
+      await startDateInput.click();
+      await page.waitForTimeout(500);
+
+      const firstCalendar = page.locator('.flatpickr-calendar').first();
+      const firstCalendarDay = firstCalendar.locator('.flatpickr-day:not(.prevMonthDay)').first();
+      const hasFirstDay = await firstCalendarDay.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (hasFirstDay) {
+        const dayText = (await firstCalendarDay.textContent())?.trim();
+        console.log(`📅 Seleccionando fecha de inicio (día): ${dayText}`);
+        await firstCalendarDay.click();
+        await page.waitForTimeout(500);
+      } else {
+        console.log('⚠️ No se encontró un día seleccionable en el calendario de inicio');
+      }
+
+      // Fecha fin: usar el ÚLTIMO calendario de flatpickr (segundo input)
+      await endDateInput.click();
+      await page.waitForTimeout(500);
+
+      const lastCalendar = page.locator('.flatpickr-calendar').last();
+      const anyCalendarDay = lastCalendar.locator('.flatpickr-day:not(.prevMonthDay)').nth(5);
+      const hasAnyDay = await anyCalendarDay.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (hasAnyDay) {
+        const endDayText = (await anyCalendarDay.textContent())?.trim();
+        console.log(`📅 Seleccionando fecha de fin (día): ${endDayText}`);
+        await anyCalendarDay.click();
+        await page.waitForTimeout(500);
+      } else {
+        console.log('⚠️ No se encontró un día seleccionable en el calendario de fin');
+      }
+    } else {
+      console.log('ℹ️ No se encontraron los campos de "Fecha inicio" y/o "Fecha fin" en el diálogo de filtros');
+    }
+
+    // Helper interno para aplicar y validar filtros en una variante
+    async function aplicarYValidarFiltros(variantLabel: string) {
+      const applyButton = page
+        .locator('button[type="submit"][form="FilterChats"], form#FilterChats button:has-text("Aplicar")')
+        .first();
+      const hasApplyButton = await applyButton.isVisible({ timeout: 5000 }).catch(() => false);
+
+      // Si por alguna razón no se ve el botón Aplicar, lo registramos y salimos de la variante sin fallar toda la prueba
+      if (!hasApplyButton) {
+        console.log(`❌ [${variantLabel}] No se encontró el botón "Aplicar" dentro del formulario de filtros (se omite esta variante)`);
+        return;
+      }
+
+      await showStepMessage(page, `✅ APLICANDO FILTROS (${variantLabel})`);
+      await applyButton.click();
+      await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+
+      await showStepMessage(page, `🔎 VALIDANDO RESULTADO DE FILTROS (${variantLabel})`);
+      await page.waitForTimeout(2000);
+
+      const filteredConversationButtons = page.locator('button').filter({
+        hasText: /Cumpleaños|Baby Shower|Bautizo|Despedida|Corporativa|Fiestamas QA Cliente|cliente/i
+      });
+      const filteredCount = await filteredConversationButtons.count();
+      console.log(`📊 [${variantLabel}] Conversaciones después de aplicar filtros: ${filteredCount}`);
+
+      if (filteredCount === 0) {
+        console.log(`ℹ️ [${variantLabel}] Los filtros aplicados no devolvieron resultados (no es un error)`);
+      }
+
+      // El número de conversaciones filtradas nunca debe ser mayor que el total inicial
+      expect(filteredCount).toBeLessThanOrEqual(initialCount);
+    }
+
+    // =====================================================================
+    // VARIANTE 1: Aplicar TODOS los filtros juntos
+    // (ya se seleccionaron tipo de evento, servicio y fechas arriba)
+    // =====================================================================
+    await aplicarYValidarFiltros('Todos los filtros');
+
+    // =====================================================================
+    // VARIANTE 2: Solo Tipo de evento
+    // =====================================================================
+    await showStepMessage(page, '🔄 REABRIENDO FILTROS (solo tipo de evento)');
+    await page.waitForTimeout(1000);
+
+    // Reabrir diálogo
+    await filterButton.click();
+    await page.waitForTimeout(1500);
+
+    let dialogRootSoloEvento = page
+      .locator(
+        'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+      )
+      .first();
+
+    // Limpiar filtros actuales antes de aplicar solo tipo de evento
+    const clearButtonEvento = dialogRootSoloEvento.locator('button:has-text("Limpiar")').first();
+    const hasClearButtonEvento = await clearButtonEvento.isVisible().catch(() => false);
+    if (hasClearButtonEvento) {
+      console.log('🧹 [Solo tipo de evento] Limpiando filtros previos');
+      await clearButtonEvento.click();
+      await page.waitForTimeout(800);
+
+      // Limpiar cierra el diálogo, volver a abrirlo
+      await filterButton.click();
+      await page.waitForTimeout(1500);
+      dialogRootSoloEvento = page
+        .locator(
+          'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+        )
+        .first();
+    } else {
+      console.log('ℹ️ [Solo tipo de evento] No se encontró botón "Limpiar" para reiniciar filtros');
+    }
+
+    const eventTypeButton2 = dialogRootSoloEvento.locator('button#EventTypeId');
+    const hasEventTypeButton2 = await eventTypeButton2.isVisible().catch(() => false);
+    if (hasEventTypeButton2) {
+      await eventTypeButton2.click();
+      await page.waitForTimeout(500);
+
+      const eventTypeOption2 = dialogRootSoloEvento
+        .locator('ul li')
+        .filter({ hasText: /Boda|Cumpleaños|Baby Shower|Bautizo|Graduaciones|Posadas|Revelación/i })
+        .first();
+
+      const hasEventTypeOption2 = await eventTypeOption2.isVisible({ timeout: 7000 }).catch(() => false);
+      if (hasEventTypeOption2) {
+        const optionText2 = (await eventTypeOption2.textContent())?.trim();
+        console.log(`🎯 [Solo tipo evento] Seleccionando tipo de evento: ${optionText2}`);
+        await eventTypeOption2.click();
+        await page.waitForTimeout(1000);
+      } else {
+        console.log('⚠️ [Solo tipo evento] No se encontraron opciones visibles para "Tipo de evento"');
+      }
+    }
+
+    await aplicarYValidarFiltros('Solo tipo de evento');
+
+    // =====================================================================
+    // VARIANTE 3: Solo Servicio
+    // =====================================================================
+    await showStepMessage(page, '🔄 REABRIENDO FILTROS (solo servicio)');
+    await page.waitForTimeout(1000);
+
+    await filterButton.click();
+    await page.waitForTimeout(1500);
+
+    let dialogRootSoloServicio = page
+      .locator(
+        'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+      )
+      .first();
+
+    // Limpiar filtros actuales antes de aplicar solo servicio
+    const clearButtonServicio = dialogRootSoloServicio.locator('button:has-text("Limpiar")').first();
+    const hasClearButtonServicio = await clearButtonServicio.isVisible().catch(() => false);
+    if (hasClearButtonServicio) {
+      console.log('🧹 [Solo servicio] Limpiando filtros previos');
+      await clearButtonServicio.click();
+      await page.waitForTimeout(800);
+
+      // Limpiar cierra el diálogo, volver a abrirlo
+      await filterButton.click();
+      await page.waitForTimeout(1500);
+      dialogRootSoloServicio = page
+        .locator(
+          'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+        )
+        .first();
+    } else {
+      console.log('ℹ️ [Solo servicio] No se encontró botón "Limpiar" para reiniciar filtros');
+    }
+
+    const serviceButton2 = dialogRootSoloServicio.locator('button#ServiceId');
+    const hasServiceButton2 = await serviceButton2.isVisible().catch(() => false);
+    if (hasServiceButton2) {
+      await serviceButton2.click();
+      await page.waitForTimeout(500);
+
+      const serviceOption2 = dialogRootSoloServicio.locator('ul li').first();
+      const hasServiceOption2 = await serviceOption2.isVisible({ timeout: 5000 }).catch(() => false);
+
+      if (hasServiceOption2) {
+        const serviceText2 = (await serviceOption2.textContent())?.trim();
+        console.log(`🎯 [Solo servicio] Seleccionando servicio: ${serviceText2}`);
+        await serviceOption2.click();
+        await page.waitForTimeout(1000);
+      } else {
+        console.log('⚠️ [Solo servicio] No se encontraron opciones visibles para "Servicio"');
+      }
+    }
+
+    await aplicarYValidarFiltros('Solo servicio');
+
+    // =====================================================================
+    // VARIANTE 4: Solo rango de fechas
+    // =====================================================================
+    await showStepMessage(page, '🔄 REABRIENDO FILTROS (solo fechas)');
+    await page.waitForTimeout(1000);
+
+    await filterButton.click();
+    await page.waitForTimeout(1500);
+
+    let dialogRootSoloFechas = page
+      .locator(
+        'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+      )
+      .first();
+
+    // Limpiar filtros actuales antes de aplicar solo fechas
+    const clearButtonFechas = dialogRootSoloFechas.locator('button:has-text("Limpiar")').first();
+    const hasClearButtonFechas = await clearButtonFechas.isVisible().catch(() => false);
+    if (hasClearButtonFechas) {
+      console.log('🧹 [Solo fechas] Limpiando filtros previos');
+      await clearButtonFechas.click();
+      await page.waitForTimeout(800);
+
+      // Limpiar cierra el diálogo, volver a abrirlo
+      await filterButton.click();
+      await page.waitForTimeout(1500);
+      dialogRootSoloFechas = page
+        .locator(
+          'div[class*="MuiModal-root"], div[role="dialog"], div[role="presentation"]:has(div:has-text("Filtros")), div:has-text("Filtros"):has(button:has-text("Aplicar"))'
+        )
+        .first();
+    } else {
+      console.log('ℹ️ [Solo fechas] No se encontró botón "Limpiar" para reiniciar filtros');
+    }
+
+    const startDateInput2 = dialogRootSoloFechas.locator('input#StartDate');
+    const endDateInput2 = dialogRootSoloFechas.locator('input#EndDate');
+
+    const hasStart2 = await startDateInput2.isVisible().catch(() => false);
+    const hasEnd2 = await endDateInput2.isVisible().catch(() => false);
+
+    if (hasStart2 && hasEnd2) {
+      // Inicio: primer calendario
+      await startDateInput2.click();
+      await page.waitForTimeout(500);
+
+      const firstCalendar2 = page.locator('.flatpickr-calendar').first();
+      const firstDay2 = firstCalendar2.locator('.flatpickr-day:not(.prevMonthDay)').first();
+      const hasFirstDay2 = await firstDay2.isVisible({ timeout: 5000 }).catch(() => false);
+      if (hasFirstDay2) {
+        const dayText2 = (await firstDay2.textContent())?.trim();
+        console.log(`📅 [Solo fechas] Seleccionando fecha inicio: ${dayText2}`);
+        await firstDay2.click();
+        await page.waitForTimeout(500);
+      }
+
+      // Fin: último calendario
+      await endDateInput2.click();
+      await page.waitForTimeout(500);
+
+      const lastCalendar2 = page.locator('.flatpickr-calendar').last();
+      const anyDay2 = lastCalendar2.locator('.flatpickr-day:not(.prevMonthDay)').nth(5);
+      const hasAnyDay2 = await anyDay2.isVisible({ timeout: 5000 }).catch(() => false);
+      if (hasAnyDay2) {
+        const endDayText2 = (await anyDay2.textContent())?.trim();
+        console.log(`📅 [Solo fechas] Seleccionando fecha fin: ${endDayText2}`);
+        await anyDay2.click();
+        await page.waitForTimeout(500);
+      }
+    }
+
+    await aplicarYValidarFiltros('Solo fechas');
   });
 
   test('Seleccionar conversación y navegar a negociación', async ({ page }) => {

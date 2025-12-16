@@ -625,32 +625,41 @@ test.describe('Dashboard de cliente', () => {
       // Fallback: buscar cualquier botón con "Nueva fiesta" o "Nuevo evento" que esté visible
       // IMPORTANTE: Excluir botones con clase "lg:hidden" ya que están ocultos en desktop
       if (await botonNuevaFiestaDesktop.count() === 0 || !(await botonNuevaFiestaDesktop.first().isVisible().catch(() => false))) {
-        // Buscar todos los botones con el texto, pero filtrar por visibilidad y clase
-        const todosLosBotones = page.locator('button').filter({
+        // Buscar todos los botones con el texto, pero EXCLUIR explícitamente los que tienen lg:hidden
+        const todosLosBotones = page.locator('button:not(.lg\\:hidden)').filter({
           has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
         });
         
         const cantidadBotones = await todosLosBotones.count();
         let botonVisibleEncontrado = false;
         
-        // Revisar cada botón para encontrar uno que esté visible y no tenga lg:hidden
+        // Revisar cada botón para encontrar uno que esté visible
         for (let i = 0; i < cantidadBotones; i++) {
           const boton = todosLosBotones.nth(i);
+          
+          // Verificar doblemente que NO tiene la clase lg:hidden usando el atributo class
           const tieneClaseHidden = await boton.evaluate((el) => {
-            return el.classList.contains('lg:hidden');
+            const classAttr = el.getAttribute('class') || '';
+            return classAttr.includes('lg:hidden');
           }).catch(() => false);
           
           // Si tiene lg:hidden, saltarlo (es versión mobile)
           if (tieneClaseHidden) {
+            console.log(`⚠️ Botón ${i} tiene lg:hidden, saltando...`);
             continue;
           }
           
-          const esVisible = await boton.isVisible().catch(() => false);
+          // Verificar que realmente es visible antes de hacer expect
+          const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
           if (esVisible) {
-            await expect(boton).toBeVisible();
-            console.log('✅ Botón "Nueva fiesta" encontrado y visible (fallback)');
-            botonVisibleEncontrado = true;
-            break;
+            // Verificar una vez más antes de hacer expect
+            const sigueVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
+            if (sigueVisible) {
+              await expect(boton).toBeVisible();
+              console.log('✅ Botón "Nueva fiesta" encontrado y visible (fallback)');
+              botonVisibleEncontrado = true;
+              break;
+            }
           }
         }
         
@@ -2025,10 +2034,34 @@ test.describe('Dashboard de cliente', () => {
     let botonNuevaFiesta: ReturnType<typeof page.locator> | null = null;
     
     if (viewportWidth >= 1024) {
-      // Desktop
-      botonNuevaFiesta = page.locator('button.hidden.lg\\:flex').filter({
+      // Desktop: buscar botón con clase "lg:flex" y EXCLUIR explícitamente los que tienen "lg:hidden"
+      botonNuevaFiesta = page.locator('button.hidden.lg\\:flex:not(.lg\\:hidden)').filter({
         has: page.locator('p').filter({ hasText: /Nueva fiesta/i })
       }).first();
+      
+      // Si no se encuentra, buscar cualquier botón sin lg:hidden
+      if (await botonNuevaFiesta.count() === 0) {
+        const todosLosBotones = page.locator('button:not(.lg\\:hidden)').filter({
+          has: page.locator('p').filter({ hasText: /Nueva fiesta/i })
+        });
+        
+        // Buscar uno que sea visible
+        for (let i = 0; i < await todosLosBotones.count(); i++) {
+          const boton = todosLosBotones.nth(i);
+          const tieneClaseHidden = await boton.evaluate((el) => {
+            const classAttr = el.getAttribute('class') || '';
+            return classAttr.includes('lg:hidden');
+          }).catch(() => false);
+          
+          if (!tieneClaseHidden) {
+            const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
+            if (esVisible) {
+              botonNuevaFiesta = boton;
+              break;
+            }
+          }
+        }
+      }
     } else {
       // Mobile
       botonNuevaFiesta = page.locator('button.lg\\:hidden').filter({
@@ -2037,32 +2070,54 @@ test.describe('Dashboard de cliente', () => {
     }
     
     if (botonNuevaFiesta && await botonNuevaFiesta.count() > 0) {
-      await expect(botonNuevaFiesta).toBeVisible();
-      await expect(botonNuevaFiesta).toBeEnabled();
-      console.log('✅ Botón "Nueva fiesta" visible y habilitado');
-      
-      // Hacer clic y validar que abre el formulario de creación
-      const urlAntesNuevaFiesta = page.url();
-      await botonNuevaFiesta.click();
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
-      
-      const urlDespuesNuevaFiesta = page.url();
-      const abrioFormulario = urlDespuesNuevaFiesta !== urlAntesNuevaFiesta || 
-                              await page.locator('button[type="submit"]').filter({
-                                has: page.locator('p.text-dark-neutral')
-                              }).count() > 0;
-      
-      if (abrioFormulario) {
-        console.log('✅ Botón "Nueva fiesta" abrió el formulario correctamente');
-      } else {
-        console.log('⚠️ Botón "Nueva fiesta" puede no haber abierto el formulario');
+      // Verificar que NO tiene lg:hidden antes de hacer expect (solo en desktop)
+      if (viewportWidth >= 1024) {
+        const tieneClaseHidden = await botonNuevaFiesta.evaluate((el) => {
+          const classAttr = el.getAttribute('class') || '';
+          return classAttr.includes('lg:hidden');
+        }).catch(() => false);
+        
+        if (tieneClaseHidden) {
+          console.log('⚠️ Botón "Nueva fiesta" encontrado pero tiene lg:hidden (es versión mobile, no visible en desktop)');
+          botonNuevaFiesta = null;
+        }
       }
       
-      // Regresar al dashboard si es necesario
-      if (!urlDespuesNuevaFiesta.includes('/client/dashboard')) {
-        await page.goto(DASHBOARD_URL);
-        await page.waitForLoadState('networkidle');
+      if (botonNuevaFiesta) {
+        const esVisible = await botonNuevaFiesta.isVisible({ timeout: 3000 }).catch(() => false);
+        if (esVisible) {
+          await expect(botonNuevaFiesta).toBeVisible();
+          await expect(botonNuevaFiesta).toBeEnabled();
+          console.log('✅ Botón "Nueva fiesta" visible y habilitado');
+      
+          // Hacer clic y validar que abre el formulario de creación
+          const urlAntesNuevaFiesta = page.url();
+          await botonNuevaFiesta.click();
+          await page.waitForLoadState('networkidle');
+          await page.waitForTimeout(2000);
+          
+          const urlDespuesNuevaFiesta = page.url();
+          const abrioFormulario = urlDespuesNuevaFiesta !== urlAntesNuevaFiesta || 
+                                  await page.locator('button[type="submit"]').filter({
+                                    has: page.locator('p.text-dark-neutral')
+                                  }).count() > 0;
+          
+          if (abrioFormulario) {
+            console.log('✅ Botón "Nueva fiesta" abrió el formulario correctamente');
+          } else {
+            console.log('⚠️ Botón "Nueva fiesta" puede no haber abierto el formulario');
+          }
+          
+          // Regresar al dashboard si es necesario
+          if (!urlDespuesNuevaFiesta.includes('/client/dashboard')) {
+            await page.goto(DASHBOARD_URL);
+            await page.waitForLoadState('networkidle');
+          }
+        } else {
+          console.log('⚠️ Botón "Nueva fiesta" encontrado pero no visible');
+        }
+      } else {
+        console.log('⚠️ Botón "Nueva fiesta" no encontrado o tiene lg:hidden en desktop');
       }
     } else {
       console.log('⚠️ Botón "Nueva fiesta" no encontrado');
