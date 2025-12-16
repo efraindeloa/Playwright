@@ -10,10 +10,10 @@ const isProd = process.env.ENVIRONMENT === 'prod' || process.env.FIESTAMAS_PROD_
 
 // URL base - ÚNICA DIFERENCIA entre staging y producción
 export const DEFAULT_BASE_URL = isProd
-//  ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://staging.fiestamas.com')
-//  : (process.env.FIESTAMAS_BASE_URL ?? 'https://staging.fiestamas.com');
- ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://fiestamas.com')
-  : (process.env.FIESTAMAS_BASE_URL ?? 'https://fiestamas.com');
+  ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://staging.fiestamas.com')
+  : (process.env.FIESTAMAS_BASE_URL ?? 'https://staging.fiestamas.com');
+// ? (process.env.FIESTAMAS_PROD_BASE_URL ?? 'https://fiestamas.com')
+//  : (process.env.FIESTAMAS_BASE_URL ?? 'https://fiestamas.com');
 
 
 // Credenciales (pueden ser las mismas o diferentes según el ambiente)
