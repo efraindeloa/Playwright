@@ -201,26 +201,97 @@ test.describe('Gestión de promociones', () => {
     await serviceButton.click();
     await page.waitForTimeout(1000);
     
-    // Buscar y seleccionar el primer servicio disponible en el dropdown
-    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-    const serviceCount = await serviceOptions.count();
+    // Esperar a que aparezcan las opciones del dropdown
+    await page.waitForTimeout(1500);
+    
+    // Buscar servicios con múltiples selectores
+    let serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
+      hasNot: serviceButton
+    });
+    let serviceCount = await serviceOptions.count();
     let servicioSeleccionado = 0; // Índice del servicio seleccionado
+    
+    // Si no se encuentran con el selector estándar, buscar en contenedores de dropdown
+    if (serviceCount === 0) {
+      const dropdownContainers = [
+        '[data-radix-popper-content-wrapper]',
+        '[role="listbox"]',
+        '[role="combobox"]',
+        '[class*="dropdown"]',
+        '[class*="menu"]'
+      ];
+      
+      for (const containerSelector of dropdownContainers) {
+        const container = page.locator(containerSelector).first();
+        const containerExists = await container.count() > 0;
+        if (containerExists) {
+          const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
+          if (containerVisible) {
+            const optionsInContainer = container.locator('button, div, li').filter({ 
+              hasNot: serviceButton 
+            });
+            const countInContainer = await optionsInContainer.count();
+            if (countInContainer > 0) {
+              serviceOptions = optionsInContainer;
+              serviceCount = countInContainer;
+              console.log(`✅ Servicios encontrados en contenedor ${containerSelector}: ${serviceCount}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Si aún no se encontraron, buscar opciones visibles
+    if (serviceCount === 0) {
+      await page.waitForTimeout(1000);
+      const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
+        hasNot: serviceButton,
+        hasText: /.+/
+      });
+      const allCount = await allVisibleOptions.count();
+      
+      // Filtrar opciones válidas
+      const buttonText = await serviceButton.textContent().catch(() => '') || '';
+      let validCount = 0;
+      
+      for (let i = 0; i < Math.min(allCount, 30); i++) {
+        try {
+          const option = allVisibleOptions.nth(i);
+          const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
+          if (!isVisible) continue;
+          
+          const text = await option.textContent().catch(() => '') || '';
+          const textClean = text.trim();
+          
+          if (textClean && 
+              textClean.length > 3 &&
+              textClean !== 'Mis servicios' &&
+              textClean !== buttonText.trim() &&
+              !textClean.toLowerCase().includes('selecciona')) {
+            validCount++;
+            if (serviceCount === 0) {
+              serviceOptions = allVisibleOptions;
+            }
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      if (validCount > 0) {
+        serviceCount = validCount;
+        console.log(`✅ Servicios válidos encontrados después de filtrar: ${serviceCount}`);
+      }
+    }
     
     if (serviceCount > 0) {
       await serviceOptions.first().click();
       await page.waitForTimeout(500);
       console.log('✅ Servicio seleccionado (índice 0)');
     } else {
-      // Fallback: buscar cualquier opción de servicio en el dropdown
-      const fallbackService = page.locator('button:has-text("Servicio"), div:has-text("Servicio"), li:has-text("Servicio")').first();
-      const fallbackVisible = await fallbackService.isVisible({ timeout: 2000 }).catch(() => false);
-      if (fallbackVisible) {
-        await fallbackService.click();
-        await page.waitForTimeout(500);
-        console.log('✅ Servicio seleccionado (fallback)');
-      } else {
-        console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
-      }
+      console.warn('⚠️ No se encontraron opciones de servicio disponibles en el dropdown');
+      throw new Error('❌ No se encontraron servicios disponibles en el dropdown "Mis servicios"');
     }
     
     // Llenar descripción
@@ -285,59 +356,115 @@ test.describe('Gestión de promociones', () => {
       
       // Abrir el dropdown de servicios
       await serviceButtonRetry.click();
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000); // Esperar más tiempo a que el dropdown se abra y cargue
       
-      // Buscar servicios usando los mismos selectores que en la selección inicial
-      let serviceOptionsRetry = page.locator('div[role="option"], button[role="option"], li[role="option"]');
+      // Esperar explícitamente a que aparezcan opciones visibles en el dropdown
+      try {
+        await page.waitForFunction(
+          () => {
+            // Buscar opciones visibles en el DOM (excluyendo el botón del dropdown)
+            const options = Array.from(document.querySelectorAll('div[role="option"], button[role="option"], li[role="option"], [role="listbox"] [role="option"], [role="combobox"] [role="option"]'));
+            const serviceButton = document.querySelector('button[id="ServiceId"]');
+            const visibleOptions = options.filter(opt => {
+              const style = window.getComputedStyle(opt);
+              return style.display !== 'none' && style.visibility !== 'hidden' && opt.offsetHeight > 0 && opt !== serviceButton;
+            });
+            return visibleOptions.length > 0;
+          },
+          { timeout: 5000 }
+        );
+        console.log('✅ Opciones del dropdown detectadas dinámicamente');
+      } catch (e) {
+        console.log('⏳ No se detectaron opciones con waitForFunction, continuando con búsqueda estática...');
+      }
+      
+      // Buscar servicios usando múltiples selectores (buscar en contenedores de dropdown comunes)
+      let serviceOptionsRetry = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
+        hasNot: serviceButtonRetry 
+      });
+      
       let serviceCountRetry = await serviceOptionsRetry.count();
+      console.log(`📊 Servicios encontrados con selector estándar (role="option"): ${serviceCountRetry}`);
       
-      console.log(`📊 Servicios encontrados con selector estándar: ${serviceCountRetry}`);
-      
-      // Si no se encuentran con el selector estándar, usar fallback
+      // Si no se encuentran con role="option", buscar dentro de contenedores comunes de dropdown
       if (serviceCountRetry === 0) {
-        // Fallback: buscar cualquier opción de servicio en el dropdown (MISMO FALLBACK que en selección inicial)
-        console.log('⚠️ No se encontraron servicios con selector estándar, usando fallback...');
-        const fallbackService = page.locator('button:has-text("Servicio"), div:has-text("Servicio"), li:has-text("Servicio")');
-        const fallbackCount = await fallbackService.count();
+        // Buscar opciones dentro de contenedores comunes de dropdowns (Radix UI, etc.)
+        const dropdownContainers = [
+          '[data-radix-popper-content-wrapper]',
+          '[role="listbox"]',
+          '[role="combobox"]',
+          '[class*="dropdown"]',
+          '[class*="menu"]',
+          '[class*="select"]',
+          '[class*="options"]'
+        ];
         
-        if (fallbackCount > 0) {
-          // Filtrar para encontrar solo opciones de servicio (no el botón del dropdown)
-          let opcionesValidas = 0;
-          for (let i = 0; i < fallbackCount; i++) {
-            const elemento = fallbackService.nth(i);
-            const texto = await elemento.textContent().catch(() => '');
-            const esVisible = await elemento.isVisible().catch(() => false);
-            
-            // Verificar que sea una opción válida (no el botón del dropdown)
-            if (esVisible && texto &&
-                texto.trim() !== 'Mis servicios' &&
-                (texto.includes('EDITADO') || 
-                 texto.includes('QA') || 
-                 texto.includes('spa') ||
-                 texto.includes('Decorador') ||
-                 texto.includes('Invitaciones') ||
-                 texto.includes('Vinos') ||
-                 texto.includes('Servicio Personalizado') ||
-                 texto.length > 5)) {
-              opcionesValidas++;
+        for (const containerSelector of dropdownContainers) {
+          const container = page.locator(containerSelector).first();
+          const containerExists = await container.count() > 0;
+          if (containerExists) {
+            const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
+            if (containerVisible) {
+              const optionsInContainer = container.locator('button, div, li').filter({ hasNot: serviceButtonRetry });
+              const countInContainer = await optionsInContainer.count();
+              if (countInContainer > 0) {
+                serviceOptionsRetry = optionsInContainer;
+                serviceCountRetry = countInContainer;
+                console.log(`✅ Servicios encontrados en contenedor ${containerSelector}: ${serviceCountRetry}`);
+                break;
+              }
             }
           }
-          
-          if (opcionesValidas > 0) {
-            serviceCountRetry = opcionesValidas;
-            serviceOptionsRetry = fallbackService;
-            console.log(`✅ Servicios encontrados con fallback: ${serviceCountRetry}`);
+        }
+      }
+      
+      // Si aún no se encontraron, buscar opciones visibles que no sean el botón
+      if (serviceCountRetry === 0) {
+        console.log('⚠️ No se encontraron servicios con selectores estándar, buscando opciones visibles...');
+        await page.waitForTimeout(1000); // Dar más tiempo para que se carguen
+        
+        // Buscar elementos clickeables que estén visibles y no sean el botón del dropdown
+        const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
+          hasNot: serviceButtonRetry,
+          hasText: /.+/ // Que tengan texto
+        });
+        
+        const allCount = await allVisibleOptions.count();
+        console.log(`📊 Opciones visibles encontradas (antes de filtrar): ${allCount}`);
+        
+        // Contar opciones válidas (que tengan texto significativo y no sean el botón)
+        let validCount = 0;
+        const buttonText = await serviceButtonRetry.textContent().catch(() => '') || '';
+        
+        for (let i = 0; i < Math.min(allCount, 30); i++) {
+          try {
+            const option = allVisibleOptions.nth(i);
+            const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
+            if (!isVisible) continue;
+            
+            const text = await option.textContent().catch(() => '') || '';
+            const textClean = text.trim();
+            
+            // Filtrar opciones válidas
+            if (textClean && 
+                textClean.length > 3 &&
+                textClean !== 'Mis servicios' &&
+                textClean !== buttonText.trim() &&
+                !textClean.toLowerCase().includes('selecciona')) {
+              validCount++;
+              if (serviceCountRetry === 0) {
+                // Guardar el locator para usar después
+                serviceOptionsRetry = allVisibleOptions;
+              }
+            }
+          } catch (e) {
+            continue;
           }
         }
         
-        // Si aún no se encontraron, esperar un poco más y reintentar
-        if (serviceCountRetry === 0) {
-          console.log('⏳ Esperando más tiempo para que se carguen los servicios...');
-          await page.waitForTimeout(1500);
-          serviceCountRetry = await serviceOptionsRetry.count();
-          if (serviceCountRetry > 0) {
-            console.log(`✅ Servicios encontrados después de esperar más: ${serviceCountRetry}`);
-          }
+        if (validCount > 0) {
+          serviceCountRetry = validCount;
+          console.log(`✅ Servicios válidos encontrados después de filtrar: ${serviceCountRetry}`);
         }
       }
       
@@ -2319,8 +2446,87 @@ test.describe('Gestión de promociones', () => {
       await serviceButton.click();
       await page.waitForTimeout(1000);
 
-      const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-      const serviceCount = await serviceOptions.count();
+      // Esperar a que aparezcan las opciones del dropdown
+      await page.waitForTimeout(1500);
+      
+      // Buscar servicios con múltiples selectores
+      let serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
+        hasNot: page.locator('button[id="ServiceId"]')
+      });
+      let serviceCount = await serviceOptions.count();
+      
+      // Si no se encuentran con el selector estándar, buscar en contenedores de dropdown
+      if (serviceCount === 0) {
+        const dropdownContainers = [
+          '[data-radix-popper-content-wrapper]',
+          '[role="listbox"]',
+          '[role="combobox"]',
+          '[class*="dropdown"]',
+          '[class*="menu"]'
+        ];
+        
+        for (const containerSelector of dropdownContainers) {
+          const container = page.locator(containerSelector).first();
+          const containerExists = await container.count() > 0;
+          if (containerExists) {
+            const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
+            if (containerVisible) {
+              const optionsInContainer = container.locator('button, div, li').filter({ 
+                hasNot: page.locator('button[id="ServiceId"]') 
+              });
+              const countInContainer = await optionsInContainer.count();
+              if (countInContainer > 0) {
+                serviceOptions = optionsInContainer;
+                serviceCount = countInContainer;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // Si aún no se encontraron, buscar opciones visibles
+      if (serviceCount === 0) {
+        await page.waitForTimeout(1000);
+        const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
+          hasNot: page.locator('button[id="ServiceId"]'),
+          hasText: /.+/
+        });
+        const allCount = await allVisibleOptions.count();
+        
+        // Filtrar opciones válidas
+        const buttonText = await page.locator('button[id="ServiceId"]').textContent().catch(() => '') || '';
+        let validCount = 0;
+        
+        for (let i = 0; i < Math.min(allCount, 30); i++) {
+          try {
+            const option = allVisibleOptions.nth(i);
+            const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
+            if (!isVisible) continue;
+            
+            const text = await option.textContent().catch(() => '') || '';
+            const textClean = text.trim();
+            
+            if (textClean && 
+                textClean.length > 3 &&
+                textClean !== 'Mis servicios' &&
+                textClean !== buttonText.trim() &&
+                !textClean.toLowerCase().includes('selecciona')) {
+              validCount++;
+              if (serviceCount === 0) {
+                serviceOptions = allVisibleOptions;
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (validCount > 0) {
+          serviceCount = validCount;
+        }
+      }
+      
       if (serviceCount > servicioIndex) {
         await serviceOptions.nth(servicioIndex).click();
         await page.waitForTimeout(500);

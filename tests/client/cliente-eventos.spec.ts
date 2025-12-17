@@ -2271,15 +2271,80 @@ export async function agregarServicioAEventoExistente(page: Page) {
   await showStepMessage(page, '📋 SELECCIONANDO EVENTO EXISTENTE');
   console.log('\n🔍 Buscando eventos en el dashboard...');
   
-  // Buscar eventos en la lista del dashboard
-  const eventsContainer = page.locator('div.flex.relative.w-full.overflow-hidden');
-  const eventsContainerVisible = await eventsContainer.isVisible({ timeout: 5000 }).catch(() => false);
+  // Esperar a que la página cargue completamente
+  await page.waitForLoadState('networkidle');
+  await safeWaitForTimeout(page, 10000); // Espera adicional para que los elementos se rendericen
   
-  if (!eventsContainerVisible) {
-    throw new Error('❌ No se encontró el contenedor de eventos en el dashboard');
+  // Buscar la sección "Elige tu fiesta" que contiene los eventos
+  // Primero encontrar el título "Elige tu fiesta"
+  const tituloEligeTuFiesta = page.locator('p.text-dark-neutral.font-extrabold').filter({ 
+    hasText: /^Elige tu fiesta$/i 
+  }).first();
+  
+  const tituloVisible = await tituloEligeTuFiesta.isVisible({ timeout: 60000 }).catch(() => false);
+  if (!tituloVisible) {
+    throw new Error('❌ No se encontró el título "Elige tu fiesta" en el dashboard');
+  }
+  console.log('✅ Título "Elige tu fiesta" encontrado');
+  
+  // Esperar adicional después de encontrar el título para que los eventos se carguen
+  await safeWaitForTimeout(page, 5000);
+  
+  // Buscar el contenedor de la sección que contiene el título
+  const seccionEventos = page.locator('div').filter({
+    has: tituloEligeTuFiesta
+  }).first();
+  
+  const seccionVisible = await seccionEventos.isVisible({ timeout: 30000 }).catch(() => false);
+  if (!seccionVisible) {
+    // Si no encontramos el contenedor con el título, buscar eventos directamente
+    console.log('⚠️ No se encontró el contenedor de la sección, buscando eventos directamente...');
   }
   
-  const eventCards = eventsContainer.locator('button.flex.flex-col');
+  // Esperar dinámicamente a que aparezcan eventos en el dashboard
+  console.log('⏳ Esperando a que los eventos se carguen...');
+  try {
+    await page.waitForFunction(
+      () => {
+        // Buscar botones que contengan fechas
+        const buttons = Array.from(document.querySelectorAll('button[type="button"]'));
+        return buttons.some(button => {
+          const text = button.textContent || '';
+          return /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(text);
+        });
+      },
+      { timeout: 9000 } // Esperar hasta 90 segundos
+    );
+    console.log('✅ Eventos detectados en el DOM');
+  } catch (e) {
+    console.log('⚠️ No se detectaron eventos dinámicamente, continuando con búsqueda estática...');
+  }
+  
+  // Esperar un poco más después de detectar eventos
+  await safeWaitForTimeout(page, 5000);
+  
+  // Buscar tarjetas de eventos dentro de la sección o en toda la página
+  // Las tarjetas son botones que contienen información de fecha
+  const eventCards = seccionVisible 
+    ? seccionEventos.locator('button[type="button"]').filter({
+        has: page.locator('p, span').filter({ 
+          hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
+        })
+      })
+    : page.locator('button[type="button"]').filter({
+        has: page.locator('p, span').filter({ 
+          hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
+        })
+      });
+  
+  // Esperar a que al menos un evento sea visible
+  try {
+    await eventCards.first().waitFor({ state: 'visible', timeout: 60000 });
+    console.log('✅ Al menos un evento es visible');
+  } catch (e) {
+    console.log('⚠️ No se encontró ningún evento visible, continuando...');
+  }
+  
   const eventCount = await eventCards.count();
   console.log(`📊 Eventos encontrados en el dashboard: ${eventCount}`);
   
@@ -2446,12 +2511,77 @@ export async function agregarServicioAEventoExistente(page: Page) {
     
     // Volver a seleccionar el evento y hacer clic en "Agregar servicios"
     await showStepMessage(page, '📋 VOLVIENDO A SELECCIONAR EVENTO');
-    await safeWaitForTimeout(page, 1000);
+    await safeWaitForTimeout(page, 2000);
     
-    // Buscar el evento nuevamente usando el mismo índice que se seleccionó inicialmente
-    const eventsContainer2 = page.locator('div.flex.relative.w-full.overflow-hidden');
-    const eventCards2 = eventsContainer2.locator('button.flex.flex-col');
+    // Esperar a que la página cargue completamente
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 10000); // Espera adicional para que los elementos se rendericen
+    
+    // Buscar la sección "Elige tu fiesta" nuevamente
+    const tituloEligeTuFiesta2 = page.locator('p.text-dark-neutral.font-extrabold').filter({ 
+      hasText: /^Elige tu fiesta$/i 
+    }).first();
+    
+    const tituloVisible2 = await tituloEligeTuFiesta2.isVisible({ timeout: 60000 }).catch(() => false);
+    if (!tituloVisible2) {
+      throw new Error('❌ No se encontró el título "Elige tu fiesta" en el dashboard');
+    }
+    console.log('✅ Título "Elige tu fiesta" encontrado nuevamente');
+    
+    // Esperar adicional después de encontrar el título
+    await safeWaitForTimeout(page, 5000);
+    
+    // Buscar el contenedor de la sección
+    const seccionEventos2 = page.locator('div').filter({
+      has: tituloEligeTuFiesta2
+    }).first();
+    
+    const seccionVisible2 = await seccionEventos2.isVisible({ timeout: 30000 }).catch(() => false);
+    
+    // Esperar dinámicamente a que aparezcan eventos
+    console.log('⏳ Esperando a que los eventos se carguen...');
+    try {
+      await page.waitForFunction(
+        () => {
+          const buttons = Array.from(document.querySelectorAll('button[type="button"]'));
+          return buttons.some(button => {
+            const text = button.textContent || '';
+            return /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(text);
+          });
+        },
+        { timeout: 90000 } // Esperar hasta 90 segundos
+      );
+      console.log('✅ Eventos detectados en el DOM');
+    } catch (e) {
+      console.log('⚠️ No se detectaron eventos dinámicamente, continuando con búsqueda estática...');
+    }
+    
+    // Esperar un poco más después de detectar eventos
+    await safeWaitForTimeout(page, 5000);
+    
+    // Buscar tarjetas de eventos
+    const eventCards2 = seccionVisible2 
+      ? seccionEventos2.locator('button[type="button"]').filter({
+          has: page.locator('p, span').filter({ 
+            hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
+          })
+        })
+      : page.locator('button[type="button"]').filter({
+          has: page.locator('p, span').filter({ 
+            hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
+          })
+        });
+    
+    // Esperar a que al menos un evento sea visible
+    try {
+      await eventCards2.first().waitFor({ state: 'visible', timeout: 60000 });
+      console.log('✅ Al menos un evento es visible');
+    } catch (e) {
+      console.log('⚠️ No se encontró ningún evento visible, continuando...');
+    }
+    
     const eventCount2 = await eventCards2.count();
+    console.log(`📊 Eventos encontrados en el dashboard: ${eventCount2}`);
     
     if (eventCount2 > selectedEventIndex && selectedEventIndex >= 0) {
       // Usar el mismo índice del evento que se seleccionó inicialmente

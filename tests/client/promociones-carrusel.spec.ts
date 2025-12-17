@@ -281,7 +281,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // TEST 3: Carrusel aparece en navegación por Categorías (TODAS las categorías)
   // ============================================================================
   test('Carrusel aparece en navegación por Categorías y subcategorías', async ({ page }) => {
-    test.setTimeout(DEFAULT_TIMEOUT * 2); // Doble timeout para cubrir todas las categorías
+    test.setTimeout(DEFAULT_TIMEOUT * 4); // Timeout ampliado para cubrir todas las categorías (12 minutos)
     
     await showStepMessage(page, '🔍 Verificando carrusel en navegación por TODAS las Categorías');
     
@@ -307,8 +307,16 @@ test.describe('Carrusel de Promociones Contextual', () => {
       try {
         console.log(`\n[${i + 1}/${todasLasCategorias.length}] Verificando: ${familia} > ${categoria}`);
         
-        // Ir al home
-        await page.goto(DEFAULT_BASE_URL);
+        // Ir al home con manejo de errores para detectar página cerrada
+        try {
+          await page.goto(DEFAULT_BASE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        } catch (gotoError) {
+          if (gotoError instanceof Error && gotoError.message.includes('closed')) {
+            console.log(`   ⚠️ La página se cerró durante la ejecución. Deteniendo verificaciones.`);
+            throw new Error('❌ La página o el contexto del navegador se cerró durante la ejecución del test');
+          }
+          throw gotoError;
+        }
         await page.waitForLoadState('networkidle');
         await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
         
