@@ -903,3 +903,238 @@ export async function mapearEstructuraCategoriasServicios(
     }
   };
 }
+
+/**
+ * Selecciona un elemento de un dropdown de forma robusta.
+ * Funciona con diferentes tipos de dropdowns (ul/li, role="option", etc.)
+ * 
+ * @param page - Instancia de Page de Playwright
+ * @param dropdownButtonSelector - Selector del botón que abre el dropdown (ej: 'button[id="ServiceId"]')
+ * @param optionIndex - Índice de la opción a seleccionar (0-based). Si es -1, selecciona aleatoriamente
+ * @param optionText - Texto de la opción a seleccionar (opcional, tiene prioridad sobre optionIndex)
+ * @param timeout - Timeout en milisegundos para esperar que el dropdown se abra (default: 5000)
+ * @returns El texto de la opción seleccionada, o null si falló
+ */
+export async function selectDropdownOption(
+  page: Page,
+  dropdownButtonSelector: string,
+  optionIndex: number = 0,
+  optionText?: string,
+  timeout: number = 5000
+): Promise<string | null> {
+  try {
+    // 1. Localizar y hacer clic en el botón del dropdown
+    const dropdownButton = page.locator(dropdownButtonSelector).first();
+    await dropdownButton.waitFor({ state: 'visible', timeout });
+    
+    // Asegurarse de que el botón esté en el viewport
+    await dropdownButton.scrollIntoViewIfNeeded();
+    await safeWaitForTimeout(page, 500);
+    
+    // Verificar si el dropdown ya está abierto
+    const dropdownAlreadyOpen = await page.evaluate((selector) => {
+      const button = document.querySelector(selector);
+      if (!button) return false;
+      const container = button.closest('div.relative.w-full');
+      if (container) {
+        const ul = container.querySelector('ul');
+        if (ul) {
+          const style = window.getComputedStyle(ul);
+          return style.display !== 'none' && ul.offsetHeight > 0;
+        }
+      }
+      return false;
+    }, dropdownButtonSelector).catch(() => false);
+    
+    if (!dropdownAlreadyOpen) {
+      await dropdownButton.click();
+      await safeWaitForTimeout(page, 2000); // Esperar a que se abra el dropdown
+    } else {
+      console.log('ℹ️ Dropdown ya estaba abierto');
+      await safeWaitForTimeout(page, 500);
+    }
+
+    // 2. Intentar encontrar opciones usando diferentes estrategias
+    let options: ReturnType<typeof page.locator> | null = null;
+    let optionsCount = 0;
+
+    // Estrategia 1: Buscar <ul> dentro del contenedor del botón (para dropdowns como ServiceId)
+    const serviceContainer = page.locator('div.relative.w-full').filter({
+      has: dropdownButton
+    }).first();
+    
+    const containerExists = await serviceContainer.count() > 0;
+    if (containerExists) {
+      const ulInContainer = serviceContainer.locator('ul').first();
+      const ulExists = await ulInContainer.count() > 0;
+      
+      if (ulExists) {
+        // Verificar que el ul esté visible
+        const ulVisible = await ulInContainer.isVisible({ timeout: 1000 }).catch(() => false);
+        if (ulVisible) {
+          const lis = ulInContainer.locator('li');
+          const liCount = await lis.count();
+          if (liCount > 0) {
+            // Filtrar solo los li visibles
+            let visibleLiCount = 0;
+            for (let i = 0; i < liCount; i++) {
+              const li = lis.nth(i);
+              const isVisible = await li.isVisible({ timeout: 500 }).catch(() => false);
+              if (isVisible) {
+                visibleLiCount++;
+              }
+            }
+            if (visibleLiCount > 0) {
+              options = lis;
+              optionsCount = visibleLiCount;
+              console.log(`✅ Opciones encontradas en <ul> dentro del contenedor: ${optionsCount} (total li: ${liCount})`);
+            }
+          }
+        } else {
+          console.log('⚠️ <ul> encontrado pero no visible');
+        }
+      } else {
+        console.log('⚠️ No se encontró <ul> dentro del contenedor');
+      }
+    } else {
+      console.log('⚠️ No se encontró contenedor div.relative.w-full');
+    }
+
+    // Estrategia 2: Buscar elementos con role="option" (estándar ARIA)
+    if (optionsCount === 0) {
+      const roleOptions = page.locator('[role="option"]');
+      const roleCount = await roleOptions.count();
+      if (roleCount > 0) {
+        options = roleOptions;
+        optionsCount = roleCount;
+        console.log(`✅ Opciones encontradas con role="option": ${optionsCount}`);
+      }
+    }
+
+    // Estrategia 3: Buscar elementos con clases comunes de dropdown
+    if (optionsCount === 0) {
+      const classOptions = page.locator('.dropdown-option, [data-option], div[class*="option"], li[class*="option"]');
+      const classCount = await classOptions.count();
+      if (classCount > 0) {
+        options = classOptions;
+        optionsCount = classCount;
+        console.log(`✅ Opciones encontradas con clases de dropdown: ${optionsCount}`);
+      }
+    }
+
+    // Estrategia 4: Buscar todos los <ul> visibles y encontrar el que tiene <li> con texto válido
+    if (optionsCount === 0) {
+      await safeWaitForTimeout(page, 1000);
+      const allUls = page.locator('ul');
+      const ulCount = await allUls.count();
+      
+      for (let i = 0; i < ulCount; i++) {
+        const ul = allUls.nth(i);
+        const isVisible = await ul.isVisible({ timeout: 1000 }).catch(() => false);
+        if (isVisible) {
+          const lis = ul.locator('li');
+          const liCount = await lis.count();
+          if (liCount > 0) {
+            // Verificar que tiene texto válido
+            const firstLiText = await lis.first().textContent().catch(() => '') || '';
+            if (firstLiText.trim().length > 3) {
+              options = lis;
+              optionsCount = liCount;
+              console.log(`✅ Opciones encontradas en <ul> visible: ${optionsCount}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Estrategia 5: Buscar directamente elementos <li> visibles
+    if (optionsCount === 0) {
+      const allLis = page.locator('li').filter({ hasText: /.+/ });
+      const liCount = await allLis.count();
+      if (liCount > 0) {
+        // Filtrar solo los que están visibles y tienen texto válido
+        let validCount = 0;
+        for (let i = 0; i < Math.min(liCount, 20); i++) {
+          const li = allLis.nth(i);
+          const isVisible = await li.isVisible({ timeout: 500 }).catch(() => false);
+          if (isVisible) {
+            const text = await li.textContent().catch(() => '') || '';
+            if (text.trim().length > 3) {
+              validCount++;
+            }
+          }
+        }
+        if (validCount > 0) {
+          options = allLis;
+          optionsCount = validCount;
+          console.log(`✅ Opciones encontradas en <li> visibles: ${optionsCount}`);
+        }
+      }
+    }
+
+    if (optionsCount === 0 || !options) {
+      console.warn('⚠️ No se encontraron opciones en el dropdown');
+      await page.keyboard.press('Escape');
+      return null;
+    }
+
+    // 3. Seleccionar la opción
+    let selectedOption: ReturnType<typeof options.nth> | null = null;
+    let selectedText: string | null = null;
+
+    if (optionText) {
+      // Buscar por texto
+      for (let i = 0; i < optionsCount; i++) {
+        const option = options.nth(i);
+        const text = await option.textContent().catch(() => '') || '';
+        if (text.trim().toLowerCase().includes(optionText.toLowerCase())) {
+          selectedOption = option;
+          selectedText = text.trim();
+          console.log(`📋 Opción encontrada por texto "${optionText}": "${selectedText}"`);
+          break;
+        }
+      }
+    } else {
+      // Seleccionar por índice (o aleatoriamente si optionIndex es -1)
+      const targetIndex = optionIndex === -1 
+        ? Math.floor(Math.random() * optionsCount)
+        : Math.min(optionIndex, optionsCount - 1);
+      
+      selectedOption = options.nth(targetIndex);
+      selectedText = await selectedOption.textContent().catch(() => '') || '';
+      selectedText = selectedText.trim();
+      console.log(`📋 Opción seleccionada por índice ${targetIndex}: "${selectedText}"`);
+    }
+
+    if (!selectedOption || !selectedText) {
+      console.warn('⚠️ No se pudo seleccionar ninguna opción');
+      await page.keyboard.press('Escape');
+      return null;
+    }
+
+    // 4. Hacer clic en la opción seleccionada
+    await selectedOption.click();
+    await safeWaitForTimeout(page, 1000);
+
+    // 5. Verificar que la selección fue exitosa (opcional, leer el texto del botón)
+    try {
+      const buttonText = await dropdownButton.textContent().catch(() => '') || '';
+      if (buttonText.trim()) {
+        console.log(`✅ Dropdown actualizado. Texto en botón: "${buttonText.trim()}"`);
+      }
+    } catch (e) {
+      // Ignorar si no se puede leer el texto del botón
+    }
+
+    return selectedText;
+  } catch (error) {
+    console.error(`❌ Error al seleccionar opción del dropdown: ${error}`);
+    try {
+      await page.keyboard.press('Escape');
+    } catch (e) {
+      // Ignorar si no se puede presionar Escape
+    }
+    return null;
+  }
+}

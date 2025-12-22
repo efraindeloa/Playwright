@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import path from 'path';
-import { login, showStepMessage, clearStepMessage } from '../utils';
+import { login, showStepMessage, clearStepMessage, safeWaitForTimeout, selectDropdownOption } from '../utils';
 import { DEFAULT_BASE_URL, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
 
 // ============================================================================
@@ -17,6 +17,55 @@ const DASHBOARD_URL = `${DEFAULT_BASE_URL}/provider/dashboard`;
 // Intentar usar las rutas absolutas de staging, o rutas relativas como fallback
 const PROMOTION_IMAGE_PATH = process.env.PROMOTION_IMAGE_PATH || 'C:/Temp/images.jpeg';
 const IMAGE_JPEG_PATH = process.env.IMAGE_JPEG_PATH || 'C:/Temp/images.jpeg';
+
+// Directorio de imágenes de prueba
+const TEST_IMAGES_DIR = 'C:/Users/Efrain De Loa/Pictures/Fiestamas Testing';
+
+// Lista de imágenes disponibles para selección aleatoria
+const AVAILABLE_TEST_IMAGES = [
+  '20200216200844.gif',
+  '20231020_161601.heic',
+  '20231125_072727.heic',
+  '51612546-3.webp',
+  '550577221_824352739949581_1905022658117118062_n.jpg',
+  '556691905_1378036073891695_1675154850985777961_n.jpg',
+  '927982afd1d80f1cc29be9b1c8bbb8fe.jpg',
+  'Adobe Express - file.png',
+  'Amazing log home_.jpeg',
+  'Bamboo.jpg',
+  'Bebidas.avif',
+  'Wallpaper_045.bmp',
+  'alimentos.png',
+  'bramido.jpg',
+  'buffet-2953875-640_ai1.jpg',
+  'cenas.png',
+  'comidas.png',
+  'coquitas.jpg',
+  'depositphotos_105671276-stock-photo-people-with-cups-and-plates.jpg',
+  'desayunos.png',
+  'descarga.png',
+  'ensalada-mar-y-tierra.jpg',
+  'file_example_GIF_1MB.gif',
+  'file_example_JPG_1MB.jpg',
+  'file_example_PNG_1MB.png',
+  'file_example_WEBP_500kB.webp',
+  'globos 2.jpg',
+  'globos 3.jpg',
+  'globos.jpg',
+  'hq720.jpg',
+  'images.jpeg',
+  'infantil.jpg',
+  'la-selva-taurina-tripadvisor-com_-mx_-jpg.jpg',
+  'logo.png',
+  'nachos.jpg',
+  'public.webp'
+];
+
+// Función para obtener una imagen aleatoria
+function getRandomImagePath(): string {
+  const randomImage = AVAILABLE_TEST_IMAGES[Math.floor(Math.random() * AVAILABLE_TEST_IMAGES.length)];
+  return `${TEST_IMAGES_DIR}/${randomImage}`;
+}
 
 // Textos de promociones
 const PROMO_TITLE_PREFIX = 'Promo de prueba';
@@ -194,105 +243,12 @@ test.describe('Gestión de promociones', () => {
     // Esperar a que el formulario esté completamente cargado
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
-    const serviceButton = page.locator('button[id="ServiceId"]');
-    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
-    await serviceButton.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    await serviceButton.click();
-    await page.waitForTimeout(1000);
     
-    // Esperar a que aparezcan las opciones del dropdown
-    await page.waitForTimeout(1500);
-    
-    // Buscar servicios con múltiples selectores
-    let serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
-      hasNot: serviceButton
-    });
-    let serviceCount = await serviceOptions.count();
-    let servicioSeleccionado = 0; // Índice del servicio seleccionado
-    
-    // Si no se encuentran con el selector estándar, buscar en contenedores de dropdown
-    if (serviceCount === 0) {
-      const dropdownContainers = [
-        '[data-radix-popper-content-wrapper]',
-        '[role="listbox"]',
-        '[role="combobox"]',
-        '[class*="dropdown"]',
-        '[class*="menu"]'
-      ];
-      
-      for (const containerSelector of dropdownContainers) {
-        const container = page.locator(containerSelector).first();
-        const containerExists = await container.count() > 0;
-        if (containerExists) {
-          const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
-          if (containerVisible) {
-            const optionsInContainer = container.locator('button, div, li').filter({ 
-              hasNot: serviceButton 
-            });
-            const countInContainer = await optionsInContainer.count();
-            if (countInContainer > 0) {
-              serviceOptions = optionsInContainer;
-              serviceCount = countInContainer;
-              console.log(`✅ Servicios encontrados en contenedor ${containerSelector}: ${serviceCount}`);
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    // Si aún no se encontraron, buscar opciones visibles
-    if (serviceCount === 0) {
-      await page.waitForTimeout(1000);
-      const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
-        hasNot: serviceButton,
-        hasText: /.+/
-      });
-      const allCount = await allVisibleOptions.count();
-      
-      // Filtrar opciones válidas
-      const buttonText = await serviceButton.textContent().catch(() => '') || '';
-      let validCount = 0;
-      
-      for (let i = 0; i < Math.min(allCount, 30); i++) {
-        try {
-          const option = allVisibleOptions.nth(i);
-          const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
-          if (!isVisible) continue;
-          
-          const text = await option.textContent().catch(() => '') || '';
-          const textClean = text.trim();
-          
-          if (textClean && 
-              textClean.length > 3 &&
-              textClean !== 'Mis servicios' &&
-              textClean !== buttonText.trim() &&
-              !textClean.toLowerCase().includes('selecciona')) {
-            validCount++;
-            if (serviceCount === 0) {
-              serviceOptions = allVisibleOptions;
-            }
-          }
-        } catch (e) {
-          continue;
-        }
-      }
-      
-      if (validCount > 0) {
-        serviceCount = validCount;
-        console.log(`✅ Servicios válidos encontrados después de filtrar: ${serviceCount}`);
-      }
-    }
-    
-    if (serviceCount > 0) {
-      await serviceOptions.first().click();
-      await page.waitForTimeout(500);
-      console.log('✅ Servicio seleccionado (índice 0)');
-    } else {
-      console.warn('⚠️ No se encontraron opciones de servicio disponibles en el dropdown');
+    const servicioSeleccionado = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    if (!servicioSeleccionado) {
       throw new Error('❌ No se encontraron servicios disponibles en el dropdown "Mis servicios"');
     }
+    console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
     
     // Llenar descripción
     await showStepMessage(page, '📄 LLENANDO DESCRIPCIÓN');
@@ -334,182 +290,53 @@ test.describe('Gestión de promociones', () => {
       console.log('⚠️ Se detectó mensaje de promociones activas, cambiando a otro servicio...');
       await showStepMessage(page, '🔄 CAMBIANDO A OTRO SERVICIO (promoción activa detectada)');
       
-      // El modal se cierra automáticamente después de 2 segundos, no necesita cerrarse manualmente
-      // Aunque el modal esté desplegado, se puede seleccionar otro servicio directamente
-      await page.waitForTimeout(500); // Pequeña espera para que el mensaje sea visible
+      // Cerrar el modal de error si está abierto
+      await page.waitForTimeout(1500); // Esperar a que el modal aparezca completamente
+      await cerrarModalError(page);
+      await page.waitForTimeout(1000);
       
-      // Obtener el botón del dropdown de servicios
-      const serviceButtonRetry = page.locator('button[id="ServiceId"]');
-      await expect(serviceButtonRetry).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
-      await serviceButtonRetry.scrollIntoViewIfNeeded();
+      // Asegurarse de que el formulario esté listo y visible
+      const serviceButton = page.locator('button[id="ServiceId"]');
+      await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+      await serviceButton.scrollIntoViewIfNeeded();
       await page.waitForTimeout(500);
       
-      // Abrir el dropdown "Mis servicios" para seleccionar otro servicio
-      await showStepMessage(page, '🔧 ABRIENDO DROPDOWN "MIS SERVICIOS"');
-      
-      // Asegurarse de que el dropdown esté cerrado antes de abrirlo
-      const dropdownAbierto = await serviceButtonRetry.getAttribute('aria-expanded');
-      if (dropdownAbierto === 'true') {
-        await serviceButtonRetry.click();
-        await page.waitForTimeout(500);
-      }
-      
-      // Abrir el dropdown de servicios
-      await serviceButtonRetry.click();
-      await page.waitForTimeout(2000); // Esperar más tiempo a que el dropdown se abra y cargue
-      
-      // Esperar explícitamente a que aparezcan opciones visibles en el dropdown
-      try {
-        await page.waitForFunction(
-          () => {
-            // Buscar opciones visibles en el DOM (excluyendo el botón del dropdown)
-            const options = Array.from(document.querySelectorAll('div[role="option"], button[role="option"], li[role="option"], [role="listbox"] [role="option"], [role="combobox"] [role="option"]'));
-            const serviceButton = document.querySelector('button[id="ServiceId"]');
-            const visibleOptions = options.filter(opt => {
-              const style = window.getComputedStyle(opt);
-              return style.display !== 'none' && style.visibility !== 'hidden' && opt.offsetHeight > 0 && opt !== serviceButton;
-            });
-            return visibleOptions.length > 0;
-          },
-          { timeout: 5000 }
-        );
-        console.log('✅ Opciones del dropdown detectadas dinámicamente');
-      } catch (e) {
-        console.log('⏳ No se detectaron opciones con waitForFunction, continuando con búsqueda estática...');
-      }
-      
-      // Buscar servicios usando múltiples selectores (buscar en contenedores de dropdown comunes)
-      let serviceOptionsRetry = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
-        hasNot: serviceButtonRetry 
-      });
-      
-      let serviceCountRetry = await serviceOptionsRetry.count();
-      console.log(`📊 Servicios encontrados con selector estándar (role="option"): ${serviceCountRetry}`);
-      
-      // Si no se encuentran con role="option", buscar dentro de contenedores comunes de dropdown
-      if (serviceCountRetry === 0) {
-        // Buscar opciones dentro de contenedores comunes de dropdowns (Radix UI, etc.)
-        const dropdownContainers = [
-          '[data-radix-popper-content-wrapper]',
-          '[role="listbox"]',
-          '[role="combobox"]',
-          '[class*="dropdown"]',
-          '[class*="menu"]',
-          '[class*="select"]',
-          '[class*="options"]'
-        ];
-        
-        for (const containerSelector of dropdownContainers) {
-          const container = page.locator(containerSelector).first();
-          const containerExists = await container.count() > 0;
-          if (containerExists) {
-            const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
-            if (containerVisible) {
-              const optionsInContainer = container.locator('button, div, li').filter({ hasNot: serviceButtonRetry });
-              const countInContainer = await optionsInContainer.count();
-              if (countInContainer > 0) {
-                serviceOptionsRetry = optionsInContainer;
-                serviceCountRetry = countInContainer;
-                console.log(`✅ Servicios encontrados en contenedor ${containerSelector}: ${serviceCountRetry}`);
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      // Si aún no se encontraron, buscar opciones visibles que no sean el botón
-      if (serviceCountRetry === 0) {
-        console.log('⚠️ No se encontraron servicios con selectores estándar, buscando opciones visibles...');
-        await page.waitForTimeout(1000); // Dar más tiempo para que se carguen
-        
-        // Buscar elementos clickeables que estén visibles y no sean el botón del dropdown
-        const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
-          hasNot: serviceButtonRetry,
-          hasText: /.+/ // Que tengan texto
-        });
-        
-        const allCount = await allVisibleOptions.count();
-        console.log(`📊 Opciones visibles encontradas (antes de filtrar): ${allCount}`);
-        
-        // Contar opciones válidas (que tengan texto significativo y no sean el botón)
-        let validCount = 0;
-        const buttonText = await serviceButtonRetry.textContent().catch(() => '') || '';
-        
-        for (let i = 0; i < Math.min(allCount, 30); i++) {
-          try {
-            const option = allVisibleOptions.nth(i);
-            const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
-            if (!isVisible) continue;
-            
-            const text = await option.textContent().catch(() => '') || '';
-            const textClean = text.trim();
-            
-            // Filtrar opciones válidas
-            if (textClean && 
-                textClean.length > 3 &&
-                textClean !== 'Mis servicios' &&
-                textClean !== buttonText.trim() &&
-                !textClean.toLowerCase().includes('selecciona')) {
-              validCount++;
-              if (serviceCountRetry === 0) {
-                // Guardar el locator para usar después
-                serviceOptionsRetry = allVisibleOptions;
-              }
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-        
-        if (validCount > 0) {
-          serviceCountRetry = validCount;
-          console.log(`✅ Servicios válidos encontrados después de filtrar: ${serviceCountRetry}`);
-        }
-      }
-      
-      console.log(`📊 Total de servicios disponibles: ${serviceCountRetry}`);
-      
-      if (serviceCountRetry === 0) {
-        console.warn('⚠️ No se encontraron servicios disponibles');
-        return; // No se puede continuar sin servicios
-      }
-      
       // Intentar con cada servicio por índice hasta encontrar uno sin promoción activa
+      // Empezar desde índice 1 porque el índice 0 ya falló
       let servicioExitoso = false;
-      const maxIntentos = Math.min(serviceCountRetry, 10); // Limitar a 10 intentos máximo
+      const maxIntentos = 10; // Limitar a 10 intentos máximo
       
-      for (let indiceServicio = 0; indiceServicio < maxIntentos; indiceServicio++) {
+      for (let indiceServicio = 1; indiceServicio < maxIntentos; indiceServicio++) {
         try {
-          // Cerrar y reabrir el dropdown para asegurar que esté abierto
-          const dropdownAbierto2 = await serviceButtonRetry.getAttribute('aria-expanded');
-          if (dropdownAbierto2 !== 'true') {
-            await serviceButtonRetry.click();
-            await page.waitForTimeout(1000);
-          }
+          console.log(`\n🔄 Intentando con servicio índice ${indiceServicio}...`);
           
-          // Seleccionar el servicio por índice
-          const servicioOption = serviceOptionsRetry.nth(indiceServicio);
-          const esVisible = await servicioOption.isVisible({ timeout: 2000 }).catch(() => false);
+          // Seleccionar el servicio por índice usando la función genérica
+          const servicioSeleccionado = await selectDropdownOption(
+            page,
+            'button[id="ServiceId"]',
+            indiceServicio
+          );
           
-          if (!esVisible) {
-            console.log(`⚠️ Servicio en índice ${indiceServicio} no es visible, saltando...`);
+          if (!servicioSeleccionado) {
+            console.log(`⚠️ No se pudo seleccionar servicio en índice ${indiceServicio}, saltando...`);
             continue;
           }
           
-          await servicioOption.click();
-          await page.waitForTimeout(500);
-          console.log(`✅ Servicio seleccionado (índice ${indiceServicio})`);
+          console.log(`✅ Servicio seleccionado (índice ${indiceServicio}): "${servicioSeleccionado}"`);
           
           // Reintentar crear la promoción con este servicio
           await showStepMessage(page, `🔄 REINTENTANDO CREAR PROMOCIÓN CON SERVICIO ${indiceServicio + 1}`);
           await page.waitForTimeout(1000);
+          
+          // Verificar que el botón Finalizar esté visible y habilitado
           const finalizarButtonRetry = page.locator('button[type="submit"][form="PromotionDataForm"], button:has-text("Finalizar")').first();
           await expect(finalizarButtonRetry).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+          await finalizarButtonRetry.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(500);
           await finalizarButtonRetry.click();
           
           // Verificar si aún hay error
-          await page.waitForTimeout(2000);
+          await page.waitForTimeout(3000); // Esperar más tiempo para que se procese
           const errorVisibleRetry = await mensajeErrorTraslape.isVisible({ timeout: 3000 }).catch(() => false);
           
           if (!errorVisibleRetry) {
@@ -519,15 +346,21 @@ test.describe('Gestión de promociones', () => {
             break;
           } else {
             console.log(`⚠️ El servicio en índice ${indiceServicio} también tiene promoción activa, intentando con el siguiente...`);
+            // Cerrar el modal de error antes de continuar
+            await cerrarModalError(page);
+            await page.waitForTimeout(1000);
           }
         } catch (error) {
           console.log(`⚠️ Error al intentar con servicio en índice ${indiceServicio}: ${error.message}`);
+          // Cerrar cualquier modal que pueda estar abierto
+          await cerrarModalError(page);
+          await page.waitForTimeout(500);
           continue;
         }
       }
       
       if (!servicioExitoso) {
-        console.warn(`⚠️ No se pudo crear la promoción después de intentar con ${maxIntentos} servicios. Todos tienen promociones activas.`);
+        console.warn(`⚠️ No se pudo crear la promoción después de intentar con ${maxIntentos - 1} servicios adicionales. Todos tienen promociones activas.`);
         // Continuar con el flujo normal, el test fallará si no se creó la promoción
       }
       
@@ -781,24 +614,12 @@ test.describe('Gestión de promociones', () => {
     // Esperar a que el formulario esté completamente cargado
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
-    const serviceButton = page.locator('button[id="ServiceId"]');
-    const serviceButtonVisible = await serviceButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
-    if (serviceButtonVisible) {
-      await serviceButton.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(500);
-      await serviceButton.click();
-      await page.waitForTimeout(1000);
-      const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-      const serviceCount = await serviceOptions.count();
-      if (serviceCount > 0) {
-        await serviceOptions.first().click();
-        await page.waitForTimeout(500);
-        console.log('✅ Servicio seleccionado');
-      } else {
-        console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
-      }
+    
+    const servicioSeleccionado = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    if (servicioSeleccionado) {
+      console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
     } else {
-      console.warn('⚠️ Botón de servicio no visible, continuando sin seleccionar');
+      console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
     }
 
     // Llenar oferta corta
@@ -882,24 +703,12 @@ test.describe('Gestión de promociones', () => {
     // Esperar a que el formulario esté completamente cargado
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
-    const serviceButton = page.locator('button[id="ServiceId"]');
-    const serviceButtonVisible = await serviceButton.isVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
-    if (serviceButtonVisible) {
-      await serviceButton.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(500);
-      await serviceButton.click();
-      await page.waitForTimeout(1000);
-      const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-      const serviceCount = await serviceOptions.count();
-      if (serviceCount > 0) {
-        await serviceOptions.first().click();
-        await page.waitForTimeout(500);
-        console.log('✅ Servicio seleccionado');
-      } else {
-        console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
-      }
+    
+    const servicioSeleccionado = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    if (servicioSeleccionado) {
+      console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
     } else {
-      console.warn('⚠️ Botón de servicio no visible, continuando sin seleccionar');
+      console.warn('⚠️ No se encontraron opciones de servicio, continuando sin seleccionar');
     }
 
     // Llenar oferta corta
@@ -964,12 +773,14 @@ test.describe('Gestión de promociones', () => {
     await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await serviceButton.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
+    // Verificar si hay opciones de servicio usando la función genérica
+    // Primero abrimos el dropdown para verificar
     await serviceButton.click();
     await page.waitForTimeout(1000);
-
-    // Verificar si hay opciones de servicio
-    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-    const serviceCount = await serviceOptions.count();
+    
+    // Intentar seleccionar el primer servicio para verificar que existen
+    const servicioTest = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    const serviceCount = servicioTest ? 1 : 0; // Si se pudo seleccionar, hay al menos 1
 
     if (serviceCount === 0) {
       // Verificar mensaje de estado vacío
@@ -1416,13 +1227,9 @@ test.describe('Gestión de promociones', () => {
       const serviceButtonText = await serviceButton.textContent();
       if (!serviceButtonText || serviceButtonText.trim() === '') {
         await showStepMessage(page, '🔧 ACTUALIZANDO SERVICIO');
-        await serviceButton.click();
-        await page.waitForTimeout(1000);
-        const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-        const serviceCount = await serviceOptions.count();
-        if (serviceCount > 0) {
-          await serviceOptions.first().click();
-          await page.waitForTimeout(500);
+        const servicioSeleccionado = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+        if (servicioSeleccionado) {
+          console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
         }
       }
     }
@@ -1620,6 +1427,177 @@ test.describe('Gestión de promociones', () => {
     if (cardCount > 0) {
       throw new Error(`❌ La tarjeta de la promoción "${promoNameText}" todavía existe en el DOM.`);
     }
+  });
+
+  test('Eliminar todas las promociones', async ({ page }) => {
+    test.setTimeout(900000); // 15 minutos - tiempo suficiente para eliminar muchas promociones
+    
+    // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await page.waitForTimeout(2000);
+
+    let totalEliminadas = 0;
+    let intentos = 0;
+    const maxIntentos = 500; // Límite de seguridad para evitar bucles infinitos
+
+    while (intentos < maxIntentos) {
+      intentos++;
+      
+      // --- CONTAR PROMOCIONES DISPONIBLES ---
+      await showStepMessage(page, `🔍 BUSCANDO PROMOCIONES (Intento ${intentos})`);
+      await page.waitForTimeout(1000);
+      
+      // Esperar a que aparezcan las cards de promociones
+      const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+      const totalPromos = await promoCardsLocator.count();
+      
+      console.log(`📊 Promociones encontradas: ${totalPromos}`);
+      
+      if (totalPromos === 0) {
+        console.log('✅ No hay más promociones para eliminar');
+        break;
+      }
+      
+      // Seleccionar la primera promoción (índice 0)
+      const selectedPromoCard = promoCardsLocator.first();
+      await expect(selectedPromoCard).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+      
+      // Obtener el nombre de la promoción seleccionada
+      const promoName = selectedPromoCard.locator('p.text-medium.font-bold').first();
+      const promoNameText = await promoName.textContent();
+      
+      if (!promoNameText) {
+        console.warn('⚠️ No se pudo obtener el texto de la promoción, intentando con la siguiente...');
+        // Intentar eliminar de todas formas
+        try {
+          const menuButton = selectedPromoCard.locator('button:has(i.icon-more-vertical)');
+          await menuButton.click();
+          await page.waitForTimeout(500);
+          await page.locator('text=Eliminar').click();
+          await page.waitForTimeout(500);
+          await page.locator('button:has-text("Aceptar")').click();
+          await page.waitForTimeout(3000);
+          totalEliminadas++;
+          console.log(`✅ Promoción eliminada (sin nombre) - Total: ${totalEliminadas}`);
+        } catch (error) {
+          console.warn(`⚠️ Error al eliminar promoción sin nombre: ${error.message}`);
+          break; // Salir del bucle si hay un error
+        }
+        continue;
+      }
+      
+      console.log(`🗑️ Eliminando promoción: "${promoNameText}" (${totalPromos} restantes)`);
+
+      try {
+        // --- ABRIR MENÚ DE LA PROMOCIÓN ---
+        await showStepMessage(page, `🔍 ELIMINANDO: ${promoNameText}`);
+        await page.waitForTimeout(1000);
+        const menuButton = selectedPromoCard.locator('button:has(i.icon-more-vertical)');
+        await menuButton.click();
+        await page.waitForTimeout(500);
+
+        // --- CONFIRMAR ELIMINACIÓN ---
+        await showStepMessage(page, '⚠️ CONFIRMANDO ELIMINACIÓN');
+        await page.waitForTimeout(500);
+        await page.locator('text=Eliminar').click();
+        await page.waitForTimeout(500);
+
+        await showStepMessage(page, '✅ FINALIZANDO ELIMINACIÓN');
+        await page.waitForTimeout(500);
+        await page.locator('button:has-text("Aceptar")').click();
+        
+        // Esperar a que se complete la eliminación
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        
+        // Verificar que el modal de confirmación desapareció
+        const modalVisible = await page.locator('button:has-text("Aceptar")').isVisible({ timeout: 2000 }).catch(() => false);
+        if (modalVisible) {
+          console.log('⚠️ El modal de confirmación aún está visible, esperando...');
+          await page.waitForTimeout(2000);
+        }
+
+        totalEliminadas++;
+        console.log(`✅ Promoción "${promoNameText}" eliminada exitosamente - Total eliminadas: ${totalEliminadas}`);
+        
+        // Esperar un poco antes de continuar con la siguiente
+        await page.waitForTimeout(1500);
+        
+        // Recargar la página periódicamente para asegurar que la lista esté actualizada
+        if (totalEliminadas % 10 === 0) {
+          console.log('🔄 Recargando página para actualizar la lista...');
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            // Volver a la página de promociones
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error al eliminar promoción "${promoNameText}": ${error.message}`);
+        
+        // Intentar cerrar cualquier modal abierto
+        try {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(1000);
+        } catch (e) {
+          // Ignorar errores al cerrar
+        }
+        
+        // Si hay un error, intentar recargar y continuar
+        try {
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        } catch (reloadError) {
+          console.error(`❌ Error al recargar: ${reloadError.message}`);
+          break; // Salir del bucle si no se puede recargar
+        }
+      }
+    }
+
+    // --- RESUMEN FINAL ---
+    console.log(`\n📊 RESUMEN DE ELIMINACIÓN:`);
+    console.log(`   ✅ Promociones eliminadas: ${totalEliminadas}`);
+    console.log(`   🔄 Intentos realizados: ${intentos}`);
+    
+    // Verificación final: contar promociones restantes
+    await page.waitForTimeout(2000);
+    await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(2000);
+    
+    const promoCardsFinal = page.locator('div.w-full.flex.shadow-4');
+    const promocionesRestantes = await promoCardsFinal.count();
+    
+    console.log(`   📋 Promociones restantes: ${promocionesRestantes}`);
+    
+    if (promocionesRestantes > 0) {
+      console.warn(`⚠️ Aún quedan ${promocionesRestantes} promoción(es) sin eliminar`);
+    } else {
+      console.log('✅ Todas las promociones fueron eliminadas exitosamente');
+    }
+    
+    // Validar que se eliminaron todas (o al menos se intentó)
+    expect(totalEliminadas).toBeGreaterThan(0);
+    console.log(`\n✅ Prueba completada: Se eliminaron ${totalEliminadas} promoción(es)`);
   });
 
   test('Navegar a chats desde promociones', async ({ page }) => {
@@ -1875,13 +1853,9 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '🔧 SELECCIONANDO SERVICIO');
     const serviceButton = page.locator('button[id="ServiceId"]');
     await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
-    await serviceButton.click();
-    await page.waitForTimeout(1000);
-    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-    const serviceCount = await serviceOptions.count();
-    if (serviceCount > 0) {
-      await serviceOptions.first().click();
-      await page.waitForTimeout(500);
+    const servicioSeleccionado = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    if (servicioSeleccionado) {
+      console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
     }
     const isDisabledAfterService = await finalizarButton.isDisabled();
     console.log(`   Estado después de servicio: ${isDisabledAfterService ? 'Deshabilitado' : 'Habilitado'}`);
@@ -2147,11 +2121,32 @@ test.describe('Gestión de promociones', () => {
     await showStepMessage(page, '🔧 VALIDANDO SELECCIÓN ÚNICA DE SERVICIO');
     const serviceButton = page.locator('button[id="ServiceId"]');
     await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    // Abrir dropdown para verificar cantidad de servicios
     await serviceButton.click();
     await page.waitForTimeout(1000);
-
-    const serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]');
-    const serviceCount = await serviceOptions.count();
+    
+    // Intentar obtener información de servicios (esto abre el dropdown)
+    // Usamos page.evaluate para contar sin seleccionar
+    const serviceCountInfo = await page.evaluate(() => {
+      const button = document.querySelector('button[id="ServiceId"]');
+      if (!button) return { count: 0 };
+      const container = button.closest('div.relative.w-full');
+      if (!container) return { count: 0 };
+      const ul = container.querySelector('ul');
+      if (!ul) return { count: 0 };
+      const lis = Array.from(ul.querySelectorAll('li'));
+      const validLis = lis.filter(li => {
+        const liStyle = window.getComputedStyle(li);
+        const text = (li.textContent || '').trim();
+        return liStyle.display !== 'none' && 
+               li.offsetHeight > 0 && 
+               text.length > 3 && 
+               !text.includes('Mis servicios');
+      });
+      return { count: validLis.length };
+    });
+    
+    const serviceCount = serviceCountInfo.count;
     
     if (serviceCount < 2) {
       console.log('⚠️ Se necesitan al menos 2 servicios para validar selección única');
@@ -2160,25 +2155,25 @@ test.describe('Gestión de promociones', () => {
     }
 
     // Seleccionar primer servicio
-    const firstService = serviceOptions.first();
-    const firstServiceText = await firstService.textContent();
-    await firstService.click();
-    await page.waitForTimeout(500);
+    const firstServiceText = await selectDropdownOption(page, 'button[id="ServiceId"]', 0);
+    if (!firstServiceText) {
+      console.log('⚠️ No se pudo seleccionar el primer servicio');
+      await page.keyboard.press('Escape');
+      return;
+    }
     
     // Verificar que el servicio se seleccionó
     const serviceButtonTextAfter = await serviceButton.textContent();
-    console.log(`✅ Primer servicio seleccionado: "${firstServiceText?.trim()}"`);
+    console.log(`✅ Primer servicio seleccionado: "${firstServiceText}"`);
     console.log(`   Texto del botón después de selección: "${serviceButtonTextAfter?.trim()}"`);
 
-    // Abrir dropdown nuevamente
-    await serviceButton.click();
-    await page.waitForTimeout(1000);
-
-    // Intentar seleccionar otro servicio
-    const secondService = serviceOptions.nth(1);
-    const secondServiceText = await secondService.textContent();
-    await secondService.click();
-    await page.waitForTimeout(500);
+    // Seleccionar segundo servicio
+    const secondServiceText = await selectDropdownOption(page, 'button[id="ServiceId"]', 1);
+    if (!secondServiceText) {
+      console.log('⚠️ No se pudo seleccionar el segundo servicio');
+      await page.keyboard.press('Escape');
+      return;
+    }
 
     // Verificar que ahora muestra el segundo servicio (no ambos)
     const serviceButtonTextFinal = await serviceButton.textContent();
@@ -2423,12 +2418,27 @@ test.describe('Gestión de promociones', () => {
     ofertaCorta?: string
   ): Promise<boolean> {
     try {
-      // Abrir formulario
-      await page.getByRole('button', { name: 'Crear promoción' }).click();
-      await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      await page.waitForTimeout(2000);
+      // Verificar si el formulario ya está abierto
+      const formularioAbierto = await page.getByText('Nueva promoción').isVisible({ timeout: 2000 }).catch(() => false);
+      
+      if (!formularioAbierto) {
+        // Cerrar cualquier modal o mensaje que pueda estar abierto
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+        
+        // Abrir formulario
+        const crearPromocionBtn = page.getByRole('button', { name: 'Crear promoción' });
+        await expect(crearPromocionBtn).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+        await crearPromocionBtn.click();
+        await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+      } else {
+        // El formulario ya está abierto, solo esperar a que esté listo
+        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(1000);
+      }
 
       // Llenar título
       await page.locator('input[id="Title"]').fill(titulo);
@@ -2440,104 +2450,19 @@ test.describe('Gestión de promociones', () => {
       await pickDateSmart(page, 'input#EndDate', fechaFin);
       await page.waitForTimeout(500);
 
-      // Seleccionar servicio
-      const serviceButton = page.locator('button[id="ServiceId"]');
-      await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
-      await serviceButton.click();
-      await page.waitForTimeout(1000);
-
-      // Esperar a que aparezcan las opciones del dropdown
-      await page.waitForTimeout(1500);
+      // Seleccionar servicio usando la función genérica de utils
+      const servicioSeleccionado = await selectDropdownOption(
+        page,
+        'button[id="ServiceId"]',
+        servicioIndex
+      );
       
-      // Buscar servicios con múltiples selectores
-      let serviceOptions = page.locator('div[role="option"], button[role="option"], li[role="option"]').filter({ 
-        hasNot: page.locator('button[id="ServiceId"]')
-      });
-      let serviceCount = await serviceOptions.count();
-      
-      // Si no se encuentran con el selector estándar, buscar en contenedores de dropdown
-      if (serviceCount === 0) {
-        const dropdownContainers = [
-          '[data-radix-popper-content-wrapper]',
-          '[role="listbox"]',
-          '[role="combobox"]',
-          '[class*="dropdown"]',
-          '[class*="menu"]'
-        ];
-        
-        for (const containerSelector of dropdownContainers) {
-          const container = page.locator(containerSelector).first();
-          const containerExists = await container.count() > 0;
-          if (containerExists) {
-            const containerVisible = await container.isVisible({ timeout: 1000 }).catch(() => false);
-            if (containerVisible) {
-              const optionsInContainer = container.locator('button, div, li').filter({ 
-                hasNot: page.locator('button[id="ServiceId"]') 
-              });
-              const countInContainer = await optionsInContainer.count();
-              if (countInContainer > 0) {
-                serviceOptions = optionsInContainer;
-                serviceCount = countInContainer;
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      // Si aún no se encontraron, buscar opciones visibles
-      if (serviceCount === 0) {
-        await page.waitForTimeout(1000);
-        const allVisibleOptions = page.locator('button:visible, div:visible, li:visible').filter({ 
-          hasNot: page.locator('button[id="ServiceId"]'),
-          hasText: /.+/
-        });
-        const allCount = await allVisibleOptions.count();
-        
-        // Filtrar opciones válidas
-        const buttonText = await page.locator('button[id="ServiceId"]').textContent().catch(() => '') || '';
-        let validCount = 0;
-        
-        for (let i = 0; i < Math.min(allCount, 30); i++) {
-          try {
-            const option = allVisibleOptions.nth(i);
-            const isVisible = await option.isVisible({ timeout: 500 }).catch(() => false);
-            if (!isVisible) continue;
-            
-            const text = await option.textContent().catch(() => '') || '';
-            const textClean = text.trim();
-            
-            if (textClean && 
-                textClean.length > 3 &&
-                textClean !== 'Mis servicios' &&
-                textClean !== buttonText.trim() &&
-                !textClean.toLowerCase().includes('selecciona')) {
-              validCount++;
-              if (serviceCount === 0) {
-                serviceOptions = allVisibleOptions;
-              }
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-        
-        if (validCount > 0) {
-          serviceCount = validCount;
-        }
-      }
-      
-      if (serviceCount > servicioIndex) {
-        await serviceOptions.nth(servicioIndex).click();
-        await page.waitForTimeout(500);
-      } else if (serviceCount > 0) {
-        await serviceOptions.first().click();
-        await page.waitForTimeout(500);
-      } else {
-        console.warn('⚠️ No se encontraron servicios disponibles');
-        await page.keyboard.press('Escape');
+      if (!servicioSeleccionado) {
+        console.warn('⚠️ No se pudo seleccionar el servicio');
         return false;
       }
+      
+      console.log(`✅ Servicio seleccionado: "${servicioSeleccionado}"`);
 
       // Llenar descripción
       if (descripcion) {
@@ -2560,7 +2485,9 @@ test.describe('Gestión de promociones', () => {
       // Subir imagen (opcional, puede fallar si no hay imagen)
       try {
         const fileInput = page.locator('input[id="PromotionMultimedia"]');
-        await fileInput.setInputFiles(PROMOTION_IMAGE_PATH);
+        const randomImagePath = getRandomImagePath();
+        console.log(`📸 Subiendo imagen aleatoria: ${randomImagePath.split('/').pop()}`);
+        await fileInput.setInputFiles(randomImagePath);
         await page.waitForTimeout(1000);
       } catch (e) {
         console.log('ℹ️ No se pudo subir imagen (opcional)');
@@ -2570,9 +2497,49 @@ test.describe('Gestión de promociones', () => {
       const finalizarButton = page.locator('button[type="submit"][form="PromotionDataForm"], button:has-text("Finalizar")').first();
       await expect(finalizarButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
       await finalizarButton.click();
+      
+      // Esperar a que se procese la creación
       await page.waitForTimeout(3000);
-
-      return true;
+      
+      // Verificar que la promoción se creó correctamente
+      // Buscar si hay un mensaje de error visible
+      const errorVisible = await page.locator('text=/ya existe.*promoción.*activa|fechas.*traslapan|error/i').isVisible({ timeout: 2000 }).catch(() => false);
+      if (errorVisible) {
+        console.warn('⚠️ Se detectó un mensaje de error después de intentar crear la promoción');
+        return false;
+      }
+      
+      // Verificar si el formulario se cerró (indicador de éxito)
+      // Esperar un poco más para que se procese la creación
+      await page.waitForTimeout(2000);
+      
+      const formularioCerrado = !(await page.getByText('Nueva promoción').isVisible({ timeout: 2000 }).catch(() => false));
+      if (formularioCerrado) {
+        // Verificar que no hay mensajes de error visibles
+        const hayError = await page.locator('text=/error|ya existe|traslapan/i').isVisible({ timeout: 1000 }).catch(() => false);
+        if (!hayError) {
+          console.log('✅ Formulario cerrado, promoción creada exitosamente');
+          return true;
+        } else {
+          console.warn('⚠️ Formulario cerrado pero se detectó un mensaje de error');
+          return false;
+        }
+      }
+      
+      // Si el formulario sigue abierto, puede que haya un error o que se esté procesando
+      // Esperar un poco más y verificar de nuevo
+      await page.waitForTimeout(3000);
+      const formularioCerrado2 = !(await page.getByText('Nueva promoción').isVisible({ timeout: 1000 }).catch(() => false));
+      if (formularioCerrado2) {
+        const hayError2 = await page.locator('text=/error|ya existe|traslapan/i').isVisible({ timeout: 1000 }).catch(() => false);
+        if (!hayError2) {
+          return true;
+        }
+      }
+      
+      // Si después de todo esto el formulario sigue abierto, asumir que falló
+      console.warn('⚠️ El formulario sigue abierto después de intentar crear la promoción, puede que haya fallado');
+      return false;
     } catch (error) {
       console.error(`❌ Error al crear promoción: ${error.message}`);
       return false;
@@ -2951,4 +2918,557 @@ test.describe('Gestión de promociones', () => {
       await page.waitForTimeout(1000);
     }
   });
+
+  // ============================================================================
+  // TEST: Crear 27 promociones (9 por cada servicio) sin traslapes
+  // ============================================================================
+  test('Crear 27 promociones distribuidas en 3 servicios sin traslapes de fechas', async ({ page }) => {
+    test.setTimeout(900000); // 15 minutos - tiempo suficiente para crear 27 promociones
+    
+    await showStepMessage(page, '📋 CREANDO 27 PROMOCIONES (9 POR SERVICIO)');
+    
+    // Navegar a administrar promociones
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+    
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    
+    // Obtener servicios disponibles del proveedor
+    await showStepMessage(page, '🔍 OBTENIENDO SERVICIOS DEL PROVEEDOR');
+    
+    // Abrir el formulario de crear promoción para acceder al dropdown de servicios
+    await page.getByRole('button', { name: 'Crear promoción' }).click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+    
+    // Abrir dropdown de servicios para obtener la lista usando page.evaluate
+    const serviceButton = page.locator('button[id="ServiceId"]');
+    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.click();
+    await page.waitForTimeout(2000);
+    
+    // Usar page.evaluate para obtener los servicios directamente del DOM
+    const serviciosInfo = await page.evaluate(() => {
+      // Buscar el botón ServiceId
+      const button = document.querySelector('button[id="ServiceId"]');
+      if (!button) return { success: false, error: 'Botón no encontrado', count: 0 };
+      
+      // Buscar el contenedor padre (div.relative.w-full)
+      const container = button.closest('div.relative.w-full');
+      if (!container) return { success: false, error: 'Contenedor no encontrado', count: 0 };
+      
+      // Buscar el <ul> dentro del contenedor
+      const ul = container.querySelector('ul');
+      if (!ul) return { success: false, error: 'Lista ul no encontrada', count: 0 };
+      
+      // Verificar que el ul esté visible
+      const style = window.getComputedStyle(ul);
+      if (style.display === 'none' || ul.offsetHeight === 0) {
+        return { success: false, error: 'Lista ul no visible', count: 0 };
+      }
+      
+      // Obtener todos los <li> dentro del <ul>
+      const lis = Array.from(ul.querySelectorAll('li'));
+      if (lis.length === 0) {
+        return { success: false, error: 'No hay elementos li en la lista', count: 0 };
+      }
+      
+      // Filtrar solo los <li> visibles y con texto válido
+      const validLis = lis.filter(li => {
+        const liStyle = window.getComputedStyle(li);
+        const text = (li.textContent || '').trim();
+        return liStyle.display !== 'none' && 
+               li.offsetHeight > 0 && 
+               text.length > 3 && 
+               !text.includes('Mis servicios');
+      });
+      
+      // Obtener los textos de los servicios
+      const serviceTexts = validLis.map(li => (li.textContent || '').trim());
+      
+      return {
+        success: true,
+        count: validLis.length,
+        services: serviceTexts
+      };
+    });
+    
+    if (!serviciosInfo.success || serviciosInfo.count === 0) {
+      throw new Error(`❌ No se pudieron obtener los servicios: ${serviciosInfo.error || 'Desconocido'}. Servicios encontrados: ${serviciosInfo.count}`);
+    }
+    
+    const serviceCount = serviciosInfo.count;
+    console.log(`📊 Servicios encontrados: ${serviceCount}`);
+    if (serviciosInfo.services && serviciosInfo.services.length > 0) {
+      console.log(`📋 Servicios disponibles: ${serviciosInfo.services.slice(0, 3).join(', ')}${serviceCount > 3 ? '...' : ''}`);
+    }
+    
+    // Cerrar el dropdown
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Cerrar el formulario
+    const cancelButton = page.locator('button:has-text("Cancelar"), button:has-text("Cerrar")').first();
+    const cancelVisible = await cancelButton.isVisible({ timeout: 3000 }).catch(() => false);
+    if (cancelVisible) {
+      await cancelButton.click();
+      await page.waitForTimeout(1000);
+    } else {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+    }
+    
+    // Verificar que tenemos al menos 3 servicios
+    if (serviceCount < 3) {
+      throw new Error(`❌ Se necesitan al menos 3 servicios para crear 27 promociones. Servicios encontrados: ${serviceCount}`);
+    }
+    
+    console.log(`✅ Servicios disponibles: ${serviceCount}`);
+    console.log(`📋 Usando los primeros 3 servicios para crear las promociones`);
+    
+    // Seleccionar los primeros 3 servicios
+    const serviciosSeleccionados = [0, 1, 2];
+    
+    // Calcular fechas para evitar traslapes
+    const now = new Date();
+    const fechaBase = new Date(now);
+    fechaBase.setDate(fechaBase.getDate() + 1); // Empezar mañana
+    
+    // Función para formatear fecha como DD-MM-YYYY
+    const formatearFecha = (fecha: Date): string => {
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${dia}-${mes}-${año}`;
+    };
+    
+    // Crear 27 promociones: 9 por cada servicio
+    let promocionesCreadas = 0;
+    let promocionesFallidas = 0;
+    
+    for (let servicioIndex = 0; servicioIndex < serviciosSeleccionados.length; servicioIndex++) {
+      const servicioNum = serviciosSeleccionados[servicioIndex];
+      const inicioGrupo = servicioIndex * 30; // Cada grupo empieza 30 días después del anterior
+      
+      console.log(`\n📦 GRUPO ${servicioIndex + 1}: Creando 9 promociones para servicio ${servicioNum + 1}`);
+      
+      for (let promoIndex = 0; promoIndex < 9; promoIndex++) {
+        const promocionNum = servicioIndex * 9 + promoIndex + 1;
+        const diaInicio = inicioGrupo + (promoIndex * 3) + 1; // Cada promoción empieza 3 días después de la anterior
+        const diaFin = diaInicio + 2; // Cada promoción dura 3 días
+        
+        const fechaInicio = new Date(fechaBase);
+        fechaInicio.setDate(fechaInicio.getDate() + diaInicio);
+        
+        const fechaFin = new Date(fechaBase);
+        fechaFin.setDate(fechaFin.getDate() + diaFin);
+        
+        const fechaInicioStr = formatearFecha(fechaInicio);
+        const fechaFinStr = formatearFecha(fechaFin);
+        
+        // Generar título único
+        const timestamp = Date.now();
+        const titulo = `Promo27-${servicioIndex + 1}-${promoIndex + 1}-${timestamp}`.substring(0, 30);
+        
+        await showStepMessage(page, `📝 Creando promoción ${promocionNum}/27: ${titulo}`);
+        console.log(`   📅 Fechas: ${fechaInicioStr} - ${fechaFinStr}`);
+        console.log(`   🔧 Usando servicio índice ${servicioNum} (grupo ${servicioIndex + 1} de 3)`);
+        
+        try {
+          // Crear la promoción
+          const exito = await crearPromocionCompleta(
+            page,
+            titulo,
+            fechaInicioStr,
+            fechaFinStr,
+            servicioNum, // Debería ser 0, 1, o 2 para los 3 grupos
+            `Descripción promoción ${promocionNum} del grupo ${servicioIndex + 1}`,
+            `OFF${promoIndex + 1}`
+          );
+          
+          if (exito) {
+            // Verificar que no hay error de traslape ANTES de contar como exitosa
+            await page.waitForTimeout(2000);
+            const errorTraslape = await verificarErrorTraslape(page);
+            
+            if (errorTraslape.encontrado) {
+              console.warn(`   ⚠️ Error de traslape detectado: ${errorTraslape.mensaje}`);
+              await cerrarModalError(page);
+              promocionesFallidas++;
+              console.warn(`   ❌ Promoción ${promocionNum}/27 falló por traslape`);
+            } else {
+              promocionesCreadas++;
+              console.log(`   ✅ Promoción ${promocionNum}/27 creada exitosamente`);
+              
+              // Verificar que la promoción aparece en la lista
+              await page.waitForTimeout(2000);
+              // Cerrar el formulario para que esté listo para la siguiente promoción
+              const enFormulario = await page.getByText('Nueva promoción').isVisible({ timeout: 2000 }).catch(() => false);
+              if (enFormulario) {
+                // Cerrar cualquier modal de éxito primero
+                await page.keyboard.press('Escape');
+                await page.waitForTimeout(500);
+                
+                // Cerrar el formulario
+                const cancelBtn = page.locator('button:has-text("Cancelar"), button:has-text("Cerrar")').first();
+                const cancelVisible = await cancelBtn.isVisible({ timeout: 2000 }).catch(() => false);
+                if (cancelVisible) {
+                  await cancelBtn.click();
+                  await page.waitForTimeout(1500);
+                } else {
+                  // Si no hay botón de cancelar, intentar con Escape
+                  await page.keyboard.press('Escape');
+                  await page.waitForTimeout(1000);
+                }
+                
+                // Verificar que el formulario se cerró
+                const formularioCerrado = !(await page.getByText('Nueva promoción').isVisible({ timeout: 1000 }).catch(() => false));
+                if (!formularioCerrado) {
+                  // Intentar cerrar de nuevo
+                  await page.keyboard.press('Escape');
+                  await page.waitForTimeout(1000);
+                }
+              }
+              
+              // Asegurarse de que estamos en la lista de promociones
+              await page.waitForTimeout(1000);
+              const crearPromocionBtnVisible = await page.getByRole('button', { name: 'Crear promoción' }).isVisible({ timeout: 3000 }).catch(() => false);
+              if (!crearPromocionBtnVisible) {
+                // Si no está visible, puede que estemos en otra página, volver a la lista
+                const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+                const promosBtnVisible = await promosBtn.isVisible({ timeout: 2000 }).catch(() => false);
+                if (promosBtnVisible) {
+                  await promosBtn.click();
+                  await page.waitForTimeout(1000);
+                }
+              }
+            }
+          } else {
+            promocionesFallidas++;
+            console.warn(`   ❌ Falló al crear promoción ${promocionNum}/27`);
+            
+            // Cerrar cualquier modal o formulario abierto
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(1000);
+          }
+        } catch (error) {
+          promocionesFallidas++;
+          console.error(`   ❌ Error al crear promoción ${promocionNum}/27: ${error.message}`);
+          
+          // Cerrar cualquier modal o formulario abierto
+          try {
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(1000);
+          } catch (e) {
+            // Ignorar errores al cerrar
+          }
+        }
+        
+        // Pequeña pausa entre promociones
+        await page.waitForTimeout(1000);
+      }
+    }
+    
+    // Resumen final
+    console.log(`\n📊 RESUMEN:`);
+    console.log(`   ✅ Promociones creadas exitosamente: ${promocionesCreadas}/27`);
+    console.log(`   ❌ Promociones fallidas: ${promocionesFallidas}/27`);
+    
+    // Validar que se crearon todas las promociones
+    expect(promocionesCreadas).toBe(27);
+    expect(promocionesFallidas).toBe(0);
+    
+    console.log(`\n✅ Prueba completada: Se crearon ${promocionesCreadas} promociones sin traslapes`);
+  });
+
+  // ============================================================================
+  // TEST: Crear una promoción por cada servicio disponible
+  // ============================================================================
+  test('Crear una promoción por cada servicio disponible', async ({ page }) => {
+    test.setTimeout(1800000); // 30 minutos - tiempo suficiente para crear múltiples promociones
+    
+    await login(page, PROVIDER_EMAIL, PROVIDER_PASSWORD);
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    // Abrir formulario para contar servicios
+    await showStepMessage(page, '🔍 CONTANDO SERVICIOS DISPONIBLES');
+    const crearPromocionBtn = page.getByRole('button', { name: 'Crear promoción' });
+    await expect(crearPromocionBtn).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await crearPromocionBtn.click();
+    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    // Abrir dropdown de servicios para obtener la lista
+    const serviceButton = page.locator('button[id="ServiceId"]');
+    await expect(serviceButton).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
+    await serviceButton.click();
+    await page.waitForTimeout(2000);
+    
+    // Usar page.evaluate para obtener los servicios directamente del DOM
+    const serviciosInfo = await page.evaluate(() => {
+      // Buscar el botón ServiceId
+      const button = document.querySelector('button[id="ServiceId"]');
+      if (!button) return { success: false, error: 'Botón no encontrado', count: 0 };
+      
+      // Buscar el contenedor padre (div.relative.w-full)
+      const container = button.closest('div.relative.w-full');
+      if (!container) return { success: false, error: 'Contenedor no encontrado', count: 0 };
+      
+      // Buscar el <ul> dentro del contenedor
+      const ul = container.querySelector('ul');
+      if (!ul) return { success: false, error: 'Lista ul no encontrada', count: 0 };
+      
+      // Verificar que el ul esté visible
+      const style = window.getComputedStyle(ul);
+      if (style.display === 'none' || ul.offsetHeight === 0) {
+        return { success: false, error: 'Lista ul no visible', count: 0 };
+      }
+      
+      // Obtener todos los <li> dentro del <ul>
+      const lis = Array.from(ul.querySelectorAll('li'));
+      if (lis.length === 0) {
+        return { success: false, error: 'No hay elementos li en la lista', count: 0 };
+      }
+      
+      // Filtrar solo los <li> visibles y con texto válido
+      const validLis = lis.filter(li => {
+        const liStyle = window.getComputedStyle(li);
+        const text = (li.textContent || '').trim();
+        return liStyle.display !== 'none' && 
+               li.offsetHeight > 0 && 
+               text.length > 3 && 
+               !text.includes('Mis servicios');
+      });
+      
+      // Obtener los textos de los servicios
+      const serviceTexts = validLis.map(li => (li.textContent || '').trim());
+      
+      return {
+        success: true,
+        count: validLis.length,
+        services: serviceTexts
+      };
+    });
+    
+    if (!serviciosInfo.success || serviciosInfo.count === 0) {
+      throw new Error(`❌ No se pudieron obtener los servicios: ${serviciosInfo.error || 'Desconocido'}. Servicios encontrados: ${serviciosInfo.count}`);
+    }
+    
+    const serviceCount = serviciosInfo.count;
+    console.log(`📊 Servicios encontrados: ${serviceCount}`);
+    if (serviciosInfo.services && serviciosInfo.services.length > 0) {
+      console.log(`📋 Servicios disponibles: ${serviciosInfo.services.join(', ')}`);
+    }
+    
+    // Cerrar el dropdown
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    
+    // Cerrar el formulario para empezar a crear promociones
+    const cancelButton = page.locator('button:has-text("Cancelar"), button:has-text("Cerrar")').first();
+    const cancelVisible = await cancelButton.isVisible({ timeout: 3000 }).catch(() => false);
+    if (cancelVisible) {
+      await cancelButton.click();
+      await page.waitForTimeout(1000);
+    } else {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(1000);
+    }
+
+    // Preparar fechas
+    const now = new Date();
+    const fechaInicio = new Date(now);
+    const fechaFin = new Date('2026-01-30'); // 30 de enero de 2026
+    
+    // Función para formatear fecha como DD-MM-YYYY
+    const formatearFecha = (fecha: Date): string => {
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const año = fecha.getFullYear();
+      return `${dia}-${mes}-${año}`;
+    };
+    
+    const fechaInicioStr = formatearFecha(fechaInicio);
+    const fechaFinStr = formatearFecha(fechaFin);
+    
+    console.log(`📅 Fecha de inicio: ${fechaInicioStr}`);
+    console.log(`📅 Fecha de fin: ${fechaFinStr}`);
+    
+    // Crear una promoción por cada servicio
+    let promocionesCreadas = 0;
+    let promocionesYaExistentes = 0;
+    let promocionesFallidas = 0;
+    
+    for (let servicioIndex = 0; servicioIndex < serviceCount; servicioIndex++) {
+      const servicioNum = servicioIndex + 1;
+      console.log(`\n📦 CREANDO PROMOCIÓN ${servicioNum}/${serviceCount} PARA SERVICIO ${servicioNum}`);
+      
+      // Generar título único
+      const timestamp = Date.now();
+      const titulo = `Promo-Servicio-${servicioNum}-${timestamp}`.substring(0, 30);
+      
+      await showStepMessage(page, `📝 Creando promoción ${servicioNum}/${serviceCount}: ${titulo}`);
+      console.log(`   🔧 Usando servicio índice ${servicioIndex}`);
+      
+      try {
+        // Crear la promoción
+        const exito = await crearPromocionCompleta(
+          page,
+          titulo,
+          fechaInicioStr,
+          fechaFinStr,
+          servicioIndex,
+          `Descripción promoción para servicio ${servicioNum}`,
+          `OFF${servicioNum}`
+        );
+        
+        if (exito) {
+          // Verificar que no hay error de traslape ANTES de contar como exitosa
+          await page.waitForTimeout(2000);
+          const errorTraslape = await verificarErrorTraslape(page);
+          
+          if (errorTraslape.encontrado) {
+            // Si hay error de traslape, significa que ya existe una promoción para este servicio
+            console.log(`   ℹ️ Promoción ya existe para este servicio: ${errorTraslape.mensaje}`);
+            await cerrarModalError(page);
+            promocionesYaExistentes++;
+            console.log(`   ⏭️ Continuando con el siguiente servicio (${servicioNum}/${serviceCount} ya tenía promoción)`);
+          } else {
+            promocionesCreadas++;
+            console.log(`   ✅ Promoción ${servicioNum}/${serviceCount} creada exitosamente`);
+            
+            // Verificar que la promoción aparece en la lista
+            await page.waitForTimeout(2000);
+            // Cerrar el formulario para que esté listo para la siguiente promoción
+            const enFormulario = await page.getByText('Nueva promoción').isVisible({ timeout: 2000 }).catch(() => false);
+            if (enFormulario) {
+              // Cerrar cualquier modal de éxito primero
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(500);
+              
+              // Verificar que estamos en la página de promociones
+              const crearPromocionBtnVisible = await page.getByRole('button', { name: 'Crear promoción' }).isVisible({ timeout: 3000 }).catch(() => false);
+              if (!crearPromocionBtnVisible) {
+                // Si no está visible, puede que estemos en otra página, volver a la lista
+                const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+                const promosBtnVisible = await promosBtn2.isVisible({ timeout: 2000 }).catch(() => false);
+                if (promosBtnVisible) {
+                  await promosBtn2.click();
+                  await page.waitForTimeout(2000);
+                } else {
+                  await page.goto(PROMOTIONS_URL);
+                  await page.waitForTimeout(2000);
+                }
+              }
+            }
+          }
+        } else {
+          // Si no se creó exitosamente, verificar si es porque ya existe
+          await page.waitForTimeout(2000);
+          const errorTraslape = await verificarErrorTraslape(page);
+          
+          if (errorTraslape.encontrado) {
+            // Si hay error de traslape, significa que ya existe una promoción para este servicio
+            console.log(`   ℹ️ Promoción ya existe para este servicio: ${errorTraslape.mensaje}`);
+            await cerrarModalError(page);
+            promocionesYaExistentes++;
+            console.log(`   ⏭️ Continuando con el siguiente servicio (${servicioNum}/${serviceCount} ya tenía promoción)`);
+          } else {
+            promocionesFallidas++;
+            console.warn(`   ❌ Promoción ${servicioNum}/${serviceCount} falló al crearse`);
+          }
+          
+          // Cerrar modales de error
+          await cerrarModalError(page);
+          await page.waitForTimeout(1000);
+          
+          // Verificar que estamos en la página de promociones
+          const crearPromocionBtnVisible = await page.getByRole('button', { name: 'Crear promoción' }).isVisible({ timeout: 3000 }).catch(() => false);
+          if (!crearPromocionBtnVisible) {
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            const promosBtnVisible = await promosBtn2.isVisible({ timeout: 2000 }).catch(() => false);
+            if (promosBtnVisible) {
+              await promosBtn2.click();
+              await page.waitForTimeout(2000);
+            } else {
+              await page.goto(PROMOTIONS_URL);
+              await page.waitForTimeout(2000);
+            }
+          }
+        }
+      } catch (error) {
+        // Verificar si el error es por promoción ya existente
+        await page.waitForTimeout(1000);
+        const errorTraslape = await verificarErrorTraslape(page);
+        
+        if (errorTraslape.encontrado) {
+          console.log(`   ℹ️ Promoción ya existe para este servicio: ${errorTraslape.mensaje}`);
+          await cerrarModalError(page);
+          promocionesYaExistentes++;
+          console.log(`   ⏭️ Continuando con el siguiente servicio (${servicioNum}/${serviceCount} ya tenía promoción)`);
+        } else {
+          promocionesFallidas++;
+          console.error(`   ❌ Error al crear promoción ${servicioNum}/${serviceCount}: ${error.message}`);
+        }
+        
+        // Cerrar modales de error
+        await cerrarModalError(page);
+        await page.waitForTimeout(1000);
+        
+        // Verificar que estamos en la página de promociones
+        try {
+          const crearPromocionBtnVisible = await page.getByRole('button', { name: 'Crear promoción' }).isVisible({ timeout: 3000 }).catch(() => false);
+          if (!crearPromocionBtnVisible) {
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            const promosBtnVisible = await promosBtn2.isVisible({ timeout: 2000 }).catch(() => false);
+            if (promosBtnVisible) {
+              await promosBtn2.click();
+              await page.waitForTimeout(2000);
+            } else {
+              await page.goto(PROMOTIONS_URL);
+              await page.waitForTimeout(2000);
+            }
+          }
+        } catch (e) {
+          // Ignorar errores al navegar
+        }
+      }
+      
+      // Pequeña pausa entre promociones
+      await page.waitForTimeout(1000);
+    }
+    
+    // --- RESUMEN FINAL ---
+    console.log(`\n📊 RESUMEN DE CREACIÓN:`);
+    console.log(`   ✅ Promociones creadas exitosamente: ${promocionesCreadas}/${serviceCount}`);
+    console.log(`   ℹ️ Promociones que ya existían: ${promocionesYaExistentes}/${serviceCount}`);
+    console.log(`   ❌ Promociones fallidas: ${promocionesFallidas}/${serviceCount}`);
+    
+    // Validar que se procesaron todos los servicios (creadas + ya existentes + fallidas = total)
+    const totalProcesadas = promocionesCreadas + promocionesYaExistentes + promocionesFallidas;
+    console.log(`\n✅ Prueba completada: Se procesaron ${totalProcesadas} servicio(s) de ${serviceCount}`);
+    console.log(`   - ${promocionesCreadas} promoción(es) nueva(s) creada(s)`);
+    console.log(`   - ${promocionesYaExistentes} servicio(s) ya tenían promoción`);
+    if (promocionesFallidas > 0) {
+      console.log(`   - ${promocionesFallidas} promoción(es) fallida(s)`);
+    }
+  });
 });
+

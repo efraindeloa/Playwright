@@ -505,38 +505,332 @@ test.describe('Carrusel de Promociones Contextual', () => {
   });
 
   // ============================================================================
-  // TEST 11: CTA "Ver todas las promociones" aparece cuando hay más de 30
+  // TEST 11: Validación completa del CTA "Ver todas las promociones"
   // ============================================================================
-  test('CTA "Ver todas las promociones" aparece cuando hay más de 30 promociones', async ({ page }) => {
-    await showStepMessage(page, '🔍 Verificando CTA "Ver todas las promociones"');
+  /**
+   * Valida el comportamiento del CTA "Ver todas las promociones" en el carrusel:
+   * - Con ≤30 promociones: NO debe aparecer el CTA
+   * - Con >30 promociones: SÍ debe aparecer el CTA y debe navegar correctamente
+   */
+  test('Validar comportamiento del CTA "Ver todas las promociones" en carrusel', async ({ page }) => {
+    await showStepMessage(page, '🔍 VALIDANDO COMPORTAMIENTO DEL CTA "VER TODAS LAS PROMOCIONES"');
+    
+    // Interceptar llamadas API para contar promociones totales
+    let totalPromociones = 0;
+    const promocionesSet = new Set<string>();
+    
+    // Configurar interceptor antes de navegar
+    page.on('response', async (response) => {
+      const url = response.url();
+      // Interceptar llamadas que puedan retornar promociones
+      if (url.includes('promotion') || url.includes('promo') || url.includes('api')) {
+        try {
+          const data = await response.json().catch(() => null);
+          if (data) {
+            // Diferentes estructuras posibles de respuesta
+            let promociones: any[] = [];
+            
+            if (Array.isArray(data)) {
+              promociones = data;
+            } else if (data.data && Array.isArray(data.data)) {
+              promociones = data.data;
+            } else if (data.items && Array.isArray(data.items)) {
+              promociones = data.items;
+            } else if (data.results && Array.isArray(data.results)) {
+              promociones = data.results;
+            }
+            
+            promociones.forEach((promo: any) => {
+              if (promo && (promo.id || promo.promotionId || promo._id)) {
+                const id = promo.id || promo.promotionId || promo._id;
+                promocionesSet.add(String(id));
+              }
+            });
+          }
+        } catch (e) {
+          // Ignorar errores de parsing
+        }
+      }
+    });
     
     await page.goto(DASHBOARD_URL);
     await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
-
-    const promoCards = getPromoCardsInCarrusel(page);
-    const cardsCount = await countVisiblePromoCardsInCarrusel(page);
-
-    console.log(`📊 Promociones visibles: ${cardsCount}`);
-
-    // Buscar el CTA "Ver todas las promociones"
-    const ctaButton = page.locator('button, a').filter({
-      hasText: /ver todas las promociones/i
-    }).first();
-
-    const ctaExists = await ctaButton.isVisible({ timeout: 5000 }).catch(() => false);
-
-    if (cardsCount > 30) {
-      expect(ctaExists).toBe(true);
-      console.log('✅ CTA "Ver todas las promociones" aparece correctamente cuando hay más de 30 promociones');
+    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD * 2); // Esperar más para que se carguen todas las promociones
+    
+    // Contar promociones totales del backend (no solo las visibles)
+    totalPromociones = promocionesSet.size;
+    
+    // Si no pudimos obtener el total del backend, intentar contar todas las cards en el DOM
+    if (totalPromociones === 0) {
+      // Contar todas las cards de promociones en el DOM (visibles y no visibles)
+      const allPromoCards = getPromoCardsInCarrusel(page);
+      const allCardsCount = await allPromoCards.count();
+      
+      // También intentar contar desde el carrusel directamente
+      const carruselCards = await page.evaluate(() => {
+        // Buscar todas las cards de promociones en el DOM
+        const cards = document.querySelectorAll('div[role="button"]');
+        let count = 0;
+        cards.forEach(card => {
+          const hasPromoIcon = card.querySelector('i.icon-promotion, i[class*="promotion"]');
+          const hasPromoBadge = card.querySelector('div[class*="bg-\\[\\#FF7A00\\]"], div[style*="background"]');
+          if (hasPromoIcon || hasPromoBadge) {
+            count++;
+          }
+        });
+        return count;
+      });
+      
+      totalPromociones = Math.max(allCardsCount, carruselCards);
+      console.log(`📊 No se pudo obtener total del backend, usando cards en DOM: ${totalPromociones}`);
     } else {
-      if (ctaExists) {
-        console.log('⚠️ CTA aparece aunque hay menos de 30 promociones');
+      console.log(`📊 Total de promociones detectadas del backend: ${totalPromociones}`);
+    }
+    
+    // Buscar el carrusel
+    const carruselSection = getPromoCarruselLocator(page);
+    const carruselVisible = await carruselSection.isVisible({ timeout: 10000 }).catch(() => false);
+    
+    if (!carruselVisible) {
+      const emptyState = page.locator('text=/no hay promociones|sin promociones activas/i');
+      const emptyStateExists = await emptyState.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (emptyStateExists) {
+        console.log('ℹ️ No hay promociones activas, carrusel correctamente oculto');
+        return;
       } else {
-        console.log('ℹ️ CTA no aparece (hay menos de 30 promociones, comportamiento esperado)');
+        throw new Error('❌ No se encontró el carrusel de promociones');
       }
     }
+    
+    // Buscar el CTA "Ver todas las promociones" con múltiples selectores
+    const ctaSelectors = [
+      page.locator('button, a').filter({ hasText: /ver todas las promociones/i }),
+      page.locator('[role="button"]').filter({ hasText: /ver todas las promociones/i }),
+      page.locator('button:has-text("Ver todas las promociones")'),
+      page.locator('a:has-text("Ver todas las promociones")'),
+      page.locator('*').filter({ hasText: /ver todas las promociones/i }).filter({ has: page.locator('button, a') })
+    ];
+    
+    let ctaButton: ReturnType<typeof page.locator> | null = null;
+    let ctaExists = false;
+    let ctaVisible = false;
+    
+    for (const selector of ctaSelectors) {
+      const count = await selector.count();
+      if (count > 0) {
+        const isVisible = await selector.first().isVisible({ timeout: 2000 }).catch(() => false);
+        if (isVisible) {
+          ctaButton = selector.first();
+          ctaExists = true;
+          ctaVisible = true;
+          console.log(`✅ CTA encontrado con selector: ${selector.toString()}`);
+          break;
+        } else {
+          // Existe en el DOM pero no es visible
+          ctaExists = true;
+          console.log(`⚠️ CTA existe en DOM pero no es visible`);
+        }
+      }
+    }
+    
+    // Verificar también en el DOM sin importar visibilidad
+    if (!ctaExists) {
+      const ctaInDOM = await page.evaluate(() => {
+        const elements = Array.from(document.querySelectorAll('*'));
+        return elements.some(el => {
+          const text = el.textContent || '';
+          return /ver todas las promociones/i.test(text) && 
+                 (el.tagName === 'BUTTON' || el.tagName === 'A' || el.closest('button') || el.closest('a'));
+        });
+      });
+      
+      if (ctaInDOM) {
+        ctaExists = true;
+        console.log('⚠️ CTA existe en el DOM pero no es accesible con los selectores estándar');
+      }
+    }
+    
+    // CASO 1: Con ≤30 promociones, el CTA NO debe existir
+    if (totalPromociones <= 30) {
+      console.log(`\n📋 CASO 1: Validando con ≤30 promociones (${totalPromociones} promociones)`);
+      
+      // Avanzar hasta el final del tercer grupo si hay paginación
+      await avanzarHastaFinalDelTercerGrupo(page);
+      
+      // Verificar nuevamente el CTA después de avanzar
+      ctaExists = false;
+      ctaVisible = false;
+      ctaButton = null;
+      for (const selector of ctaSelectors) {
+        const count = await selector.count();
+        if (count > 0) {
+          const isVisible = await selector.first().isVisible({ timeout: 2000 }).catch(() => false);
+          if (isVisible) {
+            ctaExists = true;
+            ctaVisible = true;
+            ctaButton = selector.first();
+            break;
+          }
+        }
+      }
+      
+      // Validar que NO existe el CTA
+      expect(ctaExists).toBe(false);
+      expect(ctaVisible).toBe(false);
+      console.log('✅ Validación exitosa: CTA NO aparece con ≤30 promociones');
+      
+      // Verificar que no hay ningún elemento clicable que navegue a "Todas las promociones"
+      const anyNavigationToPromotions = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a[href*="promotion"], button[onclick*="promotion"]'));
+        return links.some(link => {
+          const text = link.textContent || '';
+          return /ver todas las promociones/i.test(text);
+        });
+      });
+      
+      expect(anyNavigationToPromotions).toBe(false);
+      console.log('✅ Validación exitosa: No hay elementos que naveguen a "Todas las promociones"');
+      
+    } else {
+      // CASO 2: Con >30 promociones, el CTA SÍ debe existir
+      console.log(`\n📋 CASO 2: Validando con >30 promociones (${totalPromociones} promociones)`);
+      
+      // Avanzar hasta el final del tercer grupo
+      await avanzarHastaFinalDelTercerGrupo(page);
+      
+      // Esperar a que el CTA aparezca después de avanzar
+      await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+      
+      // Buscar el CTA nuevamente después de avanzar
+      ctaExists = false;
+      ctaVisible = false;
+      ctaButton = null;
+      
+      for (const selector of ctaSelectors) {
+        const count = await selector.count();
+        if (count > 0) {
+          const isVisible = await selector.first().isVisible({ timeout: 5000 }).catch(() => false);
+          if (isVisible) {
+            ctaButton = selector.first();
+            ctaExists = true;
+            ctaVisible = true;
+            break;
+          }
+        }
+      }
+      
+      // Validar que SÍ existe el CTA
+      expect(ctaExists).toBe(true);
+      expect(ctaVisible).toBe(true);
+      expect(ctaButton).not.toBeNull();
+      console.log('✅ Validación exitosa: CTA SÍ aparece con >30 promociones');
+      
+      // Validar que el CTA es clicable
+      if (!ctaButton) {
+        throw new Error('❌ CTA no encontrado aunque debería existir');
+      }
+      
+      const isClickable = await ctaButton.isEnabled().catch(() => false);
+      expect(isClickable).toBe(true);
+      console.log('✅ Validación exitosa: CTA es clicable');
+      
+      // Validar navegación al hacer clic
+      const urlAntes = page.url();
+      console.log(`🖱️ Haciendo clic en CTA "Ver todas las promociones"...`);
+      await ctaButton.click();
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+      
+      const urlDespues = page.url();
+      console.log(`📋 URL antes: ${urlAntes}`);
+      console.log(`📋 URL después: ${urlDespues}`);
+      
+      // Verificar que navegó a la vista "Todas las promociones"
+      const navegoCorrectamente = urlDespues.includes('promotion') || 
+                                  urlDespues.includes('promo') ||
+                                  urlDespues !== urlAntes;
+      
+      expect(navegoCorrectamente).toBe(true);
+      console.log('✅ Validación exitosa: CTA navega correctamente a "Todas las promociones"');
+    }
   });
+  
+  /**
+   * Helper: Avanza hasta el final del tercer grupo en el carrusel
+   */
+  async function avanzarHastaFinalDelTercerGrupo(page: Page) {
+    console.log('📄 Avanzando hasta el final del tercer grupo...');
+    
+    // Buscar el carrusel primero para limitar el scope de búsqueda
+    const carrusel = getPromoCarruselLocator(page);
+    const carruselExists = await carrusel.count() > 0;
+    
+    if (!carruselExists) {
+      console.log('   ℹ️ No se encontró el carrusel, no se puede avanzar');
+      return;
+    }
+    
+    // Buscar controles de paginación DENTRO del carrusel, no en toda la página
+    // Buscar botones de flecha o navegación específicos del carrusel
+    const carruselContainer = carrusel.locator('..').first(); // Contenedor padre del carrusel
+    
+    // Buscar botones de navegación específicos del carrusel (flechas, chevron, etc.)
+    const nextButtonSelectors = [
+      carrusel.locator('button').filter({ has: page.locator('i.icon-chevron-right, i.icon-arrow-right, i[class*="chevron-right"], i[class*="arrow-right"]') }),
+      carrusel.locator('button[aria-label*="siguiente" i], button[aria-label*="next" i]'),
+      carruselContainer.locator('button').filter({ hasText: /siguiente|next/i }).filter({ hasNot: page.locator('div[role="button"]') }), // Excluir cards de promociones
+      page.locator('button').filter({ hasText: /siguiente|next/i }).filter({ hasNot: page.locator('div[role="button"]') }) // Fallback: buscar en toda la página pero excluyendo cards
+    ];
+    
+    let nextButton: ReturnType<typeof page.locator> | null = null;
+    let nextButtonExists = false;
+    
+    for (const selector of nextButtonSelectors) {
+      const count = await selector.count();
+      if (count > 0) {
+        const isVisible = await selector.first().isVisible({ timeout: 2000 }).catch(() => false);
+        if (isVisible) {
+          // Verificar que no es una card de promoción (no debe tener badge de promoción)
+          const hasPromoBadge = await selector.first().locator('i.icon-promotion, i[class*="promotion"]').count() > 0;
+          if (!hasPromoBadge) {
+            nextButton = selector.first();
+            nextButtonExists = true;
+            console.log('   ✅ Botón de navegación del carrusel encontrado');
+            break;
+          }
+        }
+      }
+    }
+    
+    if (nextButtonExists && nextButton) {
+      // Avanzar hasta el tercer grupo (2 clics adicionales después del primero)
+      for (let i = 0; i < 2; i++) {
+        const isEnabled = await nextButton.isEnabled().catch(() => false);
+        if (isEnabled) {
+          console.log(`   📄 Avanzando al grupo ${i + 2}...`);
+          await nextButton.click();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        } else {
+          console.log(`   ℹ️ No se puede avanzar más (grupo ${i + 1} es el último)`);
+          break;
+        }
+      }
+    } else {
+      // Si no hay botones de paginación, usar scroll horizontal
+      console.log('   📄 No se encontraron botones de paginación, usando scroll horizontal...');
+      // Hacer scroll horizontal varias veces para llegar al final
+      for (let i = 0; i < 2; i++) {
+        await carrusel.evaluate((el) => {
+          el.scrollBy({ left: 1000, behavior: 'smooth' });
+        });
+        await safeWaitForTimeout(page, 1000);
+      }
+    }
+    
+    console.log('✅ Navegación completada');
+  }
 
   // ============================================================================
   // TEST 12: CTA navega a "Todas las promociones"
@@ -865,4 +1159,5 @@ test.describe('Carrusel de Promociones Contextual', () => {
     console.log('✅ Carrusel se adapta a diferentes viewports');
   });
 });
+
 
