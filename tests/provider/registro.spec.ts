@@ -183,36 +183,164 @@ export async function registerProvider(page: Page, emailParam: string = REGISTRA
     console.log('\n📧 Obteniendo código de verificación desde Gmail...');
     console.log(`   Email: ${email}`);
     
-    try {
-      // Obtener el código de verificación desde Gmail (timeout: 2 minutos)
-      const verificationCode = await waitForVerificationCode(email, 120000);
-      
-      if (!verificationCode || verificationCode.length !== 6) {
-        throw new Error(`Código de verificación inválido: ${verificationCode}`);
+    let intentosCodigo = 0;
+    const maxIntentosCodigo = 3; // Máximo 3 intentos con diferentes códigos
+    let codigoVerificado = false;
+    let minTimestamp: number | undefined = undefined; // Timestamp mínimo para buscar emails más recientes
+    
+    while (intentosCodigo < maxIntentosCodigo && !codigoVerificado) {
+      try {
+        // Obtener el código de verificación desde Gmail (timeout: 2 minutos)
+        // Si es un reintento después de un error, usar un maxEmailAge más pequeño para buscar solo emails muy recientes
+        const maxEmailAge = intentosCodigo > 0 ? 30000 : 60000; // 30 segundos para reintentos, 60 segundos para el primer intento
+        const verificationCode = await waitForVerificationCode(email, 120000, maxEmailAge, minTimestamp);
+        
+        if (!verificationCode || verificationCode.length !== 6) {
+          throw new Error(`Código de verificación inválido: ${verificationCode}`);
+        }
+        
+        console.log(`✅ Código de verificación obtenido (intento ${intentosCodigo + 1}): ${verificationCode}`);
+        
+        // Limpiar los campos de código antes de ingresar el nuevo
+        for (let i = 0; i < 6; i++) {
+          const codeInput = page.locator(`input[id="VerificationCode_${i}"]`);
+          const isVisible = await codeInput.isVisible({ timeout: 2000 }).catch(() => false);
+          if (isVisible) {
+            await codeInput.clear();
+          }
+        }
+        
+        // Ingresar el código automáticamente en los campos
+        const codeDigits = verificationCode.split('');
+        for (let i = 0; i < 6; i++) {
+          const codeInput = page.locator(`input[id="VerificationCode_${i}"]`);
+          await codeInput.waitFor({ state: 'visible', timeout: 10000 });
+          await codeInput.fill(codeDigits[i]);
+          await page.waitForTimeout(200); // Pequeña pausa entre dígitos
+        }
+        
+        console.log('✓ Código de verificación ingresado automáticamente en todos los campos');
+        
+        // Esperar un momento para que se procese el código
+        await page.waitForTimeout(2000);
+        
+        // Verificar si aparece un mensaje de error indicando que el código es incorrecto
+        // El mensaje aparece en un modal con el texto "Código de verificación incorrecto!"
+        const mensajeErrorCodigo = page.locator('div.fixed.top-0.left-0').filter({
+          has: page.locator('p:has-text("Código de verificación incorrecto"), p:has-text("código de verificación incorrecto"), p:has-text("Código de verificación"), p:has-text("incorrecto")')
+        });
+        
+        const errorCodigoVisible = await mensajeErrorCodigo.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (errorCodigoVisible) {
+          // Obtener el texto del mensaje para confirmar que es sobre código incorrecto
+          const textoError = await mensajeErrorCodigo.locator('p').textContent().catch(() => '') || '';
+          const textoErrorLower = textoError.toLowerCase().trim();
+          
+          console.log(`🔍 Mensaje de error detectado: "${textoError}"`);
+          
+          // Verificar si el mensaje es sobre código incorrecto
+          // El mensaje exacto es "Código de verificación incorrecto!" pero aceptamos variaciones
+          const esErrorCodigo = textoErrorLower.includes('código de verificación incorrecto') ||
+                               textoErrorLower.includes('codigo de verificacion incorrecto') ||
+                               (textoErrorLower.includes('código') && textoErrorLower.includes('incorrecto')) ||
+                               (textoErrorLower.includes('codigo') && textoErrorLower.includes('incorrecto')) ||
+                               (textoErrorLower.includes('verificación') && textoErrorLower.includes('incorrecto')) ||
+                               (textoErrorLower.includes('verificacion') && textoErrorLower.includes('incorrecto'));
+          
+          if (esErrorCodigo) {
+            console.log(`⚠️ El código de verificación es incorrecto: ${verificationCode}`);
+            console.log(`   Mensaje de error: ${textoError}`);
+            console.log(`   Limpiando el formulario de código...`);
+            
+            // Limpiar todos los campos del formulario de código inmediatamente
+            for (let i = 0; i < 6; i++) {
+              try {
+                const codeInput = page.locator(`input[id="VerificationCode_${i}"]`);
+                const isVisible = await codeInput.isVisible({ timeout: 1000 }).catch(() => false);
+                if (isVisible) {
+                  await codeInput.clear();
+                  await codeInput.fill(''); // Asegurar que esté vacío
+                }
+              } catch (e) {
+                // Continuar limpiando los demás campos aunque uno falle
+              }
+            }
+            console.log(`   ✓ Formulario de código limpiado`);
+            
+            // Cerrar el modal de error
+            try {
+              await page.keyboard.press('Escape');
+              await page.waitForTimeout(500);
+            } catch (e) {
+              try {
+                await page.locator('body').click({ position: { x: 10, y: 10 } });
+                await page.waitForTimeout(500);
+              } catch (e2) {
+                // Continuar de todas formas
+              }
+            }
+            
+            // Establecer el timestamp mínimo para buscar solo emails más recientes que este momento
+            // Esto asegura que busquemos un nuevo email, no el mismo que ya usamos
+            minTimestamp = Date.now();
+            console.log(`   📅 Timestamp mínimo establecido: ${new Date(minTimestamp).toLocaleTimeString()}`);
+            console.log(`   🔍 Buscaré solo emails recibidos después de este momento`);
+            console.log(`   Esperando a recibir un email más reciente...`);
+            
+            intentosCodigo++;
+            
+            // Esperar un momento antes de buscar el nuevo email (dar tiempo para que llegue un nuevo email)
+            // Si el servidor envía un nuevo código automáticamente, necesitamos esperar a que llegue
+            console.log(`   ⏳ Esperando 5 segundos para que llegue un nuevo email...`);
+            await page.waitForTimeout(5000);
+            
+            // Continuar el loop para obtener un nuevo código
+            continue;
+          }
+        }
+        
+        // Si no hay error de código, verificar si avanzamos a la página de contraseña
+        const passwordInput = page.locator('input[id="Password"]');
+        const isPasswordVisible = await passwordInput.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (isPasswordVisible) {
+          console.log('✅ Código de verificación validado correctamente. Avanzando a formulario de contraseña.');
+          codigoVerificado = true;
+          break;
+        }
+        
+        // Si no vemos el formulario de contraseña pero tampoco hay error, esperar un poco más
+        await page.waitForTimeout(1000);
+        
+        // Verificar nuevamente si hay error
+        const errorVisibleNuevo = await mensajeErrorCodigo.isVisible({ timeout: 2000 }).catch(() => false);
+        if (!errorVisibleNuevo) {
+          // No hay error visible, asumir que el código fue aceptado
+          codigoVerificado = true;
+          break;
+        }
+        
+      } catch (error) {
+        console.error(`\n❌ ERROR en intento ${intentosCodigo + 1}: No se pudo obtener o validar el código de verificación`);
+        console.error(`   Error: ${error instanceof Error ? error.message : String(error)}`);
+        
+        intentosCodigo++;
+        
+        if (intentosCodigo >= maxIntentosCodigo) {
+          console.error('   La prueba fallará porque no se puede continuar sin el código.');
+          throw new Error(`❌ FALLO: No se pudo obtener o validar el código de verificación después de ${maxIntentosCodigo} intentos. ${error instanceof Error ? error.message : String(error)}`);
+        }
+        
+        // Esperar un momento antes de reintentar
+        await page.waitForTimeout(2000);
       }
-      
-      console.log(`✅ Código de verificación obtenido: ${verificationCode}`);
-      
-      // Ingresar el código automáticamente en los campos
-      const codeDigits = verificationCode.split('');
-      for (let i = 0; i < 6; i++) {
-        const codeInput = page.locator(`input[id="VerificationCode_${i}"]`);
-        await codeInput.waitFor({ state: 'visible', timeout: 10000 });
-        await codeInput.fill(codeDigits[i]);
-        await page.waitForTimeout(200); // Pequeña pausa entre dígitos
-      }
-      
-      console.log('✓ Código de verificación ingresado automáticamente en todos los campos');
-      
-      // Esperar un momento para que se procese el código
-      await page.waitForTimeout(2000);
-      
-    } catch (error) {
-      console.error('\n❌ ERROR: No se pudo obtener el código de verificación desde Gmail');
-      console.error(`   Error: ${error instanceof Error ? error.message : String(error)}`);
-      console.error('   La prueba fallará porque no se puede continuar sin el código.');
-      throw new Error(`❌ FALLO: No se pudo obtener el código de verificación desde Gmail. ${error instanceof Error ? error.message : String(error)}`);
     }
+    
+    if (!codigoVerificado) {
+      throw new Error(`❌ FALLO: No se pudo validar el código de verificación después de ${maxIntentosCodigo} intentos.`);
+    }
+    
   } else {
     console.log('⚠️  No se detectó la página de código de verificación. Asumiendo que ya se ingresó el código.');
   }

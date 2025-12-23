@@ -46,10 +46,11 @@ export async function getVerificationCodeFromGmail(
   emailAddress?: string,
   maxWaitTime: number = 120000, // 2 minutos
   checkInterval: number = 5000, // 5 segundos
-  maxEmailAge: number = 60000 // 1 minuto - solo considerar emails recibidos en los últimos 60 segundos
+  maxEmailAge: number = 60000, // 1 minuto - solo considerar emails recibidos en los últimos 60 segundos
+  minTimestamp?: number // Timestamp mínimo que debe tener el email (para buscar emails más recientes que un momento específico)
 ): Promise<string | null> {
   const startTime = Date.now();
-  const searchStartTime = Date.now(); // Timestamp de cuando empezamos a buscar
+  const searchStartTime = minTimestamp || Date.now(); // Timestamp de cuando empezamos a buscar o el mínimo especificado
 
   while (Date.now() - startTime < maxWaitTime) {
     try {
@@ -109,11 +110,13 @@ export async function getVerificationCodeFromGmail(
               continue;
             }
             
-            // Asegurarse de que el email sea más reciente que cuando empezamos a buscar (con un buffer de 30 segundos)
-            const searchBuffer = 30000; // 30 segundos de buffer
+            // Asegurarse de que el email sea más reciente que searchStartTime (con un buffer de 5 segundos)
+            // Si se especificó minTimestamp, solo aceptar emails más recientes que ese momento
+            const searchBuffer = minTimestamp ? 5000 : 30000; // Buffer más pequeño si se especificó minTimestamp
             if (emailDate.getTime() < (searchStartTime - searchBuffer)) {
               emailsRechazados++;
-              console.log(`⏭️ Email ignorado: recibido antes de iniciar la búsqueda (${emailDate.toLocaleTimeString()}, correo antiguo)`);
+              const tiempoRechazo = Math.floor((searchStartTime - emailDate.getTime()) / 1000);
+              console.log(`⏭️ Email ignorado: recibido ${tiempoRechazo}s antes del timestamp mínimo requerido (${emailDate.toLocaleTimeString()}, correo antiguo)`);
               continue;
             }
             
@@ -269,14 +272,19 @@ export async function getVerificationCodeFromGmail(
 export async function waitForVerificationCode(
   emailAddress: string,
   maxWaitTime: number = 120000,
-  maxEmailAge: number = 60000 // 1 minuto - solo emails muy recientes
+  maxEmailAge: number = 60000, // 1 minuto - solo emails muy recientes
+  minTimestamp?: number // Timestamp mínimo que debe tener el email (para buscar emails más recientes que un momento específico)
 ): Promise<string> {
   console.log(`📧 Buscando código de verificación en Gmail para: ${emailAddress}`);
   console.log(`⏳ Tiempo máximo de espera: ${maxWaitTime / 1000} segundos`);
   console.log(`📅 Solo considerando emails recibidos en los últimos ${maxEmailAge / 1000} segundos (muy recientes)`);
+  if (minTimestamp) {
+    const tiempoDesdeMin = Math.floor((Date.now() - minTimestamp) / 1000);
+    console.log(`🕐 Buscando solo emails más recientes que hace ${tiempoDesdeMin}s (timestamp mínimo: ${new Date(minTimestamp).toLocaleTimeString()})`);
+  }
   console.log(`⏳ Esperando a que llegue el correo...`);
 
-  const code = await getVerificationCodeFromGmail(emailAddress, maxWaitTime, 5000, maxEmailAge);
+  const code = await getVerificationCodeFromGmail(emailAddress, maxWaitTime, 5000, maxEmailAge, minTimestamp);
 
   if (!code) {
     throw new Error(`❌ No se encontró el código de verificación en Gmail después de ${maxWaitTime / 1000} segundos. ` +

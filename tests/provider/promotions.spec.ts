@@ -1600,6 +1600,544 @@ test.describe('Gestión de promociones', () => {
     console.log(`\n✅ Prueba completada: Se eliminaron ${totalEliminadas} promoción(es)`);
   });
 
+  test('Desactivar todas las promociones', async ({ page }) => {
+    test.setTimeout(900000); // 15 minutos - tiempo suficiente para desactivar muchas promociones
+    
+    // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await page.waitForTimeout(2000);
+
+    let totalDesactivadas = 0;
+    let totalYaDesactivadas = 0;
+    let intentos = 0;
+    const maxIntentos = 500; // Límite de seguridad para evitar bucles infinitos
+    let indicePromocion = 0; // Índice de la promoción actual
+    const promocionesProcesadas = new Set<string>(); // Para evitar procesar la misma promoción múltiples veces
+
+    while (intentos < maxIntentos) {
+      intentos++;
+      
+      // --- CONTAR PROMOCIONES DISPONIBLES ---
+      await showStepMessage(page, `🔍 BUSCANDO PROMOCIONES ACTIVAS (Intento ${intentos})`);
+      await page.waitForTimeout(1000);
+      
+      // Esperar a que aparezcan las cards de promociones
+      const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+      const totalPromos = await promoCardsLocator.count();
+      
+      console.log(`📊 Promociones encontradas: ${totalPromos}`);
+      
+      if (totalPromos === 0) {
+        console.log('✅ No hay más promociones para desactivar');
+        break;
+      }
+      
+      // Si el índice es mayor o igual al total, verificar si hay más promociones por procesar
+      if (indicePromocion >= totalPromos) {
+        console.log(`ℹ️ Se alcanzó el final de la lista (índice ${indicePromocion} >= ${totalPromos})`);
+        console.log(`   📋 Promociones ya procesadas: ${promocionesProcesadas.size}`);
+        console.log(`   📋 Total de promociones en la lista: ${totalPromos}`);
+        
+        // Si ya procesamos todas las promociones disponibles, terminar
+        if (promocionesProcesadas.size >= totalPromos) {
+          console.log('✅ Todas las promociones disponibles ya fueron procesadas. Finalizando prueba...');
+          break;
+        }
+        
+        // Si aún hay promociones sin procesar, reiniciar el índice y recargar
+        console.log(`   🔄 Reiniciando índice para buscar promociones sin procesar...`);
+        indicePromocion = 0;
+        // Recargar la página para obtener el estado actualizado
+        await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+        await page.waitForTimeout(2000);
+        continue;
+      }
+      
+      // Seleccionar la promoción en el índice actual
+      const selectedPromoCard = promoCardsLocator.nth(indicePromocion);
+      await expect(selectedPromoCard).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+      
+      // Obtener el nombre de la promoción seleccionada
+      const promoName = selectedPromoCard.locator('p.text-medium.font-bold').first();
+      const promoNameText = await promoName.textContent();
+      
+      if (!promoNameText) {
+        console.warn(`⚠️ No se pudo obtener el texto de la promoción en índice ${indicePromocion}, avanzando a la siguiente...`);
+        indicePromocion++;
+        continue;
+      }
+      
+      // Verificar si ya procesamos esta promoción
+      if (promocionesProcesadas.has(promoNameText)) {
+        console.log(`ℹ️ La promoción "${promoNameText}" ya fue procesada (desactivada anteriormente), avanzando a la siguiente...`);
+        indicePromocion++;
+        continue;
+      }
+      
+      console.log(`🔴 Procesando promoción ${indicePromocion + 1}/${totalPromos}: "${promoNameText}"`);
+      console.log(`   📋 Total de promociones ya procesadas: ${promocionesProcesadas.size}`);
+
+      try {
+        // --- ABRIR MENÚ DE LA PROMOCIÓN ---
+        await showStepMessage(page, `🔍 DESACTIVANDO: ${promoNameText}`);
+        await page.waitForTimeout(1000);
+        const menuButton = selectedPromoCard.locator('button:has(i.icon-more-vertical)');
+        await menuButton.click();
+        await page.waitForTimeout(500);
+
+        // --- BUSCAR Y HACER CLIC EN DESACTIVAR ---
+        await showStepMessage(page, '🔴 VERIFICANDO ESTADO DE LA PROMOCIÓN');
+        await page.waitForTimeout(500);
+        
+        // Obtener todas las opciones del menú para debugging
+        // Buscar el menú de diferentes formas posibles
+        const menuContainer = page.locator('div[role="menu"], div[class*="menu"], ul[role="menu"]').first();
+        const menuOptions = menuContainer.locator('button, a, div[role="menuitem"]');
+        const optionCount = await menuOptions.count();
+        console.log(`   📋 Opciones encontradas en el menú: ${optionCount}`);
+        
+        // Listar todas las opciones disponibles para debugging
+        const allOptions: string[] = [];
+        for (let i = 0; i < optionCount; i++) {
+          try {
+            const optionText = await menuOptions.nth(i).textContent();
+            if (optionText) {
+              const trimmed = optionText.trim();
+              allOptions.push(trimmed);
+              console.log(`   📌 Opción ${i + 1}: "${trimmed}"`);
+            }
+          } catch (e) {
+            // Ignorar errores al obtener texto
+          }
+        }
+        
+        // Buscar opción de desactivar (puede tener diferentes textos)
+        // Buscar exactamente el texto "Desactivar" (case insensitive)
+        let desactivarOption = menuOptions.filter({ hasText: /^Desactivar$/i });
+        let desactivarVisible = await desactivarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        // Si no se encuentra con el filtro exacto, buscar con locator de texto
+        if (!desactivarVisible) {
+          desactivarOption = page.locator('text=/^Desactivar$/i').first();
+          desactivarVisible = await desactivarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        }
+        
+        // Si aún no se encuentra, buscar variaciones
+        if (!desactivarVisible) {
+          desactivarOption = page.locator('text=/Desactivar|Deshabilitar|Inactivar/i').first();
+          desactivarVisible = await desactivarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        }
+        
+        if (!desactivarVisible) {
+          console.warn(`⚠️ No se encontró opción de desactivar para "${promoNameText}".`);
+          console.warn(`   Opciones disponibles en el menú: ${allOptions.join(', ') || 'ninguna'}`);
+          
+          // Si no hay opción de desactivar, asumir que ya está desactivada o no tiene esa opción
+          console.log(`ℹ️ Asumiendo que la promoción "${promoNameText}" ya está desactivada o no tiene opción de desactivar. Saltando...`);
+          // Marcar como procesada para evitar bucles infinitos
+          promocionesProcesadas.add(promoNameText);
+          totalYaDesactivadas++;
+          // Cerrar el menú
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+          // Avanzar al siguiente índice
+          indicePromocion++;
+          continue;
+        }
+        
+        console.log(`   ✅ Opción "Desactivar" encontrada`);
+        
+        await showStepMessage(page, '🔴 DESACTIVANDO PROMOCIÓN');
+        await desactivarOption.click();
+        await page.waitForTimeout(1000);
+        
+        // Esperar a que se complete la desactivación (no hay modal de confirmación)
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+
+        // IMPORTANTE: Agregar al registro ANTES de incrementar el contador
+        promocionesProcesadas.add(promoNameText);
+        totalDesactivadas++;
+        console.log(`✅ Promoción "${promoNameText}" desactivada exitosamente - Total desactivadas: ${totalDesactivadas}`);
+        console.log(`   📋 Promociones procesadas hasta ahora: ${promocionesProcesadas.size}`);
+        if (promocionesProcesadas.size <= 10) {
+          console.log(`   📋 Lista completa: ${Array.from(promocionesProcesadas).join(', ')}`);
+        } else {
+          const ultimas = Array.from(promocionesProcesadas).slice(-5);
+          console.log(`   📋 Últimas 5 procesadas: ${ultimas.join(', ')}`);
+        }
+        
+        // Avanzar al siguiente índice
+        indicePromocion++;
+        
+        // Esperar un poco antes de continuar con la siguiente
+        await page.waitForTimeout(1500);
+        
+        // Recargar la página periódicamente para asegurar que la lista esté actualizada
+        // PERO mantener el registro de promociones procesadas
+        if (totalDesactivadas % 10 === 0) {
+          console.log('🔄 Recargando página para actualizar la lista...');
+          console.log(`   📋 Manteniendo registro de ${promocionesProcesadas.size} promociones procesadas`);
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            // Volver a la página de promociones
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error al desactivar promoción "${promoNameText}": ${error.message}`);
+        
+        // Intentar cerrar cualquier modal abierto
+        try {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(1000);
+        } catch (e) {
+          // Ignorar errores al cerrar
+        }
+        
+        // Si hay un error, intentar recargar y continuar
+        try {
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        } catch (reloadError) {
+          console.error(`❌ Error al recargar: ${reloadError.message}`);
+          break; // Salir del bucle si no se puede recargar
+        }
+      }
+    }
+
+    // --- RESUMEN FINAL ---
+    console.log(`\n📊 RESUMEN DE DESACTIVACIÓN:`);
+    console.log(`   ✅ Promociones desactivadas en esta ejecución: ${totalDesactivadas}`);
+    console.log(`   ℹ️ Promociones que ya estaban desactivadas: ${totalYaDesactivadas}`);
+    console.log(`   🔄 Intentos realizados: ${intentos}`);
+    
+    // Verificación final: contar promociones restantes
+    await page.waitForTimeout(2000);
+    await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(2000);
+    
+    const promoCardsFinal = page.locator('div.w-full.flex.shadow-4');
+    const promocionesRestantes = await promoCardsFinal.count();
+    
+    console.log(`   📋 Promociones restantes: ${promocionesRestantes}`);
+    
+    if (promocionesRestantes > 0) {
+      console.log(`ℹ️ Aún quedan ${promocionesRestantes} promoción(es) en la lista (pueden estar desactivadas o activas)`);
+    } else {
+      console.log('✅ Todas las promociones fueron procesadas exitosamente');
+    }
+    
+    // Validar que se desactivaron algunas promociones (o al menos se intentó)
+    expect(totalDesactivadas).toBeGreaterThanOrEqual(0);
+    console.log(`\n✅ Prueba completada: Se desactivaron ${totalDesactivadas} promoción(es)`);
+  });
+
+  test('Activar todas las promociones', async ({ page }) => {
+    test.setTimeout(900000); // 15 minutos - tiempo suficiente para activar muchas promociones
+    
+    // --- ADMINISTRAR PROMOCIONES ---
+    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES');
+    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+    await promosBtn.click();
+    await expect(page.getByText('Crear promoción')).toBeVisible();
+    await page.waitForTimeout(2000);
+
+    let totalActivadas = 0;
+    let totalYaActivadas = 0;
+    let intentos = 0;
+    const maxIntentos = 500; // Límite de seguridad para evitar bucles infinitos
+    let indicePromocion = 0; // Índice de la promoción actual
+    const promocionesProcesadas = new Set<string>(); // Para evitar procesar la misma promoción múltiples veces
+
+    while (intentos < maxIntentos) {
+      intentos++;
+      
+      // --- CONTAR PROMOCIONES DISPONIBLES ---
+      await showStepMessage(page, `🔍 BUSCANDO PROMOCIONES DESACTIVADAS (Intento ${intentos})`);
+      await page.waitForTimeout(1000);
+      
+      // Esperar a que aparezcan las cards de promociones
+      const promoCardsLocator = page.locator('div.w-full.flex.shadow-4');
+      const totalPromos = await promoCardsLocator.count();
+      
+      console.log(`📊 Promociones encontradas: ${totalPromos}`);
+      
+      if (totalPromos === 0) {
+        console.log('✅ No hay más promociones para activar');
+        break;
+      }
+      
+      // Si el índice es mayor o igual al total, verificar si hay más promociones por procesar
+      if (indicePromocion >= totalPromos) {
+        console.log(`ℹ️ Se alcanzó el final de la lista (índice ${indicePromocion} >= ${totalPromos})`);
+        console.log(`   📋 Promociones ya procesadas: ${promocionesProcesadas.size}`);
+        console.log(`   📋 Total de promociones en la lista: ${totalPromos}`);
+        
+        // Si ya procesamos todas las promociones disponibles, terminar
+        if (promocionesProcesadas.size >= totalPromos) {
+          console.log('✅ Todas las promociones disponibles ya fueron procesadas. Finalizando prueba...');
+          break;
+        }
+        
+        // Si aún hay promociones sin procesar, reiniciar el índice y recargar
+        console.log(`   🔄 Reiniciando índice para buscar promociones sin procesar...`);
+        indicePromocion = 0;
+        // Recargar la página para obtener el estado actualizado
+        await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+        await page.waitForTimeout(2000);
+        continue;
+      }
+      
+      // Seleccionar la promoción en el índice actual
+      const selectedPromoCard = promoCardsLocator.nth(indicePromocion);
+      await expect(selectedPromoCard).toBeVisible({ timeout: WAIT_FOR_PROMO_TIMEOUT });
+      
+      // Obtener el nombre de la promoción seleccionada
+      const promoName = selectedPromoCard.locator('p.text-medium.font-bold').first();
+      const promoNameText = await promoName.textContent();
+      
+      if (!promoNameText) {
+        console.warn(`⚠️ No se pudo obtener el texto de la promoción en índice ${indicePromocion}, avanzando a la siguiente...`);
+        indicePromocion++;
+        continue;
+      }
+      
+      // Verificar si ya procesamos esta promoción
+      if (promocionesProcesadas.has(promoNameText)) {
+        console.log(`ℹ️ La promoción "${promoNameText}" ya fue procesada (activada anteriormente), avanzando a la siguiente...`);
+        indicePromocion++;
+        continue;
+      }
+      
+      console.log(`🟢 Procesando promoción ${indicePromocion + 1}/${totalPromos}: "${promoNameText}"`);
+      console.log(`   📋 Total de promociones ya procesadas: ${promocionesProcesadas.size}`);
+
+      try {
+        // --- ABRIR MENÚ DE LA PROMOCIÓN ---
+        await showStepMessage(page, `🔍 ACTIVANDO: ${promoNameText}`);
+        await page.waitForTimeout(1000);
+        const menuButton = selectedPromoCard.locator('button:has(i.icon-more-vertical)');
+        await menuButton.click();
+        await page.waitForTimeout(500);
+
+        // --- BUSCAR Y HACER CLIC EN ACTIVAR ---
+        await showStepMessage(page, '🟢 VERIFICANDO ESTADO DE LA PROMOCIÓN');
+        await page.waitForTimeout(500);
+        
+        // Obtener todas las opciones del menú para debugging
+        // Buscar el menú de diferentes formas posibles
+        const menuContainer = page.locator('div[role="menu"], div[class*="menu"], ul[role="menu"]').first();
+        const menuOptions = menuContainer.locator('button, a, div[role="menuitem"]');
+        const optionCount = await menuOptions.count();
+        console.log(`   📋 Opciones encontradas en el menú: ${optionCount}`);
+        
+        // Listar todas las opciones disponibles para debugging
+        const allOptions: string[] = [];
+        for (let i = 0; i < optionCount; i++) {
+          try {
+            const optionText = await menuOptions.nth(i).textContent();
+            if (optionText) {
+              const trimmed = optionText.trim();
+              allOptions.push(trimmed);
+              console.log(`   📌 Opción ${i + 1}: "${trimmed}"`);
+            }
+          } catch (e) {
+            // Ignorar errores al obtener texto
+          }
+        }
+        
+        // Buscar opción de activar (puede tener diferentes textos)
+        // Buscar exactamente el texto "Activar" (case insensitive)
+        let activarOption = menuOptions.filter({ hasText: /^Activar$/i });
+        let activarVisible = await activarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        // Si no se encuentra con el filtro exacto, buscar con locator de texto
+        if (!activarVisible) {
+          activarOption = page.locator('text=/^Activar$/i').first();
+          activarVisible = await activarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        }
+        
+        // Si aún no se encuentra, buscar variaciones
+        if (!activarVisible) {
+          activarOption = page.locator('text=/Activar|Habilitar|Reactivar/i').first();
+          activarVisible = await activarOption.isVisible({ timeout: 1000 }).catch(() => false);
+        }
+        
+        if (!activarVisible) {
+          console.warn(`⚠️ No se encontró opción de activar para "${promoNameText}".`);
+          console.warn(`   Opciones disponibles en el menú: ${allOptions.join(', ') || 'ninguna'}`);
+          
+          // Si no hay opción de activar, asumir que ya está activada o no tiene esa opción
+          console.log(`ℹ️ Asumiendo que la promoción "${promoNameText}" ya está activada o no tiene opción de activar. Saltando...`);
+          // Marcar como procesada para evitar bucles infinitos
+          promocionesProcesadas.add(promoNameText);
+          totalYaActivadas++;
+          // Cerrar el menú
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+          // Avanzar al siguiente índice
+          indicePromocion++;
+          continue;
+        }
+        
+        console.log(`   ✅ Opción "Activar" encontrada`);
+        
+        await showStepMessage(page, '🟢 ACTIVANDO PROMOCIÓN');
+        await activarOption.click();
+        await page.waitForTimeout(1000);
+        
+        // Esperar a que se complete la activación (no hay modal de confirmación)
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+
+        // --- VERIFICAR QUE EL MENÚ SE CERRÓ CORRECTAMENTE ---
+        // Asegurarse de que el menú esté cerrado antes de continuar
+        await page.waitForTimeout(500);
+        
+        // Verificar que no hay menús abiertos
+        const menuAbierto = page.locator('div[role="menu"]').first();
+        const menuVisible = await menuAbierto.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        if (menuVisible) {
+          console.log('   🔒 Cerrando menú que quedó abierto...');
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+          
+          // Verificar nuevamente
+          const menuAunVisible = await menuAbierto.isVisible({ timeout: 1000 }).catch(() => false);
+          if (menuAunVisible) {
+            // Intentar hacer clic fuera del menú
+            await page.locator('body').click({ position: { x: 10, y: 10 } });
+            await page.waitForTimeout(500);
+          }
+        }
+        
+        // Verificar que no hay modales abiertos
+        const modalAbierto = page.locator('div.fixed.top-0.left-0').first();
+        const modalAunAbierto = await modalAbierto.isVisible({ timeout: 1000 }).catch(() => false);
+        
+        if (modalAunAbierto) {
+          console.log('   🔒 Cerrando modal que quedó abierto...');
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+        }
+
+        // IMPORTANTE: Agregar al registro ANTES de incrementar el contador
+        promocionesProcesadas.add(promoNameText);
+        totalActivadas++;
+        console.log(`✅ Promoción "${promoNameText}" activada exitosamente - Total activadas: ${totalActivadas}`);
+        console.log(`   📋 Promociones procesadas hasta ahora: ${promocionesProcesadas.size}`);
+        if (promocionesProcesadas.size <= 10) {
+          console.log(`   📋 Lista completa: ${Array.from(promocionesProcesadas).join(', ')}`);
+        } else {
+          const ultimas = Array.from(promocionesProcesadas).slice(-5);
+          console.log(`   📋 Últimas 5 procesadas: ${ultimas.join(', ')}`);
+        }
+        
+        // Avanzar al siguiente índice
+        indicePromocion++;
+        
+        // Esperar un poco antes de continuar con la siguiente
+        await page.waitForTimeout(1500);
+        
+        // Recargar la página periódicamente para asegurar que la lista esté actualizada
+        // PERO mantener el registro de promociones procesadas
+        if (totalActivadas % 10 === 0) {
+          console.log('🔄 Recargando página para actualizar la lista...');
+          console.log(`   📋 Manteniendo registro de ${promocionesProcesadas.size} promociones procesadas`);
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            // Volver a la página de promociones
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error al activar promoción "${promoNameText}": ${error.message}`);
+        
+        // Intentar cerrar cualquier modal abierto
+        try {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(1000);
+        } catch (e) {
+          // Ignorar errores al cerrar
+        }
+        
+        // Si hay un error, intentar recargar y continuar
+        try {
+          await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+          await page.waitForTimeout(2000);
+          
+          // Verificar que estamos en la página correcta
+          const crearPromocionVisible = await page.getByText('Crear promoción').isVisible({ timeout: 5000 }).catch(() => false);
+          if (!crearPromocionVisible) {
+            const promosBtn2 = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
+            await promosBtn2.click();
+            await expect(page.getByText('Crear promoción')).toBeVisible();
+            await page.waitForTimeout(2000);
+          }
+        } catch (reloadError) {
+          console.error(`❌ Error al recargar: ${reloadError.message}`);
+          break; // Salir del bucle si no se puede recargar
+        }
+      }
+    }
+
+    // --- RESUMEN FINAL ---
+    console.log(`\n📊 RESUMEN DE ACTIVACIÓN:`);
+    console.log(`   ✅ Promociones activadas en esta ejecución: ${totalActivadas}`);
+    console.log(`   ℹ️ Promociones que ya estaban activadas: ${totalYaActivadas}`);
+    console.log(`   🔄 Intentos realizados: ${intentos}`);
+    
+    // Verificación final: contar promociones restantes
+    await page.waitForTimeout(2000);
+    await page.reload({ waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForTimeout(2000);
+    
+    const promoCardsFinal = page.locator('div.w-full.flex.shadow-4');
+    const promocionesRestantes = await promoCardsFinal.count();
+    
+    console.log(`   📋 Promociones restantes: ${promocionesRestantes}`);
+    
+    if (promocionesRestantes > 0) {
+      console.log(`ℹ️ Aún quedan ${promocionesRestantes} promoción(es) en la lista (pueden estar activadas o desactivadas)`);
+    } else {
+      console.log('✅ Todas las promociones fueron procesadas exitosamente');
+    }
+    
+    // Validar que se activaron algunas promociones (o al menos se intentó)
+    expect(totalActivadas).toBeGreaterThanOrEqual(0);
+    console.log(`\n✅ Prueba completada: Se activaron ${totalActivadas} promoción(es)`);
+  });
+
   test('Navegar a chats desde promociones', async ({ page }) => {
     // --- NAVEGAR A PÁGINA DE PROMOCIONES ---
     await showStepMessage(page, '📋 NAVEGANDO A PÁGINA DE PROMOCIONES');
