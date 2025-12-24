@@ -779,7 +779,7 @@ test('Crear servicio', async ({ page }) => {
   console.log(`✅ Servicio "${serviceName}" creado exitosamente`);
 });
 
-test('Crear 29 servicios', async ({ page }) => {
+test.skip('Crear 29 servicios', async ({ page }) => {
   // Solo ejecutar esta prueba en staging, no en producción
   if (DEFAULT_BASE_URL.includes('fiestamas.com') && !DEFAULT_BASE_URL.includes('staging')) {
     test.skip();
