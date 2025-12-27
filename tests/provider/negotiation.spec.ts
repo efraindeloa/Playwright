@@ -23,9 +23,19 @@ test.use({
 test.setTimeout(DEFAULT_TIMEOUT);
 
 /**
- * Navega a una página de negociación desde chats o dashboard
+ * Navega a una página de negociación activa (no cancelada) desde chats o dashboard
+ * Verifica que el campo de notas esté habilitado como confirmación de que no está cancelada
  */
 async function navigateToNegotiation(page: Page): Promise<string> {
+  // Usar la misma lógica que navigateToActiveNegotiation
+  return navigateToActiveNegotiation(page);
+}
+
+/**
+ * Navega a una negociación activa (no cancelada)
+ * Verifica que el campo de notas esté habilitado como confirmación
+ */
+async function navigateToActiveNegotiation(page: Page): Promise<string> {
   // Intentar desde chats primero
   try {
     await page.goto(CHATS_URL);
@@ -36,18 +46,59 @@ async function navigateToNegotiation(page: Page): Promise<string> {
     });
     
     const conversationCount = await conversationButtons.count();
+    console.log(`🔍 Encontradas ${conversationCount} conversaciones en chats`);
     
     if (conversationCount > 0) {
-      await conversationButtons.first().click();
-      await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
-      
-      const currentUrl = page.url();
-      if (currentUrl.includes('/provider/negotiation/')) {
-        return currentUrl;
+      // Intentar con todas las conversaciones hasta encontrar una activa
+      for (let i = 0; i < conversationCount; i++) {
+        try {
+          console.log(`🔍 Intentando conversación ${i + 1} de ${conversationCount}...`);
+          await conversationButtons.nth(i).click();
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+          
+          const currentUrl = page.url();
+          if (currentUrl.includes('/provider/negotiation/')) {
+            // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+            const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+            const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+            
+            if (notesInputVisible) {
+              const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+              
+              // Si el campo está habilitado, es una negociación activa
+              if (isNotesEnabled) {
+                console.log(`✅ Negociación activa encontrada en conversación ${i + 1} (campo de notas habilitado)`);
+                return currentUrl;
+              } else {
+                console.log(`⚠️ Conversación ${i + 1} está cancelada (campo de notas deshabilitado), continuando búsqueda...`);
+                // Regresar a chats para intentar con la siguiente
+                await page.goto(CHATS_URL);
+                await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+              }
+            } else {
+              console.log(`⚠️ Campo de notas no visible en conversación ${i + 1}, continuando búsqueda...`);
+              await page.goto(CHATS_URL);
+              await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+            }
+          } else {
+            // Si no navegó a una negociación, regresar a chats
+            await page.goto(CHATS_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error al intentar con conversación ${i + 1}: ${error.message}`);
+          // Continuar con la siguiente conversación
+          try {
+            await page.goto(CHATS_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          } catch (e) {
+            // Si no se puede regresar, continuar de todas formas
+          }
+        }
       }
     }
   } catch (error) {
-    console.log('ℹ️ No se pudo navegar desde chats, intentando desde dashboard...');
+    console.log(`ℹ️ No se pudo navegar desde chats: ${error.message}`);
   }
   
   // Intentar desde dashboard
@@ -55,27 +106,68 @@ async function navigateToNegotiation(page: Page): Promise<string> {
     await page.goto(DASHBOARD_URL);
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
     
-    // Buscar un evento clickeable en el dashboard
+    // Buscar eventos activos (excluyendo CANCELADO)
     const eventButtons = page.locator('button').filter({
-      hasText: /PENDIENTE|NUEVO|CONTRATADO|CANCELADO/i
+      hasText: /PENDIENTE|NUEVO|NUEVA|CONTRATADO|ENVIADA/i
     });
     
     const eventCount = await eventButtons.count();
+    console.log(`🔍 Encontrados ${eventCount} eventos activos en dashboard`);
     
     if (eventCount > 0) {
-      await eventButtons.first().click();
-      await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
-      
-      const currentUrl = page.url();
-      if (currentUrl.includes('/provider/negotiation/')) {
-        return currentUrl;
+      // Intentar con todos los eventos hasta encontrar uno activo
+      for (let i = 0; i < eventCount; i++) {
+        try {
+          console.log(`🔍 Intentando evento ${i + 1} de ${eventCount}...`);
+          await eventButtons.nth(i).click();
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+          
+          const currentUrl = page.url();
+          if (currentUrl.includes('/provider/negotiation/')) {
+            // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+            const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+            const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+            
+            if (notesInputVisible) {
+              const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+              
+              // Si el campo está habilitado, es una negociación activa
+              if (isNotesEnabled) {
+                console.log(`✅ Negociación activa encontrada en evento ${i + 1} (campo de notas habilitado)`);
+                return currentUrl;
+              } else {
+                console.log(`⚠️ Evento ${i + 1} está cancelado (campo de notas deshabilitado), continuando búsqueda...`);
+                // Regresar a dashboard para intentar con el siguiente
+                await page.goto(DASHBOARD_URL);
+                await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+              }
+            } else {
+              console.log(`⚠️ Campo de notas no visible en evento ${i + 1}, continuando búsqueda...`);
+              await page.goto(DASHBOARD_URL);
+              await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+            }
+          } else {
+            // Si no navegó a una negociación, regresar a dashboard
+            await page.goto(DASHBOARD_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error al intentar con evento ${i + 1}: ${error.message}`);
+          // Continuar con el siguiente evento
+          try {
+            await page.goto(DASHBOARD_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          } catch (e) {
+            // Si no se puede regresar, continuar de todas formas
+          }
+        }
       }
     }
   } catch (error) {
-    console.log('ℹ️ No se pudo navegar desde dashboard');
+    console.log(`ℹ️ No se pudo navegar desde dashboard: ${error.message}`);
   }
   
-  throw new Error('❌ No se pudo navegar a una página de negociación');
+  throw new Error('❌ No se pudo navegar a una negociación activa después de intentar múltiples estrategias');
 }
 
 test.describe('Gestión de Negociaciones y Cotizaciones', () => {
@@ -97,7 +189,8 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     
     await expect(page).toHaveURL(/\/provider\/negotiation\/\d+/i);
     
-    const negotiationTitle = page.locator('p:has-text("Negociación")');
+    // Buscar el título en el nav para evitar conflictos con otros elementos
+    const negotiationTitle = page.locator('nav p.text-dark-neutral.text-medium:has-text("Negociación")').first();
     await expect(negotiationTitle).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     console.log('✅ Navegación a página de negociación exitosa');
   });
@@ -367,11 +460,11 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
   });
 
   test('Validar sección de notas personales', async ({ page }) => {
-    // --- NAVEGAR A NEGOCIACIÓN ---
-    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN');
+    // --- NAVEGAR A NEGOCIACIÓN ACTIVA ---
+    await showStepMessage(page, '💬 NAVEGANDO A NEGOCIACIÓN ACTIVA');
     await page.waitForTimeout(1000);
     
-    await navigateToNegotiation(page);
+    await navigateToActiveNegotiation(page);
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
 
     // --- VALIDAR TÍTULO DE NOTAS PERSONALES ---
@@ -399,6 +492,15 @@ test.describe('Gestión de Negociaciones y Cotizaciones', () => {
     
     if (hasNotesInput) {
       console.log('✅ Campo de notas personales encontrado');
+      
+      // Verificar que el campo esté habilitado antes de intentar llenarlo
+      const isEnabled = await notesInput.isEnabled({ timeout: WAIT_FOR_ELEMENT_TIMEOUT }).catch(() => false);
+      
+      if (!isEnabled) {
+        throw new Error('❌ El campo de notas está deshabilitado. La negociación puede estar cancelada.');
+      }
+      
+      console.log('✅ Campo de notas está habilitado');
       
       // Intentar agregar una nota
       await notesInput.fill('Nota de prueba para testing');
@@ -534,8 +636,26 @@ async function navigateToNewNegotiation(page: Page): Promise<string> {
             const hasNewStatus = await statusElement.isVisible({ timeout: 5000 }).catch(() => false);
             
             if (hasNewStatus) {
-              console.log(`✅ Negociación con estado NUEVA encontrada en conversación ${i + 1}`);
-              return currentUrl;
+              // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+              const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+              const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+              
+              if (notesInputVisible) {
+                const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+                
+                if (isNotesEnabled) {
+                  console.log(`✅ Negociación con estado NUEVA encontrada en conversación ${i + 1} (no cancelada)`);
+                  return currentUrl;
+                } else {
+                  console.log(`⚠️ Conversación ${i + 1} tiene estado NUEVA pero está cancelada (campo de notas deshabilitado), continuando búsqueda...`);
+                  await page.goto(CHATS_URL);
+                  await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+                }
+              } else {
+                console.log(`⚠️ Campo de notas no visible en conversación ${i + 1}, continuando búsqueda...`);
+                await page.goto(CHATS_URL);
+                await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+              }
             } else {
               console.log(`⚠️ Conversación ${i + 1} no tiene estado NUEVA, continuando búsqueda...`);
               // Regresar a chats para intentar con la siguiente
@@ -591,8 +711,26 @@ async function navigateToNewNegotiation(page: Page): Promise<string> {
             const hasNewStatus = await statusElement.isVisible({ timeout: 5000 }).catch(() => false);
             
             if (hasNewStatus) {
-              console.log(`✅ Negociación con estado NUEVA encontrada en evento ${i + 1}`);
-              return currentUrl;
+              // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+              const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+              const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+              
+              if (notesInputVisible) {
+                const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+                
+                if (isNotesEnabled) {
+                  console.log(`✅ Negociación con estado NUEVA encontrada en evento ${i + 1} (no cancelada)`);
+                  return currentUrl;
+                } else {
+                  console.log(`⚠️ Evento ${i + 1} tiene estado NUEVA pero está cancelado (campo de notas deshabilitado), continuando búsqueda...`);
+                  await page.goto(DASHBOARD_URL);
+                  await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+                }
+              } else {
+                console.log(`⚠️ Campo de notas no visible en evento ${i + 1}, continuando búsqueda...`);
+                await page.goto(DASHBOARD_URL);
+                await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+              }
             } else {
               console.log(`⚠️ Evento ${i + 1} no tiene estado NUEVA, continuando búsqueda...`);
               // Regresar a dashboard para intentar con el siguiente
@@ -644,8 +782,18 @@ async function navigateToNewNegotiation(page: Page): Promise<string> {
           const hasNewStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
           
           if (hasNewStatus) {
-            console.log(`✅ Negociación con estado NUEVA encontrada en botón adicional ${i + 1}`);
-            return currentUrl;
+            // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+            const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+            const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+            
+            if (notesInputVisible) {
+              const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+              
+              if (isNotesEnabled) {
+                console.log(`✅ Negociación con estado NUEVA encontrada en botón adicional ${i + 1} (no cancelada)`);
+                return currentUrl;
+              }
+            }
           }
         }
         
@@ -681,23 +829,49 @@ async function navigateToSentNegotiation(page: Page): Promise<string> {
     if (conversationCount > 0) {
       // Intentar con todas las conversaciones hasta encontrar una con estado ENVIADA
       for (let i = 0; i < conversationCount; i++) {
-        await conversationButtons.nth(i).click();
-        await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
-        
-        const currentUrl = page.url();
-        if (currentUrl.includes('/provider/negotiation/')) {
-          // Verificar si el estado es ENVIADA
-          const statusElement = page.locator('p:has-text("ENVIADA")');
-          const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
+        try {
+          console.log(`🔍 Intentando conversación ${i + 1} de ${conversationCount}...`);
+          await conversationButtons.nth(i).click();
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
           
-          if (hasSentStatus) {
-            return currentUrl;
+          const currentUrl = page.url();
+          if (currentUrl.includes('/provider/negotiation/')) {
+            // Verificar si el estado es ENVIADA
+            const statusElement = page.locator('p:has-text("ENVIADA")');
+            const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
+            
+            if (hasSentStatus) {
+              // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+              const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+              const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+              
+              if (notesInputVisible) {
+                const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+                
+                if (isNotesEnabled) {
+                  console.log(`✅ Negociación con estado ENVIADA encontrada en conversación ${i + 1} (no cancelada)`);
+                  return currentUrl;
+                } else {
+                  console.log(`⚠️ Conversación ${i + 1} tiene estado ENVIADA pero está cancelada (campo de notas deshabilitado), continuando búsqueda...`);
+                }
+              } else {
+                console.log(`⚠️ Campo de notas no visible en conversación ${i + 1}, continuando búsqueda...`);
+              }
+            }
+          }
+          
+          // Volver a chats si no es el estado correcto
+          await page.goto(CHATS_URL);
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+        } catch (error) {
+          console.log(`⚠️ Error al intentar con conversación ${i + 1}: ${error.message}`);
+          try {
+            await page.goto(CHATS_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          } catch (e) {
+            // Continuar de todas formas
           }
         }
-        
-        // Volver a chats si no es el estado correcto
-        await page.goto(CHATS_URL);
-        await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
       }
     }
   } catch (error) {
@@ -715,19 +889,60 @@ async function navigateToSentNegotiation(page: Page): Promise<string> {
     });
     
     const eventCount = await eventButtons.count();
+    console.log(`🔍 Encontrados ${eventCount} eventos con estado ENVIADA en dashboard`);
     
     if (eventCount > 0) {
-      await eventButtons.first().click();
-      await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
-      
-      const currentUrl = page.url();
-      if (currentUrl.includes('/provider/negotiation/')) {
-        // Verificar que realmente es ENVIADA
-        const statusElement = page.locator('p:has-text("ENVIADA")');
-        const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
-        
-        if (hasSentStatus) {
-          return currentUrl;
+      // Intentar con todos los eventos hasta encontrar uno con estado ENVIADA
+      for (let i = 0; i < eventCount; i++) {
+        try {
+          console.log(`🔍 Intentando evento ${i + 1} de ${eventCount}...`);
+          await eventButtons.nth(i).click();
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD * 2);
+          
+          const currentUrl = page.url();
+          if (currentUrl.includes('/provider/negotiation/')) {
+            // Verificar que realmente es ENVIADA
+            const statusElement = page.locator('p:has-text("ENVIADA")');
+            const hasSentStatus = await statusElement.isVisible({ timeout: 3000 }).catch(() => false);
+            
+            if (hasSentStatus) {
+              // Verificar que NO esté cancelada (verificar que el campo de notas esté habilitado)
+              const notesInput = page.locator('input[id*="Notes"], input[id*="Notas"], textarea[id*="Notes"], textarea[id*="Notas"]').first();
+              const notesInputVisible = await notesInput.isVisible({ timeout: 3000 }).catch(() => false);
+              
+              if (notesInputVisible) {
+                const isNotesEnabled = await notesInput.isEnabled({ timeout: 2000 }).catch(() => false);
+                
+                if (isNotesEnabled) {
+                  console.log(`✅ Negociación con estado ENVIADA encontrada en evento ${i + 1} (no cancelada)`);
+                  return currentUrl;
+                } else {
+                  console.log(`⚠️ Evento ${i + 1} tiene estado ENVIADA pero está cancelado (campo de notas deshabilitado), continuando búsqueda...`);
+                  await page.goto(DASHBOARD_URL);
+                  await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+                }
+              } else {
+                console.log(`⚠️ Campo de notas no visible en evento ${i + 1}, continuando búsqueda...`);
+                await page.goto(DASHBOARD_URL);
+                await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+              }
+            } else {
+              console.log(`⚠️ Evento ${i + 1} no tiene estado ENVIADA, continuando búsqueda...`);
+              await page.goto(DASHBOARD_URL);
+              await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+            }
+          } else {
+            await page.goto(DASHBOARD_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error al intentar con evento ${i + 1}: ${error.message}`);
+          try {
+            await page.goto(DASHBOARD_URL);
+            await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          } catch (e) {
+            // Continuar de todas formas
+          }
         }
       }
     }
@@ -735,7 +950,7 @@ async function navigateToSentNegotiation(page: Page): Promise<string> {
     console.log('ℹ️ No se pudo navegar desde dashboard');
   }
   
-  throw new Error('❌ No se pudo navegar a una negociación con estado ENVIADA');
+  throw new Error('❌ No se pudo navegar a una negociación activa con estado ENVIADA');
 }
 
 test.describe('Negociación con estado NUEVA - Elementos interactivos', () => {

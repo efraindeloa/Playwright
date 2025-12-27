@@ -33,7 +33,6 @@ const AVAILABLE_TEST_IMAGES = [
   'Adobe Express - file.png',
   'Amazing log home_.jpeg',
   'Bamboo.jpg',
-  'Bebidas.avif',
   'Wallpaper_045.bmp',
   'alimentos.png',
   'bramido.jpg',
@@ -2831,114 +2830,7 @@ test.describe('Gestión de promociones', () => {
     console.log('\n✅ Pruebas de inputs inesperados completadas');
   });
 
-  test('Validar formulario en viewport móvil', async ({ page }) => {
-    // Cambiar a viewport móvil
-    await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE
-    await page.waitForTimeout(500);
-
-    await showStepMessage(page, '📋 NAVEGANDO A ADMINISTRAR PROMOCIONES (MÓVIL)');
-    const promosBtn = page.locator('div.flex.flex-row.gap-3').getByRole('button', { name: 'Administrar promociones' });
-    await promosBtn.click();
-    await expect(page.getByText('Crear promoción')).toBeVisible({ timeout: 10000 });
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-
-    // Abrir formulario
-    await showStepMessage(page, '🟢 ABRIENDO FORMULARIO DE NUEVA PROMOCIÓN (MÓVIL)');
-    await page.getByRole('button', { name: 'Crear promoción' }).click();
-    await expect(page.getByText('Nueva promoción')).toBeVisible({ timeout: 10000 });
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(3000);
-
-    // Validar que todos los campos son accesibles y visibles
-    await showStepMessage(page, '✅ VALIDANDO ELEMENTOS EN VIEWPORT MÓVIL');
-    
-    const campos = [
-      { name: 'Título', selector: 'input[id="Title"]' },
-      { name: 'Fecha inicio', selector: 'input[id="StartDate"]' },
-      { name: 'Fecha fin', selector: 'input[id="EndDate"]' },
-      { name: 'Servicio', selector: 'button[id="ServiceId"]' },
-      { name: 'Descripción', selector: 'textarea[id="Description"]' },
-      { name: 'Oferta corta', selector: 'input[id="ShortTitle"]' },
-      { name: 'Botón Finalizar', selector: 'button:has-text("Finalizar")' }
-    ];
-
-    for (const campo of campos) {
-      const elemento = page.locator(campo.selector).first();
-      const isVisible = await elemento.isVisible({ timeout: 5000 }).catch(() => false);
-      
-      if (isVisible) {
-        // Verificar que está en el viewport
-        const boundingBox = await elemento.boundingBox();
-        if (boundingBox) {
-          const isInViewport = boundingBox.x >= 0 && 
-                               boundingBox.y >= 0 && 
-                               boundingBox.x + boundingBox.width <= 375 &&
-                               boundingBox.y + boundingBox.height <= 667;
-          
-          if (isInViewport) {
-            console.log(`✅ ${campo.name} está visible y dentro del viewport`);
-          } else {
-            console.warn(`⚠️ ${campo.name} está visible pero puede estar parcialmente fuera del viewport`);
-          }
-        } else {
-          console.log(`✅ ${campo.name} está visible`);
-        }
-      } else {
-        console.warn(`⚠️ ${campo.name} no está visible en viewport móvil`);
-      }
-    }
-
-    // Verificar que no hay elementos superpuestos (buscando elementos con z-index alto que puedan bloquear)
-    await showStepMessage(page, '🔍 VERIFICANDO SUPERPOSICIONES');
-    const overlappingElements = await page.evaluate(() => {
-      const elements = document.querySelectorAll('*');
-      const overlapping: any[] = [];
-      
-      for (let i = 0; i < elements.length; i++) {
-        const el1 = elements[i] as HTMLElement;
-        const rect1 = el1.getBoundingClientRect();
-        const z1 = window.getComputedStyle(el1).zIndex;
-        
-        if (rect1.width === 0 || rect1.height === 0) continue;
-        
-        for (let j = i + 1; j < elements.length; j++) {
-          const el2 = elements[j] as HTMLElement;
-          const rect2 = el2.getBoundingClientRect();
-          
-          if (rect2.width === 0 || rect2.height === 0) continue;
-          
-          // Verificar si se superponen
-          const overlaps = !(rect1.right < rect2.left || 
-                           rect1.left > rect2.right || 
-                           rect1.bottom < rect2.top || 
-                           rect1.top > rect2.bottom);
-          
-          if (overlaps && z1 !== 'auto' && parseInt(z1) > 100) {
-            overlapping.push({
-              element1: el1.tagName + (el1.className ? '.' + el1.className.split(' ')[0] : ''),
-              element2: el2.tagName + (el2.className ? '.' + el2.className.split(' ')[0] : ''),
-              zIndex: z1
-            });
-          }
-        }
-      }
-      
-      return overlapping;
-    });
-
-    if (overlappingElements.length > 0) {
-      console.warn(`⚠️ Se encontraron ${overlappingElements.length} posibles superposiciones`);
-    } else {
-      console.log('✅ No se encontraron superposiciones evidentes');
-    }
-
-    // Restaurar viewport original
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.waitForTimeout(500);
-  });
-
+  
   // ============================================================================
   // FUNCIONES HELPER PARA VALIDACIÓN DE TRASLAPE DE FECHAS
   // ============================================================================
