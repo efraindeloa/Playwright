@@ -699,8 +699,54 @@ test.describe('Dashboard de cliente', () => {
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
     await page.waitForTimeout(1000);
     console.log('🔍 Validando botón "Agregar servicios"...');
-    await expect(page.getByRole('button', { name: /Agregar servicios/i })).toBeVisible();
-    console.log('✅ Botón "Agregar servicios" visible');
+    
+    // Buscar el botón con el nuevo diseño: tiene icono plus y texto "Agregar servicios"
+    const botonAgregarServicios = page.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+    }).filter({
+      has: page.locator('i.icon-plus')
+    }).first();
+    
+    // Fallback: buscar por texto accesible
+    const botonAgregarServiciosFallback = page.getByRole('button', { name: /Agregar servicios/i });
+    
+    let botonVisible = false;
+    let botonElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServicios;
+      botonVisible = true;
+      console.log('✅ Botón "Agregar servicios" encontrado (selector específico con nuevo diseño)');
+    } else if (await botonAgregarServiciosFallback.count() > 0 && await botonAgregarServiciosFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServiciosFallback;
+      botonVisible = true;
+      console.log('✅ Botón "Agregar servicios" encontrado (fallback por texto accesible)');
+    }
+    
+    if (!botonVisible || !botonElement) {
+      throw new Error('❌ No se encontró el botón "Agregar servicios" con el nuevo diseño');
+    }
+    
+    await expect(botonElement).toBeVisible();
+    await expect(botonElement).toBeEnabled();
+    
+    // Validar que el botón tiene el icono plus
+    const iconoPlus = botonElement.locator('i.icon-plus');
+    const iconoVisible = await iconoPlus.isVisible({ timeout: 2000 }).catch(() => false);
+    if (iconoVisible) {
+      console.log('✅ Icono plus encontrado en el botón');
+    } else {
+      console.log('⚠️ Icono plus no encontrado, pero el botón es válido');
+    }
+    
+    // Validar que el botón tiene el texto "Agregar servicios"
+    const textoBoton = botonElement.locator('span.font-bold').filter({ hasText: /Agregar servicios/i });
+    const textoVisible = await textoBoton.isVisible({ timeout: 2000 }).catch(() => false);
+    if (textoVisible) {
+      console.log('✅ Texto "Agregar servicios" encontrado en el botón');
+    }
+    
+    console.log('✅ Botón "Agregar servicios" visible y habilitado');
 
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN "ORDENAR POR"');
     await page.waitForTimeout(1000);
@@ -2137,9 +2183,45 @@ test.describe('Dashboard de cliente', () => {
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
     await page.waitForTimeout(1000);
     console.log('🔍 Validando botón "Agregar servicios"...');
-    const botonAgregarServicios = page.getByRole('button', { name: /Agregar servicios/i });
-    await expect(botonAgregarServicios).toBeVisible();
-    await expect(botonAgregarServicios).toBeEnabled();
+    
+    // Buscar el botón con el nuevo diseño: tiene icono plus y texto "Agregar servicios"
+    const botonAgregarServicios = page.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+    }).filter({
+      has: page.locator('i.icon-plus')
+    }).first();
+    
+    // Fallback: buscar por texto accesible
+    const botonAgregarServiciosFallback = page.getByRole('button', { name: /Agregar servicios/i });
+    
+    let botonElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServicios;
+      console.log('✅ Botón "Agregar servicios" encontrado (selector específico con nuevo diseño)');
+    } else if (await botonAgregarServiciosFallback.count() > 0 && await botonAgregarServiciosFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServiciosFallback;
+      console.log('✅ Botón "Agregar servicios" encontrado (fallback por texto accesible)');
+    } else {
+      throw new Error('❌ No se encontró el botón "Agregar servicios" con el nuevo diseño');
+    }
+    
+    await expect(botonElement).toBeVisible();
+    await expect(botonElement).toBeEnabled();
+    
+    // Validar elementos del nuevo diseño
+    const iconoPlus = botonElement.locator('i.icon-plus');
+    const iconoVisible = await iconoPlus.isVisible({ timeout: 2000 }).catch(() => false);
+    if (iconoVisible) {
+      console.log('✅ Icono plus encontrado en el botón');
+    }
+    
+    const textoBoton = botonElement.locator('span.font-bold').filter({ hasText: /Agregar servicios/i });
+    const textoVisible = await textoBoton.isVisible({ timeout: 2000 }).catch(() => false);
+    if (textoVisible) {
+      console.log('✅ Texto "Agregar servicios" encontrado en el botón');
+    }
+    
     console.log('✅ Botón "Agregar servicios" visible y habilitado');
     
     // 2. VALIDAR BOTÓN "ORDENAR POR" (existencia ya validada, validar funcionalidad completa)
@@ -2576,7 +2658,7 @@ test.describe('Dashboard de cliente', () => {
   });
 
   test('Los servicios se ordenan correctamente', async ({ page }) => {
-    test.setTimeout(60000); // 1 minuto
+    test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN ORDENAR POR');
     await page.waitForTimeout(1000);
@@ -2587,6 +2669,831 @@ test.describe('Dashboard de cliente', () => {
     await expect(botonOrdenar.first()).toBeVisible();
     await expect(botonOrdenar.first()).toBeEnabled();
     console.log('✅ Botón "Ordenar por" visible y habilitado');
+    
+    // Función auxiliar para obtener eventos y sus estatus
+    const obtenerEventosConEstatus = async () => {
+      // Buscar eventos en la sección "Elige tu fiesta" - usar múltiples estrategias
+      let eventos: ReturnType<typeof page.locator>;
+      
+      // Estrategia 1: Buscar botones con clases específicas y que contengan iconos de eventos
+      const eventosConIconos = page.locator('button').filter({
+        has: page.locator('i.icon-cake, i.icon-disco-ball, i.icon-graduation-cap, i.icon-girl-boy, i.icon-star, i.icon-stroller, i.icon-baptism, i.icon-briefcase, i.icon-diamond, i.icon-broken-heart, i.icon-party')
+      }).filter({
+        has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4}/i })
+      });
+      
+      const countConIconos = await eventosConIconos.count();
+      if (countConIconos > 0) {
+        eventos = eventosConIconos;
+        console.log(`✅ Eventos encontrados con iconos: ${countConIconos}`);
+      } else {
+        // Estrategia 2: Buscar botones con clases específicas
+        const eventosConClases = page.locator('button.flex.flex-col.bg-light-neutral.rounded-6').filter({
+          has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4}/i })
+        });
+        const countConClases = await eventosConClases.count();
+        if (countConClases > 0) {
+          eventos = eventosConClases;
+          console.log(`✅ Eventos encontrados con clases: ${countConClases}`);
+        } else {
+          // Estrategia 3: Buscar cualquier botón que contenga fecha
+          eventos = page.locator('button').filter({
+            has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4}/i })
+          });
+          const countGeneral = await eventos.count();
+          console.log(`✅ Eventos encontrados (búsqueda general): ${countGeneral}`);
+        }
+      }
+      
+      const eventCount = await eventos.count();
+      console.log(`📊 Total de eventos encontrados: ${eventCount}`);
+      const eventosConEstatus: Array<{ index: number; estatus: string | null; texto: string; fecha?: Date | null; esFuturo?: boolean }> = [];
+      
+      // Limitar el procesamiento a los primeros 20 eventos para evitar timeouts
+      // Si hay más de 20, solo procesamos los primeros 20 para verificar el ordenamiento
+      const maxEventos = Math.min(eventCount, 20);
+      console.log(`📊 Procesando los primeros ${maxEventos} eventos de ${eventCount} totales para verificar ordenamiento`);
+      
+      // Procesar eventos de forma más eficiente usando evaluate para obtener datos en batch
+      try {
+        const eventosData = await page.evaluate((max) => {
+          const eventos: Array<{ index: number; estatus: string | null; texto: string; fecha: Date | null; esFuturo: boolean }> = [];
+          // Buscar eventos con múltiples selectores para cubrir diferentes estructuras
+          const eventButtons = document.querySelectorAll('button.flex.flex-col.bg-light-neutral.rounded-6, button.text-start.flex.flex-col.bg-light-light, button:has(i.icon-cake), button:has(i.icon-disco-ball), button:has(i.icon-graduation-cap), button:has(i.icon-girl-boy), button:has(i.icon-star), button:has(i.icon-stroller), button:has(i.icon-baptism), button:has(i.icon-briefcase), button:has(i.icon-diamond), button:has(i.icon-broken-heart), button:has(i.icon-party)');
+          
+          // Obtener fecha actual
+          const hoy = new Date();
+          hoy.setHours(0, 0, 0, 0);
+          
+          // Mapeo de meses en español
+          const monthMap: { [key: string]: number } = {
+            'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+            'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+          };
+          
+          for (let i = 0; i < Math.min(eventButtons.length, max); i++) {
+            const button = eventButtons[i] as HTMLElement;
+            const text = button.textContent || '';
+            let estatus: string | null = null;
+            let fechaEvento: Date | null = null;
+            let esFuturo = false;
+            
+            // Extraer fecha del evento del texto
+            // Formatos: "29 dic. 2025 - 12:00 PM", "31 jul. 2026", "31 jul 2026"
+            const dateMatch = text.match(/(\d{1,2})\s+(\w+)\.?\s+(\d{4})/);
+            if (dateMatch) {
+              const day = parseInt(dateMatch[1]);
+              const monthName = dateMatch[2].toLowerCase().substring(0, 3);
+              const year = parseInt(dateMatch[3]);
+              
+              if (monthMap[monthName] !== undefined) {
+                fechaEvento = new Date(year, monthMap[monthName], day);
+                fechaEvento.setHours(0, 0, 0, 0);
+                esFuturo = fechaEvento >= hoy;
+              }
+            }
+            
+            // Estrategia 1: Buscar directamente en todos los elementos p, span y div que contengan el texto del estatus
+            // Esto es más robusto que buscar por clases específicas
+            const allTextElements = button.querySelectorAll('p, span, div, button, a');
+            for (let j = 0; j < Math.min(allTextElements.length, 100); j++) {
+              const element = allTextElements[j] as HTMLElement;
+              // Obtener texto y limpiarlo más agresivamente
+              let elementText = element.textContent || '';
+              elementText = elementText.replace(/\s+/g, ' ').trim().toUpperCase();
+              
+              // Verificar si el texto coincide exactamente con un estatus (después de limpiar espacios)
+              if (elementText === 'NUEVO') {
+                estatus = 'Nuevo';
+                break;
+              } else if (elementText === 'PENDIENTE') {
+                estatus = 'Pendiente';
+                break;
+              } else if (elementText === 'CONTRATADO') {
+                estatus = 'Contratado';
+                break;
+              } else if (elementText === 'CANCELADO') {
+                estatus = 'Cancelado';
+                break;
+              }
+              
+              // También verificar si el texto contiene el estatus (para casos con espacios adicionales o caracteres especiales)
+              if (!estatus) {
+                if (elementText.includes('NUEVO') && !elementText.includes('EVENTO') && elementText.length < 20) {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (elementText.includes('PENDIENTE') && elementText.length < 20) {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (elementText.includes('CONTRATADO') && elementText.length < 20) {
+                  estatus = 'Contratado';
+                  break;
+                } else if (elementText.includes('CANCELADO') && elementText.length < 20) {
+                  estatus = 'Cancelado';
+                  break;
+                }
+              }
+            }
+            
+            // Estrategia 1b: Si no se encontró, buscar en todos los elementos p específicamente con limpieza más agresiva
+            if (!estatus) {
+              const allPTags = button.querySelectorAll('p');
+              for (let j = 0; j < Math.min(allPTags.length, 100); j++) {
+                const pTag = allPTags[j] as HTMLElement;
+                let pText = pTag.textContent || '';
+                pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                
+                // Verificar si el texto coincide exactamente con un estatus
+                if (pText === 'NUEVO') {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (pText === 'PENDIENTE') {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (pText === 'CONTRATADO') {
+                  estatus = 'Contratado';
+                  break;
+                } else if (pText === 'CANCELADO') {
+                  estatus = 'Cancelado';
+                  break;
+                }
+                
+                // También verificar si contiene el estatus (para casos con espacios adicionales)
+                if (!estatus && pText.length < 20) {
+                  if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText.includes('PENDIENTE')) {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText.includes('CONTRATADO')) {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText.includes('CANCELADO')) {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Estrategia 2: Buscar específicamente en divs con clases de badge (bg-warning-neutral, bg-info-neutral, etc.)
+            if (!estatus) {
+              // Buscar divs que contengan badges de estatus
+              const badgeDivs = button.querySelectorAll('div[class*="bg-warning-neutral"], div[class*="bg-info-neutral"], div[class*="bg-success-neutral"], div[class*="bg-error-neutral"], div[class*="rounded-[40px]"]');
+              for (let j = 0; j < Math.min(badgeDivs.length, 10); j++) {
+                const badgeDiv = badgeDivs[j] as HTMLElement;
+                const pTag = badgeDiv.querySelector('p');
+                if (pTag) {
+                  let pText = pTag.textContent || '';
+                  pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                  
+                  if (pText === 'NUEVO') {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText === 'PENDIENTE') {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText === 'CONTRATADO') {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText === 'CANCELADO') {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                  
+                  // También verificar si contiene el estatus
+                  if (!estatus && pText.length < 20) {
+                    if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                      estatus = 'Nuevo';
+                      break;
+                    } else if (pText.includes('PENDIENTE')) {
+                      estatus = 'Pendiente';
+                      break;
+                    } else if (pText.includes('CONTRATADO')) {
+                      estatus = 'Contratado';
+                      break;
+                    } else if (pText.includes('CANCELADO')) {
+                      estatus = 'Cancelado';
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Estrategia 3: Si no se encontró, buscar en elementos p con clases específicas del badge
+            if (!estatus) {
+              // Buscar p con clases text-xsmall (puede tener otras clases también)
+              const badgePTags = button.querySelectorAll('p[class*="text-xsmall"], p[class*="font-medium"], p[class*="font-bold"]');
+              for (let j = 0; j < Math.min(badgePTags.length, 20); j++) {
+                let pText = badgePTags[j].textContent || '';
+                pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                
+                if (pText === 'NUEVO') {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (pText === 'PENDIENTE') {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (pText === 'CONTRATADO') {
+                  estatus = 'Contratado';
+                  break;
+                } else if (pText === 'CANCELADO') {
+                  estatus = 'Cancelado';
+                  break;
+                }
+                
+                // También verificar si contiene el estatus
+                if (!estatus && pText.length < 20) {
+                  if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText.includes('PENDIENTE')) {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText.includes('CONTRATADO')) {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText.includes('CANCELADO')) {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Estrategia 3: Buscar en divs que contengan badges (para casos donde el p está dentro de un div con clases específicas)
+            if (!estatus) {
+              const badgeDivs = button.querySelectorAll('div');
+              for (let j = 0; j < Math.min(badgeDivs.length, 30); j++) {
+                const badgeDiv = badgeDivs[j] as HTMLElement;
+                const classes = badgeDiv.className || '';
+                
+                // Verificar si el div tiene clases características de badge (rounded, bg-*, px-*)
+                if ((classes.includes('rounded') || classes.includes('bg-')) && classes.includes('px-')) {
+                  const pTag = badgeDiv.querySelector('p');
+                  if (pTag) {
+                    const pText = pTag.textContent?.trim().toUpperCase() || '';
+                    if (pText === 'NUEVO') {
+                      estatus = 'Nuevo';
+                      break;
+                    } else if (pText === 'PENDIENTE') {
+                      estatus = 'Pendiente';
+                      break;
+                    } else if (pText === 'CONTRATADO') {
+                      estatus = 'Contratado';
+                      break;
+                    } else if (pText === 'CANCELADO') {
+                      estatus = 'Cancelado';
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Si aún no se encontró, buscar en el texto completo como último recurso
+            if (!estatus) {
+              const textUpper = text.toUpperCase();
+              if (textUpper.includes('NUEVO') && !textUpper.includes('EVENTO')) {
+                estatus = 'Nuevo';
+              } else if (textUpper.includes('PENDIENTE')) {
+                estatus = 'Pendiente';
+              } else if (textUpper.includes('CONTRATADO')) {
+                estatus = 'Contratado';
+              } else if (textUpper.includes('CANCELADO')) {
+                estatus = 'Cancelado';
+              }
+            }
+            
+            // Solo agregar eventos actuales o futuros (descartar eventos pasados)
+            if (esFuturo || fechaEvento === null) {
+              eventos.push({
+                index: i,
+                estatus: estatus,
+                texto: text.trim().substring(0, 80),
+                fecha: fechaEvento,
+                esFuturo: esFuturo
+              });
+            }
+          }
+          
+          return eventos;
+        }, maxEventos);
+        
+        eventosConEstatus.push(...eventosData);
+        console.log(`✅ Procesamiento completado: ${eventosConEstatus.length} eventos analizados (solo eventos actuales/futuros)`);
+        
+        // Validar que todos los eventos actuales/futuros tengan estatus
+        // Si hay eventos sin estatus, intentar buscarlos de nuevo después de esperar
+        let eventosSinEstatus = eventosConEstatus.filter(e => {
+          const esEventoValido = e.esFuturo === true || e.fecha === null;
+          return esEventoValido && e.estatus === null;
+        });
+        
+        // Si hay eventos sin estatus, esperar un poco más y buscar de nuevo (máximo 2 reintentos)
+        if (eventosSinEstatus.length > 0) {
+          console.log(`⚠️ Se encontraron ${eventosSinEstatus.length} eventos sin estatus, esperando y reintentando...`);
+          await page.waitForTimeout(2000);
+          
+          // Reintentar obtener estatus para los eventos que no lo tienen
+          const eventosReintento = await page.evaluate((indices) => {
+            const eventos: Array<{ index: number; estatus: string | null }> = [];
+            const eventButtons = document.querySelectorAll('button.flex.flex-col.bg-light-neutral.rounded-6, button.text-start.flex.flex-col.bg-light-light, button:has(i.icon-cake), button:has(i.icon-disco-ball), button:has(i.icon-graduation-cap), button:has(i.icon-girl-boy), button:has(i.icon-star), button:has(i.icon-stroller), button:has(i.icon-baptism), button:has(i.icon-briefcase), button:has(i.icon-diamond), button:has(i.icon-broken-heart), button:has(i.icon-party)');
+            
+            indices.forEach((originalIndex: number) => {
+              if (originalIndex < eventButtons.length) {
+                const button = eventButtons[originalIndex] as HTMLElement;
+                let estatus: string | null = null;
+                
+                // Estrategia 1: Buscar específicamente en divs con clases de badge primero
+                const badgeDivs = button.querySelectorAll('div[class*="bg-warning-neutral"], div[class*="bg-info-neutral"], div[class*="bg-success-neutral"], div[class*="bg-error-neutral"], div[class*="rounded-[40px]"]');
+                for (let j = 0; j < Math.min(badgeDivs.length, 10); j++) {
+                  const badgeDiv = badgeDivs[j] as HTMLElement;
+                  const pTag = badgeDiv.querySelector('p');
+                  if (pTag) {
+                    let pText = pTag.textContent || '';
+                    pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                    
+                    if (pText === 'NUEVO') {
+                      estatus = 'Nuevo';
+                      break;
+                    } else if (pText === 'PENDIENTE') {
+                      estatus = 'Pendiente';
+                      break;
+                    } else if (pText === 'CONTRATADO') {
+                      estatus = 'Contratado';
+                      break;
+                    } else if (pText === 'CANCELADO') {
+                      estatus = 'Cancelado';
+                      break;
+                    }
+                  }
+                }
+                
+                // Estrategia 2: Si no se encontró, buscar en todos los elementos con limpieza mejorada
+                if (!estatus) {
+                  const allTextElements = button.querySelectorAll('p, span, div, button, a');
+                  for (let j = 0; j < Math.min(allTextElements.length, 100); j++) {
+                    const element = allTextElements[j] as HTMLElement;
+                    let elementText = element.textContent || '';
+                    elementText = elementText.replace(/\s+/g, ' ').trim().toUpperCase();
+                    
+                    if (elementText === 'NUEVO') {
+                      estatus = 'Nuevo';
+                      break;
+                    } else if (elementText === 'PENDIENTE') {
+                      estatus = 'Pendiente';
+                      break;
+                    } else if (elementText === 'CONTRATADO') {
+                      estatus = 'Contratado';
+                      break;
+                    } else if (elementText === 'CANCELADO') {
+                      estatus = 'Cancelado';
+                      break;
+                    }
+                    
+                    // También verificar si contiene el estatus (para casos con espacios adicionales)
+                    if (!estatus && elementText.length < 20) {
+                      if (elementText.includes('NUEVO') && !elementText.includes('EVENTO')) {
+                        estatus = 'Nuevo';
+                        break;
+                      } else if (elementText.includes('PENDIENTE')) {
+                        estatus = 'Pendiente';
+                        break;
+                      } else if (elementText.includes('CONTRATADO')) {
+                        estatus = 'Contratado';
+                        break;
+                      } else if (elementText.includes('CANCELADO')) {
+                        estatus = 'Cancelado';
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                eventos.push({ index: originalIndex, estatus });
+              }
+            });
+            
+            return eventos;
+          }, eventosSinEstatus.map(e => e.index));
+          
+          // Actualizar los estatus encontrados
+          eventosReintento.forEach(reintento => {
+            const eventoOriginal = eventosConEstatus.find(e => e.index === reintento.index);
+            if (eventoOriginal && reintento.estatus) {
+              eventoOriginal.estatus = reintento.estatus;
+              console.log(`✅ Estatus encontrado en reintento para evento ${reintento.index + 1}: "${reintento.estatus}"`);
+            }
+          });
+          
+          // Verificar de nuevo
+          eventosSinEstatus = eventosConEstatus.filter(e => {
+            const esEventoValido = e.esFuturo === true || e.fecha === null;
+            return esEventoValido && e.estatus === null;
+          });
+        }
+        
+        if (eventosSinEstatus.length > 0) {
+          console.log(`❌ ERROR: Se encontraron ${eventosSinEstatus.length} eventos actuales/futuros sin estatus identificado después de reintentos:`);
+          eventosSinEstatus.forEach((e, idx) => {
+            console.log(`   Evento ${idx + 1}: texto="${e.texto.substring(0, 60)}..."`);
+          });
+          throw new Error(`❌ FALLO: Se encontraron ${eventosSinEstatus.length} eventos actuales/futuros sin estatus. Todos los eventos visibles deben tener un estatus identificable.`);
+        }
+        
+        // Log de debugging: mostrar distribución de estatus encontrados
+        const estatusCounts: { [key: string]: number } = {};
+        eventosConEstatus.forEach(e => {
+          const key = e.estatus || 'desconocido';
+          estatusCounts[key] = (estatusCounts[key] || 0) + 1;
+        });
+        console.log(`📊 Distribución de estatus encontrados:`, estatusCounts);
+        
+        // Mostrar los primeros 5 eventos con su estatus para debugging
+        console.log(`🔍 Primeros 5 eventos:`);
+        for (let i = 0; i < Math.min(5, eventosConEstatus.length); i++) {
+          const e = eventosConEstatus[i];
+          console.log(`   Evento ${i + 1}: estatus="${e.estatus || 'null'}", texto="${e.texto.substring(0, 50)}..."`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Error al procesar eventos en batch: ${error}`);
+        console.log(`🔄 Intentando procesamiento individual...`);
+        
+        // Fallback: procesamiento individual usando Playwright locators
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const monthMap: { [key: string]: number } = {
+          'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+          'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+        };
+        
+        for (let i = 0; i < maxEventos; i++) {
+          try {
+            const evento = eventos.nth(i);
+            const eventText = await evento.textContent({ timeout: 2000 }).catch(() => '');
+            
+            // Extraer fecha del evento
+            let fechaEvento: Date | null = null;
+            let esFuturo = false;
+            
+            if (eventText) {
+              const dateMatch = eventText.match(/(\d{1,2})\s+(\w+)\.?\s+(\d{4})/);
+              if (dateMatch) {
+                const day = parseInt(dateMatch[1]);
+                const monthName = dateMatch[2].toLowerCase().substring(0, 3);
+                const year = parseInt(dateMatch[3]);
+                
+                if (monthMap[monthName] !== undefined) {
+                  fechaEvento = new Date(year, monthMap[monthName], day);
+                  fechaEvento.setHours(0, 0, 0, 0);
+                  esFuturo = fechaEvento >= today;
+                }
+              }
+            }
+            
+            // Solo procesar eventos actuales o futuros (descartar eventos pasados)
+            if (!esFuturo && fechaEvento !== null) {
+              continue; // Saltar eventos pasados
+            }
+            
+            let estatus: string | null = null;
+            
+            // Estrategia 1: Buscar directamente en todos los elementos p, span y div que contengan el texto del estatus
+            const allTextElements = evento.locator('p, span, div, button, a');
+            const elementCount = await allTextElements.count();
+            
+            for (let j = 0; j < Math.min(elementCount, 100); j++) {
+              const element = allTextElements.nth(j);
+              let elementText = await element.textContent({ timeout: 1000 }).catch(() => '') || '';
+              elementText = elementText.replace(/\s+/g, ' ').trim().toUpperCase();
+              
+              if (elementText === 'NUEVO') {
+                estatus = 'Nuevo';
+                break;
+              } else if (elementText === 'PENDIENTE') {
+                estatus = 'Pendiente';
+                break;
+              } else if (elementText === 'CONTRATADO') {
+                estatus = 'Contratado';
+                break;
+              } else if (elementText === 'CANCELADO') {
+                estatus = 'Cancelado';
+                break;
+              }
+              
+              // También verificar si contiene el estatus (para casos con espacios adicionales)
+              if (!estatus && elementText.length < 20) {
+                if (elementText.includes('NUEVO') && !elementText.includes('EVENTO')) {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (elementText.includes('PENDIENTE')) {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (elementText.includes('CONTRATADO')) {
+                  estatus = 'Contratado';
+                  break;
+                } else if (elementText.includes('CANCELADO')) {
+                  estatus = 'Cancelado';
+                  break;
+                }
+              }
+            }
+            
+            // Estrategia 1b: Si no se encontró, buscar específicamente en elementos p con limpieza mejorada
+            if (!estatus) {
+              const allPTags = evento.locator('p');
+              const pCount = await allPTags.count();
+              
+              for (let j = 0; j < Math.min(pCount, 100); j++) {
+                const pTag = allPTags.nth(j);
+                let pText = await pTag.textContent({ timeout: 1000 }).catch(() => '') || '';
+                pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                
+                if (pText === 'NUEVO') {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (pText === 'PENDIENTE') {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (pText === 'CONTRATADO') {
+                  estatus = 'Contratado';
+                  break;
+                } else if (pText === 'CANCELADO') {
+                  estatus = 'Cancelado';
+                  break;
+                }
+                
+                // También verificar si contiene el estatus
+                if (!estatus && pText.length < 20) {
+                  if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText.includes('PENDIENTE')) {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText.includes('CONTRATADO')) {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText.includes('CANCELADO')) {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Estrategia 2: Buscar específicamente en divs con clases de badge (bg-warning-neutral, bg-info-neutral, etc.)
+            if (!estatus) {
+              const badgeDivs = evento.locator('div[class*="bg-warning-neutral"], div[class*="bg-info-neutral"], div[class*="bg-success-neutral"], div[class*="bg-error-neutral"], div[class*="rounded-[40px]"]');
+              const badgeDivCount = await badgeDivs.count();
+              
+              for (let j = 0; j < Math.min(badgeDivCount, 10); j++) {
+                const badgeDiv = badgeDivs.nth(j);
+                const pTag = badgeDiv.locator('p').first();
+                const pTagCount = await pTag.count();
+                
+                if (pTagCount > 0) {
+                  let pText = await pTag.textContent({ timeout: 1000 }).catch(() => '') || '';
+                  pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                  
+                  if (pText === 'NUEVO') {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText === 'PENDIENTE') {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText === 'CONTRATADO') {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText === 'CANCELADO') {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                  
+                  // También verificar si contiene el estatus
+                  if (!estatus && pText.length < 20) {
+                    if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                      estatus = 'Nuevo';
+                      break;
+                    } else if (pText.includes('PENDIENTE')) {
+                      estatus = 'Pendiente';
+                      break;
+                    } else if (pText.includes('CONTRATADO')) {
+                      estatus = 'Contratado';
+                      break;
+                    } else if (pText.includes('CANCELADO')) {
+                      estatus = 'Cancelado';
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Estrategia 3: Si no se encontró, buscar en elementos p con clases específicas del badge
+            if (!estatus) {
+              const badgePTags = evento.locator('p[class*="text-xsmall"], p[class*="font-medium"], p[class*="font-bold"]');
+              const badgeCount = await badgePTags.count();
+              
+              for (let j = 0; j < Math.min(badgeCount, 20); j++) {
+                const pTag = badgePTags.nth(j);
+                let pText = await pTag.textContent({ timeout: 1000 }).catch(() => '') || '';
+                pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                
+                if (pText === 'NUEVO') {
+                  estatus = 'Nuevo';
+                  break;
+                } else if (pText === 'PENDIENTE') {
+                  estatus = 'Pendiente';
+                  break;
+                } else if (pText === 'CONTRATADO') {
+                  estatus = 'Contratado';
+                  break;
+                } else if (pText === 'CANCELADO') {
+                  estatus = 'Cancelado';
+                  break;
+                }
+                
+                // También verificar si contiene el estatus
+                if (!estatus && pText.length < 20) {
+                  if (pText.includes('NUEVO') && !pText.includes('EVENTO')) {
+                    estatus = 'Nuevo';
+                    break;
+                  } else if (pText.includes('PENDIENTE')) {
+                    estatus = 'Pendiente';
+                    break;
+                  } else if (pText.includes('CONTRATADO')) {
+                    estatus = 'Contratado';
+                    break;
+                  } else if (pText.includes('CANCELADO')) {
+                    estatus = 'Cancelado';
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Si no se encontró badge, buscar en el texto completo como último recurso
+            if (!estatus && eventText) {
+              const textUpper = eventText.toUpperCase();
+              if (textUpper.includes('NUEVO') && !textUpper.includes('EVENTO')) {
+                estatus = 'Nuevo';
+              } else if (textUpper.includes('PENDIENTE')) {
+                estatus = 'Pendiente';
+              } else if (textUpper.includes('CONTRATADO')) {
+                estatus = 'Contratado';
+              } else if (textUpper.includes('CANCELADO')) {
+                estatus = 'Cancelado';
+              }
+            }
+            
+            eventosConEstatus.push({
+              index: i,
+              estatus: estatus,
+              texto: eventText?.trim().substring(0, 80) || '',
+              fecha: fechaEvento,
+              esFuturo: esFuturo
+            });
+            
+            // Log cada 5 eventos para mostrar progreso
+            if ((i + 1) % 5 === 0) {
+              console.log(`📊 Procesados ${i + 1}/${maxEventos} eventos...`);
+            }
+          } catch (err) {
+            console.log(`⚠️ Error al procesar evento ${i + 1}: ${err}`);
+            // No agregar eventos con error al array, solo continuar
+          }
+        }
+        
+        // Validar que todos los eventos actuales/futuros tengan estatus
+        // Si hay eventos sin estatus, intentar buscarlos de nuevo después de esperar
+        let eventosSinEstatus = eventosConEstatus.filter(e => {
+          const esEventoValido = e.esFuturo === true || e.fecha === null;
+          return esEventoValido && e.estatus === null;
+        });
+        
+        // Si hay eventos sin estatus, esperar un poco más y buscar de nuevo
+        if (eventosSinEstatus.length > 0) {
+          console.log(`⚠️ Se encontraron ${eventosSinEstatus.length} eventos sin estatus en fallback, esperando y reintentando...`);
+          await page.waitForTimeout(2000);
+          
+          // Reintentar buscar estatus para cada evento sin estatus
+          for (const eventoSinEstatus of eventosSinEstatus) {
+            try {
+              const evento = eventos.nth(eventoSinEstatus.index);
+              
+              // Estrategia 1: Buscar específicamente en divs con clases de badge primero
+              const badgeDivs = evento.locator('div[class*="bg-warning-neutral"], div[class*="bg-info-neutral"], div[class*="bg-success-neutral"], div[class*="bg-error-neutral"], div[class*="rounded-[40px]"]');
+              const badgeDivCount = await badgeDivs.count();
+              
+              for (let j = 0; j < Math.min(badgeDivCount, 10); j++) {
+                const badgeDiv = badgeDivs.nth(j);
+                const pTag = badgeDiv.locator('p').first();
+                const pTagCount = await pTag.count();
+                
+                if (pTagCount > 0) {
+                  let pText = await pTag.textContent({ timeout: 1000 }).catch(() => '') || '';
+                  pText = pText.replace(/\s+/g, ' ').trim().toUpperCase();
+                  
+                  if (pText === 'NUEVO') {
+                    eventoSinEstatus.estatus = 'Nuevo';
+                    console.log(`✅ Estatus encontrado en reintento (badge div) para evento ${eventoSinEstatus.index + 1}: "Nuevo"`);
+                    break;
+                  } else if (pText === 'PENDIENTE') {
+                    eventoSinEstatus.estatus = 'Pendiente';
+                    console.log(`✅ Estatus encontrado en reintento (badge div) para evento ${eventoSinEstatus.index + 1}: "Pendiente"`);
+                    break;
+                  } else if (pText === 'CONTRATADO') {
+                    eventoSinEstatus.estatus = 'Contratado';
+                    console.log(`✅ Estatus encontrado en reintento (badge div) para evento ${eventoSinEstatus.index + 1}: "Contratado"`);
+                    break;
+                  } else if (pText === 'CANCELADO') {
+                    eventoSinEstatus.estatus = 'Cancelado';
+                    console.log(`✅ Estatus encontrado en reintento (badge div) para evento ${eventoSinEstatus.index + 1}: "Cancelado"`);
+                    break;
+                  }
+                }
+              }
+              
+              // Estrategia 2: Si no se encontró, buscar en todos los elementos con limpieza mejorada
+              if (!eventoSinEstatus.estatus) {
+                const allTextElements = evento.locator('p, span, div, button, a');
+                const elementCount = await allTextElements.count();
+                
+                for (let j = 0; j < Math.min(elementCount, 100); j++) {
+                  const element = allTextElements.nth(j);
+                  let elementText = await element.textContent({ timeout: 1000 }).catch(() => '') || '';
+                  elementText = elementText.replace(/\s+/g, ' ').trim().toUpperCase();
+                  
+                  if (elementText === 'NUEVO') {
+                    eventoSinEstatus.estatus = 'Nuevo';
+                    console.log(`✅ Estatus encontrado en reintento para evento ${eventoSinEstatus.index + 1}: "Nuevo"`);
+                    break;
+                  } else if (elementText === 'PENDIENTE') {
+                    eventoSinEstatus.estatus = 'Pendiente';
+                    console.log(`✅ Estatus encontrado en reintento para evento ${eventoSinEstatus.index + 1}: "Pendiente"`);
+                    break;
+                  } else if (elementText === 'CONTRATADO') {
+                    eventoSinEstatus.estatus = 'Contratado';
+                    console.log(`✅ Estatus encontrado en reintento para evento ${eventoSinEstatus.index + 1}: "Contratado"`);
+                    break;
+                  } else if (elementText === 'CANCELADO') {
+                    eventoSinEstatus.estatus = 'Cancelado';
+                    console.log(`✅ Estatus encontrado en reintento para evento ${eventoSinEstatus.index + 1}: "Cancelado"`);
+                    break;
+                  }
+                  
+                  // También verificar si contiene el estatus (para casos con espacios adicionales)
+                  if (!eventoSinEstatus.estatus && elementText.length < 20) {
+                    if (elementText.includes('NUEVO') && !elementText.includes('EVENTO')) {
+                      eventoSinEstatus.estatus = 'Nuevo';
+                      console.log(`✅ Estatus encontrado en reintento (includes) para evento ${eventoSinEstatus.index + 1}: "Nuevo"`);
+                      break;
+                    } else if (elementText.includes('PENDIENTE')) {
+                      eventoSinEstatus.estatus = 'Pendiente';
+                      console.log(`✅ Estatus encontrado en reintento (includes) para evento ${eventoSinEstatus.index + 1}: "Pendiente"`);
+                      break;
+                    } else if (elementText.includes('CONTRATADO')) {
+                      eventoSinEstatus.estatus = 'Contratado';
+                      console.log(`✅ Estatus encontrado en reintento (includes) para evento ${eventoSinEstatus.index + 1}: "Contratado"`);
+                      break;
+                    } else if (elementText.includes('CANCELADO')) {
+                      eventoSinEstatus.estatus = 'Cancelado';
+                      console.log(`✅ Estatus encontrado en reintento (includes) para evento ${eventoSinEstatus.index + 1}: "Cancelado"`);
+                      break;
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.log(`⚠️ Error al reintentar buscar estatus para evento ${eventoSinEstatus.index + 1}: ${err}`);
+            }
+          }
+          
+          // Verificar de nuevo
+          eventosSinEstatus = eventosConEstatus.filter(e => {
+            const esEventoValido = e.esFuturo === true || e.fecha === null;
+            return esEventoValido && e.estatus === null;
+          });
+        }
+        
+        if (eventosSinEstatus.length > 0) {
+          console.log(`❌ ERROR: Se encontraron ${eventosSinEstatus.length} eventos actuales/futuros sin estatus identificado después de reintentos:`);
+          eventosSinEstatus.forEach((e, idx) => {
+            console.log(`   Evento ${idx + 1}: texto="${e.texto.substring(0, 60)}..."`);
+          });
+          throw new Error(`❌ FALLO: Se encontraron ${eventosSinEstatus.length} eventos actuales/futuros sin estatus. Todos los eventos visibles deben tener un estatus identificable.`);
+        }
+        
+        console.log(`✅ Procesamiento completado: ${eventosConEstatus.length} eventos analizados (solo eventos actuales/futuros)`);
+      }
+      
+      return eventosConEstatus;
+    };
     
     await showStepMessage(page, '🖱️ HACIENDO CLIC EN ORDENAR POR');
     await page.waitForTimeout(1000);
@@ -2627,10 +3534,11 @@ test.describe('Dashboard de cliente', () => {
       console.log('✅ Menú de ordenamiento visible');
       
       // Validar opciones específicas del menú
-      const opcionesEsperadas = ['Nuevo', 'Pendiente', 'Contratado', 'Cancelado'];
+      // Empezar con "Cancelado" primero
+      const opcionesEsperadas = ['Cancelado', 'Nuevo', 'Pendiente', 'Contratado'];
       
       for (const opcionTexto of opcionesEsperadas) {
-        await showStepMessage(page, `🔍 VALIDANDO OPCIÓN "${opcionTexto.toUpperCase()}"`);
+        await showStepMessage(page, `🔍 VALIDANDO ORDENAMIENTO POR "${opcionTexto.toUpperCase()}"`);
         await page.waitForTimeout(500);
         
         const opcion = menuElement.locator('button').filter({
@@ -2643,42 +3551,274 @@ test.describe('Dashboard de cliente', () => {
           await expect(opcion).toBeEnabled();
           console.log(`✅ Opción "${opcionTexto}" encontrada, visible y habilitada`);
           
-          // Validar funcionalidad: clic en la opción
-          await showStepMessage(page, `🖱️ PROBANDO CLIC EN "${opcionTexto.toUpperCase()}"`);
-          await page.waitForTimeout(500);
-          
-          // Contar servicios antes del clic (si es posible)
-          const serviciosAntes = await page.locator('button').filter({
-            has: page.locator('div').filter({
-              has: page.locator('img[alt], img[src*="imagedelivery"]')
-            })
-          }).count();
-          
-          await opcion.click();
-          await page.waitForLoadState('networkidle');
-          await page.waitForTimeout(2000);
-          
-          // Validar que el menú se cerró
-          const menuCerrado = await menuElement.isVisible({ timeout: 1000 }).catch(() => false);
-          if (!menuCerrado) {
-            console.log(`✅ Menú se cerró después de seleccionar "${opcionTexto}"`);
-          } else {
-            console.log(`⚠️ Menú no se cerró después de seleccionar "${opcionTexto}"`);
+          // Verificar que el menú sigue abierto antes de hacer clic
+          const menuSigueAbierto = await menuElement.isVisible({ timeout: 2000 }).catch(() => false);
+          if (!menuSigueAbierto) {
+            console.log(`⚠️ El menú se cerró, reabriéndolo...`);
+            await botonOrdenar.first().click();
+            await page.waitForTimeout(1000);
+            
+            // Rebuscar el menú
+            const menuReabierto = page.locator('div.absolute.w-\\[200px\\].rounded-4.shadow-3.bg-light-light').filter({
+              has: page.locator('button').filter({ hasText: /Nuevo|Pendiente|Contratado|Cancelado/i })
+            }).first();
+            
+            if (await menuReabierto.isVisible({ timeout: 3000 }).catch(() => false)) {
+              menuElement = menuReabierto;
+              console.log(`✅ Menú reabierto`);
+            } else {
+              const menuReabiertoFallback = page.locator('div.absolute').filter({
+                has: page.locator('button').filter({ hasText: /Nuevo/i })
+              }).filter({
+                has: page.locator('button').filter({ hasText: /Pendiente/i })
+              }).first();
+              
+              if (await menuReabiertoFallback.isVisible({ timeout: 3000 }).catch(() => false)) {
+                menuElement = menuReabiertoFallback;
+                console.log(`✅ Menú reabierto (fallback)`);
+              } else {
+                throw new Error(`❌ No se pudo reabrir el menú después de obtener eventos`);
+              }
+            }
+            
+            // Rebuscar la opción
+            const opcionReencontrada = menuElement.locator('button').filter({
+              hasText: new RegExp(`^${opcionTexto}$`, 'i')
+            }).first();
+            
+            if (await opcionReencontrada.isVisible({ timeout: 2000 }).catch(() => false)) {
+              console.log(`✅ Opción "${opcionTexto}" reencontrada después de reabrir menú`);
+            } else {
+              throw new Error(`❌ No se pudo reencontrar la opción "${opcionTexto}" después de reabrir el menú`);
+            }
           }
           
-          // Contar servicios después del clic para verificar que se aplicó el filtro
-          const serviciosDespues = await page.locator('button').filter({
-            has: page.locator('div').filter({
-              has: page.locator('img[alt], img[src*="imagedelivery"]')
-            })
-          }).count();
+          // Validar funcionalidad: clic en la opción
+          await showStepMessage(page, `🖱️ SELECCIONANDO ORDENAMIENTO POR "${opcionTexto.toUpperCase()}"`);
+          await page.waitForTimeout(500);
           
-          if (serviciosAntes > 0 || serviciosDespues > 0) {
-            console.log(`📊 Servicios antes: ${serviciosAntes}, después: ${serviciosDespues}`);
-            if (serviciosAntes !== serviciosDespues) {
-              console.log(`✅ El filtro "${opcionTexto}" cambió la cantidad de servicios mostrados`);
+          // Asegurarse de que el menú esté abierto antes de hacer clic
+          const menuAunAbierto = await menuElement.isVisible({ timeout: 2000 }).catch(() => false);
+          if (!menuAunAbierto) {
+            console.log(`⚠️ El menú se cerró antes de hacer clic, reabriéndolo...`);
+            await botonOrdenar.first().click();
+            await page.waitForTimeout(1000);
+            
+            // Rebuscar el menú
+            const menuReabierto = page.locator('div.absolute.w-\\[200px\\].rounded-4.shadow-3.bg-light-light').filter({
+              has: page.locator('button').filter({ hasText: /Nuevo|Pendiente|Contratado|Cancelado/i })
+            }).first();
+            
+            if (await menuReabierto.isVisible({ timeout: 3000 }).catch(() => false)) {
+              menuElement = menuReabierto;
+              console.log(`✅ Menú reabierto antes de hacer clic`);
             } else {
-              console.log(`ℹ️ El filtro "${opcionTexto}" mantuvo la misma cantidad de servicios`);
+              const menuReabiertoFallback = page.locator('div.absolute').filter({
+                has: page.locator('button').filter({ hasText: /Nuevo/i })
+              }).filter({
+                has: page.locator('button').filter({ hasText: /Pendiente/i })
+              }).first();
+              
+              if (await menuReabiertoFallback.isVisible({ timeout: 3000 }).catch(() => false)) {
+                menuElement = menuReabiertoFallback;
+                console.log(`✅ Menú reabierto (fallback) antes de hacer clic`);
+              } else {
+                throw new Error(`❌ No se pudo reabrir el menú antes de hacer clic`);
+              }
+            }
+          }
+          
+          // Buscar la opción usando múltiples estrategias para asegurar que se encuentra
+          let opcionFinal: ReturnType<typeof page.locator> | null = null;
+          
+          // Estrategia 1: Buscar botón dentro del menú que tenga el texto exacto (puede estar directamente en el botón o en un p)
+          const opcionPorTexto = menuElement.locator('button').filter({
+            hasText: new RegExp(`^${opcionTexto}$`, 'i')
+          }).first();
+          
+          if (await opcionPorTexto.count() > 0) {
+            const esVisible = await opcionPorTexto.isVisible({ timeout: 2000 }).catch(() => false);
+            if (esVisible) {
+              opcionFinal = opcionPorTexto;
+              console.log(`✅ Opción "${opcionTexto}" encontrada por texto en menú`);
+            }
+          }
+          
+          // Estrategia 2: Si no se encontró, buscar botón que contiene un p con el texto
+          if (!opcionFinal) {
+            const opcionPorP = menuElement.locator('button').filter({
+              has: menuElement.locator('p').filter({ hasText: new RegExp(`^${opcionTexto}$`, 'i') })
+            }).first();
+            
+            if (await opcionPorP.count() > 0) {
+              const esVisible = await opcionPorP.isVisible({ timeout: 2000 }).catch(() => false);
+              if (esVisible) {
+                opcionFinal = opcionPorP;
+                console.log(`✅ Opción "${opcionTexto}" encontrada por elemento p en menú`);
+              }
+            }
+          }
+          
+          // Estrategia 3: Buscar por clases específicas del menú (w-full text-left px-4 py-3)
+          if (!opcionFinal) {
+            const opcionPorClases = menuElement.locator('button.w-full.text-left.px-4.py-3').filter({
+              hasText: new RegExp(`^${opcionTexto}$`, 'i')
+            }).first();
+            
+            if (await opcionPorClases.count() > 0) {
+              const esVisible = await opcionPorClases.isVisible({ timeout: 2000 }).catch(() => false);
+              if (esVisible) {
+                opcionFinal = opcionPorClases;
+                console.log(`✅ Opción "${opcionTexto}" encontrada por clases específicas`);
+              }
+            }
+          }
+          
+          // Estrategia 4: Buscar cualquier botón dentro del div del menú que tenga el texto
+          if (!opcionFinal) {
+            const opcionEnDiv = page.locator('div.absolute.w-\\[200px\\] button').filter({
+              hasText: new RegExp(`^${opcionTexto}$`, 'i')
+            }).first();
+            
+            if (await opcionEnDiv.count() > 0) {
+              const esVisible = await opcionEnDiv.isVisible({ timeout: 2000 }).catch(() => false);
+              if (esVisible) {
+                opcionFinal = opcionEnDiv;
+                console.log(`✅ Opción "${opcionTexto}" encontrada en div del menú`);
+              }
+            }
+          }
+          
+          if (!opcionFinal) {
+            throw new Error(`❌ No se pudo encontrar la opción "${opcionTexto}" en el menú`);
+          }
+          
+          // Verificar que la opción es clickeable
+          const esVisible = await opcionFinal.isVisible({ timeout: 5000 }).catch(() => false);
+          const esEnabled = await opcionFinal.isEnabled({ timeout: 5000 }).catch(() => false);
+          
+          console.log(`🔍 Estado de la opción "${opcionTexto}": visible=${esVisible}, enabled=${esEnabled}`);
+          
+          if (!esVisible) {
+            throw new Error(`❌ La opción "${opcionTexto}" no está visible`);
+          }
+          if (!esEnabled) {
+            throw new Error(`❌ La opción "${opcionTexto}" no está habilitada`);
+          }
+          
+          // Obtener el texto del botón para verificar
+          const textoBoton = await opcionFinal.textContent({ timeout: 2000 }).catch(() => '');
+          console.log(`🔍 Texto del botón encontrado: "${textoBoton?.trim()}"`);
+          
+          console.log(`🔍 Haciendo clic en la opción "${opcionTexto}"...`);
+          await opcionFinal.click({ timeout: 10000, force: false });
+          console.log(`✅ Clic realizado en la opción "${opcionTexto}"`);
+          
+          // Esperar un momento para que el menú se cierre
+          await page.waitForTimeout(1000);
+          
+          // Validar que el menú se cerró - CRÍTICO: si el menú sigue abierto, no se seleccionó ningún estado
+          console.log(`🔍 Validando que el menú se cerró después de seleccionar "${opcionTexto}"...`);
+          
+          // Verificar de múltiples formas que el menú esté cerrado
+          const menuCerrado1 = await menuElement.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          // También verificar el menú usando el selector específico
+          const menuEspecifico = page.locator('div.absolute.w-\\[200px\\].rounded-4.shadow-3.bg-light-light').filter({
+            has: page.locator('button').filter({ hasText: /Nuevo|Pendiente|Contratado|Cancelado/i })
+          }).first();
+          const menuCerrado2 = await menuEspecifico.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          // Verificar el menú fallback también
+          const menuFallback = page.locator('div.absolute').filter({
+            has: page.locator('button').filter({ hasText: /Nuevo/i })
+          }).filter({
+            has: page.locator('button').filter({ hasText: /Pendiente/i })
+          }).first();
+          const menuCerrado3 = await menuFallback.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          // El menú debe estar cerrado (no visible) en todas las verificaciones
+          const menuEstaCerrado = !menuCerrado1 && !menuCerrado2 && !menuCerrado3;
+          
+          if (!menuEstaCerrado) {
+            console.log(`❌ ERROR: El menú NO se cerró después de hacer clic en "${opcionTexto}"`);
+            console.log(`   - Menú específico visible: ${menuCerrado1}`);
+            console.log(`   - Menú con selector específico visible: ${menuCerrado2}`);
+            console.log(`   - Menú fallback visible: ${menuCerrado3}`);
+            throw new Error(`❌ FALLO: El menú no se cerró después de seleccionar "${opcionTexto}". Esto indica que no se seleccionó ningún estado y la prueba no puede continuar.`);
+          }
+          
+          console.log(`✅ Menú se cerró correctamente después de seleccionar "${opcionTexto}"`);
+          
+          await page.waitForLoadState('networkidle');
+          await page.waitForTimeout(2000); // Tiempo para que se carguen los estatus
+          
+          // Esperar a que los badges de estatus se carguen
+          console.log(`⏳ Esperando a que se carguen los estatus de los eventos...`);
+          await page.waitForTimeout(2000); // Tiempo adicional para que se rendericen los badges
+          
+          // Obtener eventos DESPUÉS de seleccionar el estatus
+          await showStepMessage(page, `📊 OBTENIENDO EVENTOS DESPUÉS DE ORDENAR POR "${opcionTexto.toUpperCase()}"`);
+          await page.waitForTimeout(1000);
+          const eventosDespues = await obtenerEventosConEstatus();
+          console.log(`📊 Total de eventos después: ${eventosDespues.length}`);
+          
+          if (eventosDespues.length === 0) {
+            console.log(`⚠️ No se encontraron eventos después de ordenar por "${opcionTexto}"`);
+            // Reabrir el menú para probar la siguiente opción
+            await botonOrdenar.first().click();
+            await page.waitForTimeout(1000);
+            continue;
+          }
+          
+          // Verificar que los eventos con el estatus seleccionado aparecen primero
+          let primerIndiceOtroEstatus = -1;
+          let eventosConEstatusSeleccionado = 0;
+          let eventosConOtroEstatus = 0;
+          
+          for (let i = 0; i < eventosDespues.length; i++) {
+            const evento = eventosDespues[i];
+            
+            if (evento.estatus && evento.estatus.toLowerCase() === opcionTexto.toLowerCase()) {
+              eventosConEstatusSeleccionado++;
+              // Verificar que no hay eventos con otro estatus antes de este
+              if (primerIndiceOtroEstatus !== -1 && i > primerIndiceOtroEstatus) {
+                // Esto está bien, ya encontramos el primer evento con otro estatus
+              } else if (primerIndiceOtroEstatus === -1) {
+                // Este es un evento con el estatus seleccionado, y aún no hemos encontrado eventos con otro estatus
+                console.log(`✅ Evento ${i + 1} tiene estatus "${evento.estatus}" (correcto, debe estar primero)`);
+              }
+            } else {
+              eventosConOtroEstatus++;
+              if (primerIndiceOtroEstatus === -1) {
+                primerIndiceOtroEstatus = i;
+                console.log(`📌 Primer evento con otro estatus encontrado en índice ${i + 1} (estatus: "${evento.estatus || 'desconocido'}")`);
+              }
+            }
+          }
+          
+          console.log(`📊 Eventos con estatus "${opcionTexto}": ${eventosConEstatusSeleccionado}`);
+          console.log(`📊 Eventos con otro estatus: ${eventosConOtroEstatus}`);
+          
+          // Verificar el ordenamiento correcto
+          if (eventosConEstatusSeleccionado > 0) {
+            // Si hay eventos con el estatus seleccionado, deben aparecer primero
+            if (primerIndiceOtroEstatus === -1) {
+              // Todos los eventos tienen el estatus seleccionado (esto es válido)
+              console.log(`✅ Todos los eventos tienen el estatus "${opcionTexto}" (ordenamiento correcto)`);
+            } else if (primerIndiceOtroEstatus >= eventosConEstatusSeleccionado) {
+              // Los eventos con el estatus seleccionado están todos antes del primer evento con otro estatus
+              console.log(`✅ Ordenamiento correcto: todos los eventos con estatus "${opcionTexto}" aparecen antes de los eventos con otro estatus`);
+            } else {
+              // Hay un evento con otro estatus antes de que terminen los eventos con el estatus seleccionado
+              throw new Error(`❌ Ordenamiento incorrecto: hay eventos con otro estatus (índice ${primerIndiceOtroEstatus + 1}) antes de que terminen los eventos con estatus "${opcionTexto}"`);
+            }
+          } else {
+            // No hay eventos con el estatus seleccionado, pero debe haber eventos con otros estatus
+            if (eventosConOtroEstatus > 0) {
+              console.log(`ℹ️ No hay eventos con estatus "${opcionTexto}", pero hay ${eventosConOtroEstatus} eventos con otros estatus (esto es válido)`);
+            } else {
+              console.log(`⚠️ No se encontraron eventos con ningún estatus identificable`);
             }
           }
           
@@ -2716,14 +3856,14 @@ test.describe('Dashboard de cliente', () => {
         await page.waitForTimeout(500);
       }
       
-      console.log('✅ Validación de opciones del menú "Ordenar por" completada');
+      console.log('✅ Validación de ordenamiento de eventos completada');
     } else {
       console.log('⚠️ Menú de ordenamiento no encontrado o no visible');
       console.log('ℹ️ Puede que el menú tenga una estructura diferente o no se haya abierto correctamente');
     }
     
-    await showStepMessage(page, '✅ VALIDACIÓN DE "ORDENAR POR" COMPLETADA');
-    console.log('✅ Validación completa de "Ordenar por" finalizada');
+    await showStepMessage(page, '✅ VALIDACIÓN DE ORDENAMIENTO COMPLETADA');
+    console.log('✅ Validación completa de ordenamiento finalizada');
   });
 
   test('Los filtros de servicios se aplican correctamente', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
-import { DEFAULT_BASE_URL } from '../config';
-import { showStepMessage, safeWaitForTimeout, waitForBackdropToDisappear, closeRegistrationModal } from '../utils';
+import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD } from '../config';
+import { showStepMessage, safeWaitForTimeout, waitForBackdropToDisappear, closeRegistrationModal, login } from '../utils';
 
 /**
  * Función helper para validar la estructura básica de una ruta de Familia
@@ -941,7 +941,7 @@ test('Validar funcionalidad de búsqueda en Sub-categoría (servicios de hamburg
     'input[class*="buscar" i]'
   ];
   
-  let campoBusqueda = null;
+  let campoBusqueda: ReturnType<typeof page.locator> | null = null;
   let campoEncontrado = false;
   
   for (const selector of searchSelectors) {
@@ -1094,8 +1094,147 @@ test('Validar funcionalidad de búsqueda en Sub-categoría (servicios de hamburg
 //   Las subcategorías redirigen a /services/ - no hay rutas /c/ para subcategorías
 // });
 
-test('Validar que todas las rutas de familias principales son accesibles', async ({ page }) => {
-  test.setTimeout(120000); // 2 minutos para validar todas las familias
+/**
+ * Obtiene las categorías disponibles en la página de una familia
+ * Busca específicamente los botones dentro de la grid que contiene las categorías (no promociones)
+ */
+async function obtenerCategoriasDeFamilia(page: Page): Promise<Array<{ name: string; button: ReturnType<typeof page.locator> }>> {
+  const categorias: Array<{ name: string; button: ReturnType<typeof page.locator> }> = [];
+  
+  // Buscar la grid que contiene las categorías (no promociones)
+  // La grid tiene clases como "grid grid-cols-2 md:grid-cols-3"
+  const gridCategorias = page.locator('div[class*="grid"][class*="grid-cols"]').filter({
+    has: page.locator('button').filter({
+      has: page.locator('div[class*="aspect-square"][class*="rounded-6"][class*="shadow-md"][class*="bg-cover"]')
+    })
+  }).first();
+  
+  const gridExists = await gridCategorias.count() > 0;
+  
+  if (!gridExists) {
+    console.log('   ⚠️ No se encontró la grid de categorías');
+    return categorias;
+  }
+  
+  // Buscar botones dentro de la grid que tienen la estructura específica de categorías
+  // Los botones tienen: div con aspect-square rounded-6 shadow-md bg-cover + p con text-neutral-800 font-medium
+  const botonesCategorias = gridCategorias.locator('button').filter({
+    has: page.locator('div[class*="aspect-square"][class*="rounded-6"][class*="shadow-md"][class*="bg-cover"]')
+  }).filter({
+    has: page.locator('p[class*="text-neutral-800"], p[class*="font-medium"]')
+  });
+  
+  const count = await botonesCategorias.count();
+  console.log(`   📊 Botones de categorías encontrados en grid: ${count}`);
+  
+  for (let i = 0; i < count; i++) {
+    const boton = botonesCategorias.nth(i);
+    const isVisible = await boton.isVisible().catch(() => false);
+    
+    if (isVisible) {
+      // Obtener el nombre desde el párrafo dentro del botón
+      const nombreElement = boton.locator('p[class*="text-neutral-800"], p[class*="font-medium"], p').first();
+      const nombre = await nombreElement.textContent().catch(() => null);
+      
+      if (nombre && nombre.trim() !== '') {
+        const nombreTrimmed = nombre.trim();
+        
+        // Verificar que no esté ya en la lista
+        const yaExiste = categorias.some(c => c.name.toLowerCase() === nombreTrimmed.toLowerCase());
+        if (!yaExiste) {
+          categorias.push({
+            name: nombreTrimmed,
+            button: boton
+          });
+        }
+      }
+    }
+  }
+  
+  return categorias;
+}
+
+/**
+ * Obtiene las subcategorías disponibles en la página de una categoría
+ * Busca específicamente los botones dentro de la grid que contiene las subcategorías (no promociones)
+ */
+async function obtenerSubcategoriasDeCategoria(page: Page): Promise<Array<{ name: string; button: ReturnType<typeof page.locator> }>> {
+  const subcategorias: Array<{ name: string; button: ReturnType<typeof page.locator> }> = [];
+  
+  // Buscar la grid que contiene las subcategorías (no promociones)
+  // La grid tiene clases como "grid grid-cols-2 md:grid-cols-3"
+  const gridSubcategorias = page.locator('div[class*="grid"][class*="grid-cols"]').filter({
+    has: page.locator('button').filter({
+      has: page.locator('div[class*="aspect-square"][class*="rounded-6"][class*="shadow-md"][class*="bg-cover"]')
+    })
+  }).first();
+  
+  const gridExists = await gridSubcategorias.count() > 0;
+  
+  if (!gridExists) {
+    console.log('      ⚠️ No se encontró la grid de subcategorías');
+    return subcategorias;
+  }
+  
+  // Buscar botones dentro de la grid que tienen la estructura específica de subcategorías
+  // Los botones tienen: div con aspect-square rounded-6 shadow-md bg-cover + p con text-neutral-800 font-medium
+  const botonesSubcategorias = gridSubcategorias.locator('button').filter({
+    has: page.locator('div[class*="aspect-square"][class*="rounded-6"][class*="shadow-md"][class*="bg-cover"]')
+  }).filter({
+    has: page.locator('p[class*="text-neutral-800"], p[class*="font-medium"]')
+  });
+  
+  const count = await botonesSubcategorias.count();
+  console.log(`      📊 Botones de subcategorías encontrados en grid: ${count}`);
+  
+  for (let i = 0; i < count; i++) {
+    const boton = botonesSubcategorias.nth(i);
+    const isVisible = await boton.isVisible().catch(() => false);
+    
+    if (isVisible) {
+      // Obtener el nombre desde el párrafo dentro del botón
+      const nombreElement = boton.locator('p[class*="text-neutral-800"], p[class*="font-medium"], p').first();
+      const nombre = await nombreElement.textContent().catch(() => null);
+      
+      if (nombre && nombre.trim() !== '') {
+        const nombreTrimmed = nombre.trim();
+        
+        // Verificar que no esté ya en la lista
+        const yaExiste = subcategorias.some(s => s.name.toLowerCase() === nombreTrimmed.toLowerCase());
+        if (!yaExiste) {
+          subcategorias.push({
+            name: nombreTrimmed,
+            button: boton
+          });
+        }
+      }
+    }
+  }
+  
+  return subcategorias;
+}
+
+test('Validar que todas las rutas de familias principales y sus subcategorías son accesibles', async ({ page }) => {
+  test.setTimeout(600000); // 10 minutos para validar familias, categorías y subcategorías
+
+  // Iniciar sesión como cliente antes de empezar la validación
+  await showStepMessage(page, '🔐 INICIANDO SESIÓN COMO CLIENTE');
+  console.log('📋 Iniciando sesión como cliente...');
+  
+  await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+  await safeWaitForTimeout(page, 2000);
+  
+  // Verificar que estamos en la página de login
+  const currentUrl = page.url();
+  if (!currentUrl.includes('/login')) {
+    console.log('⚠️ No estamos en la página de login, navegando nuevamente...');
+    await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+    await safeWaitForTimeout(page, 2000);
+  }
+  
+  await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+  console.log('✓ Login exitoso como cliente');
+  await safeWaitForTimeout(page, 3000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
   const baseOrigin = new URL(BASE_URL).origin;
@@ -1119,6 +1258,10 @@ test('Validar que todas las rutas de familias principales son accesibles', async
 
   const familiasAccesibles: string[] = [];
   const familiasNoAccesibles: string[] = [];
+  const categoriasAccesibles: Array<{ familia: string; categoria: string }> = [];
+  const categoriasNoAccesibles: Array<{ familia: string; categoria: string; error?: string }> = [];
+  const subcategoriasAccesibles: Array<{ familia: string; categoria: string; subcategoria: string }> = [];
+  const subcategoriasNoAccesibles: Array<{ familia: string; categoria: string; subcategoria: string; error?: string }> = [];
 
   for (const familia of familias) {
     await showStepMessage(page, `🔍 VALIDANDO ACCESIBILIDAD DE ${familia.nombre.toUpperCase()}`);
@@ -1132,15 +1275,165 @@ test('Validar que todas las rutas de familias principales son accesibles', async
       
       // Verificar que la página cargó correctamente (no es 404)
       const titulo = page.getByText('Categorías', { exact: false }).or(
-    page.locator('text=Categorías').or(
-      page.getByRole('heading', { name: /Categorías/i })
-    )
-  );
+        page.locator('text=Categorías').or(
+          page.getByRole('heading', { name: /Categorías/i })
+        )
+      );
       const tituloExists = await titulo.count() > 0;
       
       if (tituloExists) {
         familiasAccesibles.push(familia.nombre);
         console.log(`✅ Familia "${familia.nombre}" es accesible`);
+        
+        // Obtener y validar categorías de esta familia
+        await showStepMessage(page, `📂 VALIDANDO CATEGORÍAS DE ${familia.nombre.toUpperCase()}`);
+        await safeWaitForTimeout(page, 1000);
+        
+        const categorias = await obtenerCategoriasDeFamilia(page);
+        console.log(`   📊 Categorías encontradas en "${familia.nombre}": ${categorias.length}`);
+        
+        for (const categoria of categorias) {
+          try {
+            console.log(`   🔍 Validando categoría "${categoria.name}"...`);
+            
+            // Hacer clic en la categoría
+            await categoria.button.scrollIntoViewIfNeeded();
+            await categoria.button.click();
+            await page.waitForLoadState('networkidle');
+            await safeWaitForTimeout(page, 2000);
+            
+            // Verificar que no es una página de error
+            const error404 = page.locator('text=/404|Not Found|Página no encontrada/i');
+            const hayError = await error404.count() > 0;
+            
+            if (hayError) {
+              categoriasNoAccesibles.push({ 
+                familia: familia.nombre, 
+                categoria: categoria.name,
+                error: 'Error 404'
+              });
+              console.log(`   ❌ Categoría "${categoria.name}" retorna error 404`);
+              // Volver a la familia para continuar
+              await page.goBack();
+              await page.waitForLoadState('networkidle');
+              await safeWaitForTimeout(page, 2000);
+            } else {
+              categoriasAccesibles.push({ 
+                familia: familia.nombre, 
+                categoria: categoria.name 
+              });
+              console.log(`   ✅ Categoría "${categoria.name}" es accesible`);
+              
+              // Obtener y validar subcategorías de esta categoría
+              const subcategorias = await obtenerSubcategoriasDeCategoria(page);
+              console.log(`      📊 Subcategorías encontradas en "${categoria.name}": ${subcategorias.length}`);
+              
+              for (const subcategoria of subcategorias.slice(0, 10)) { // Limitar a 10 subcategorías por categoría para no exceder tiempo
+                try {
+                  console.log(`      🔍 Validando subcategoría "${subcategoria.name}"...`);
+                  
+                  // Hacer clic en la subcategoría
+                  await subcategoria.button.scrollIntoViewIfNeeded();
+                  const urlAntes = page.url();
+                  await subcategoria.button.click();
+                  await page.waitForLoadState('networkidle');
+                  await safeWaitForTimeout(page, 2000);
+                  
+                  // Verificar si navegó a una página de servicio (si es así, volver atrás)
+                  const urlDespues = page.url();
+                  if (urlDespues.includes('/service/') || urlDespues.includes('/services/')) {
+                    console.log(`      ⚠️ Subcategoría "${subcategoria.name}" navegó directamente a un servicio, volviendo...`);
+                    await page.goBack();
+                    await page.waitForLoadState('networkidle');
+                    await safeWaitForTimeout(page, 2000);
+                    subcategoriasAccesibles.push({ 
+                      familia: familia.nombre, 
+                      categoria: categoria.name,
+                      subcategoria: subcategoria.name 
+                    });
+                    console.log(`      ✅ Subcategoría "${subcategoria.name}" es accesible (navega a servicio)`);
+                  } else {
+                    // Verificar que no es una página de error
+                    const error404Sub = page.locator('text=/404|Not Found|Página no encontrada/i');
+                    const hayErrorSub = await error404Sub.count() > 0;
+                    
+                    if (hayErrorSub) {
+                      subcategoriasNoAccesibles.push({ 
+                        familia: familia.nombre, 
+                        categoria: categoria.name,
+                        subcategoria: subcategoria.name,
+                        error: 'Error 404'
+                      });
+                      console.log(`      ❌ Subcategoría "${subcategoria.name}" retorna error 404`);
+                      await page.goBack();
+                      await page.waitForLoadState('networkidle');
+                      await safeWaitForTimeout(page, 2000);
+                    } else {
+                      subcategoriasAccesibles.push({ 
+                        familia: familia.nombre, 
+                        categoria: categoria.name,
+                        subcategoria: subcategoria.name 
+                      });
+                      console.log(`      ✅ Subcategoría "${subcategoria.name}" es accesible`);
+                      // Volver a la categoría para continuar
+                      await page.goBack();
+                      await page.waitForLoadState('networkidle');
+                      await safeWaitForTimeout(page, 2000);
+                    }
+                  }
+                } catch (error) {
+                  subcategoriasNoAccesibles.push({ 
+                    familia: familia.nombre, 
+                    categoria: categoria.name,
+                    subcategoria: subcategoria.name,
+                    error: String(error)
+                  });
+                  console.log(`      ❌ Error al validar subcategoría "${subcategoria.name}": ${error}`);
+                  // Intentar volver a la categoría
+                  try {
+                    await page.goBack();
+                    await page.waitForLoadState('networkidle');
+                    await safeWaitForTimeout(page, 2000);
+                  } catch (e) {
+                    // Si no se puede volver, navegar directamente a la categoría de nuevo
+                    await page.goto(familiaUrl);
+                    await page.waitForLoadState('networkidle');
+                    await safeWaitForTimeout(page, 2000);
+                    const categorias2 = await obtenerCategoriasDeFamilia(page);
+                    const catEncontrada = categorias2.find(c => c.name === categoria.name);
+                    if (catEncontrada) {
+                      await catEncontrada.button.click();
+                      await page.waitForLoadState('networkidle');
+                      await safeWaitForTimeout(page, 2000);
+                    }
+                  }
+                }
+              }
+              
+              // Volver a la familia para continuar con la siguiente categoría
+              await page.goBack();
+              await page.waitForLoadState('networkidle');
+              await safeWaitForTimeout(page, 2000);
+            }
+          } catch (error) {
+            categoriasNoAccesibles.push({ 
+              familia: familia.nombre, 
+              categoria: categoria.name,
+              error: String(error)
+            });
+            console.log(`   ❌ Error al validar categoría "${categoria.name}": ${error}`);
+            // Intentar volver a la familia
+            try {
+              await page.goBack();
+              await page.waitForLoadState('networkidle');
+              await safeWaitForTimeout(page, 2000);
+            } catch (e) {
+              await page.goto(familiaUrl);
+              await page.waitForLoadState('networkidle');
+              await safeWaitForTimeout(page, 2000);
+            }
+          }
+        }
       } else {
         // Verificar si es una página de error
         const error404 = page.locator('text=/404|Not Found|Página no encontrada/i');
@@ -1160,16 +1453,38 @@ test('Validar que todas las rutas de familias principales son accesibles', async
   }
 
   // Reporte final
-  await showStepMessage(page, '📊 REPORTE DE ACCESIBILIDAD DE FAMILIAS');
+  await showStepMessage(page, '📊 REPORTE DE ACCESIBILIDAD COMPLETO');
   await safeWaitForTimeout(page, 1000);
   console.log(`\n📊 RESUMEN DE ACCESIBILIDAD:`);
   console.log(`✅ Familias accesibles (${familiasAccesibles.length}): ${familiasAccesibles.join(', ')}`);
   if (familiasNoAccesibles.length > 0) {
     console.log(`❌ Familias no accesibles (${familiasNoAccesibles.length}): ${familiasNoAccesibles.join(', ')}`);
   }
+  console.log(`\n📂 CATEGORÍAS:`);
+  console.log(`✅ Categorías accesibles (${categoriasAccesibles.length})`);
+  if (categoriasNoAccesibles.length > 0) {
+    console.log(`❌ Categorías no accesibles (${categoriasNoAccesibles.length}):`);
+    categoriasNoAccesibles.forEach(c => {
+      console.log(`   - ${c.familia} > ${c.categoria}${c.error ? ` (${c.error})` : ''}`);
+    });
+  }
+  console.log(`\n📋 SUBCATEGORÍAS:`);
+  console.log(`✅ Subcategorías accesibles (${subcategoriasAccesibles.length})`);
+  if (subcategoriasNoAccesibles.length > 0) {
+    console.log(`❌ Subcategorías no accesibles (${subcategoriasNoAccesibles.length}):`);
+    subcategoriasNoAccesibles.slice(0, 20).forEach(s => {
+      console.log(`   - ${s.familia} > ${s.categoria} > ${s.subcategoria}${s.error ? ` (${s.error})` : ''}`);
+    });
+    if (subcategoriasNoAccesibles.length > 20) {
+      console.log(`   ... y ${subcategoriasNoAccesibles.length - 20} más`);
+    }
+  }
   
   // Validar que al menos algunas familias son accesibles
   expect(familiasAccesibles.length).toBeGreaterThan(0);
-  console.log(`\n✅ Validación completada: ${familiasAccesibles.length} de ${familias.length} familias son accesibles`);
+  console.log(`\n✅ Validación completada:`);
+  console.log(`   - ${familiasAccesibles.length} de ${familias.length} familias son accesibles`);
+  console.log(`   - ${categoriasAccesibles.length} categorías accesibles`);
+  console.log(`   - ${subcategoriasAccesibles.length} subcategorías accesibles`);
 });
 

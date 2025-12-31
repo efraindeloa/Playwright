@@ -2323,33 +2323,126 @@ export async function agregarServicioAEventoExistente(page: Page) {
   // Esperar un poco más después de detectar eventos
   await safeWaitForTimeout(page, 5000);
   
-  // Buscar tarjetas de eventos dentro de la sección o en toda la página
-  // Las tarjetas son botones que contienen información de fecha
-  const eventCards = seccionVisible 
-    ? seccionEventos.locator('button[type="button"]').filter({
-        has: page.locator('p, span').filter({ 
-          hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
-        })
-      })
-    : page.locator('button[type="button"]').filter({
-        has: page.locator('p, span').filter({ 
-          hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
-        })
-      });
+  console.log('🔍 Buscando eventos con múltiples estrategias...');
   
-  // Esperar a que al menos un evento sea visible
-  try {
-    await eventCards.first().waitFor({ state: 'visible', timeout: 60000 });
-    console.log('✅ Al menos un evento es visible');
-  } catch (e) {
-    console.log('⚠️ No se encontró ningún evento visible, continuando...');
+  // Estrategia más simple y directa: buscar botones que contengan iconos de eventos
+  // Los eventos tienen iconos como: icon-cake, icon-disco-ball, icon-graduation-cap, etc.
+  let eventCards: ReturnType<typeof page.locator> | null = null;
+  
+  // Estrategia 1: Buscar botones con iconos de eventos (más directo)
+  const iconosEventos = 'i.icon-cake, i.icon-disco-ball, i.icon-graduation-cap, i.icon-girl-boy, i.icon-star, i.icon-stroller, i.icon-baptism, i.icon-briefcase, i.icon-diamond, i.icon-broken-heart, i.icon-party';
+  
+  eventCards = page.locator('button').filter({
+    has: page.locator(iconosEventos)
+  });
+  
+  let eventCount = await eventCards.count();
+  console.log(`📊 Estrategia 1 (iconos de eventos): ${eventCount} eventos encontrados`);
+  
+  // Estrategia 2: Si no encuentra, buscar botones con clase específica
+  if (eventCount === 0) {
+    console.log('⚠️ Estrategia 1 falló, intentando estrategia 2...');
+    eventCards = page.locator('button.flex.flex-col.bg-light-neutral.rounded-6');
+    eventCount = await eventCards.count();
+    console.log(`📊 Estrategia 2 (clase específica): ${eventCount} eventos encontrados`);
   }
   
-  const eventCount = await eventCards.count();
-  console.log(`📊 Eventos encontrados en el dashboard: ${eventCount}`);
+  // Estrategia 3: Buscar dentro del contenedor con scroll
+  if (eventCount === 0) {
+    console.log('⚠️ Estrategia 2 falló, intentando estrategia 3 (contenedor con scroll)...');
+    const eventosContainer = page.locator('div.flex.flex-nowrap.overflow-x-auto').first();
+    const containerExists = await eventosContainer.count() > 0;
+    
+    if (containerExists) {
+      eventCards = eventosContainer.locator('button');
+      eventCount = await eventCards.count();
+      console.log(`📊 Estrategia 3 (contenedor scroll): ${eventCount} botones encontrados`);
+      
+      // Filtrar solo los que tienen iconos de eventos
+      if (eventCount > 0) {
+        eventCards = eventosContainer.locator('button').filter({
+          has: page.locator(iconosEventos)
+        });
+        eventCount = await eventCards.count();
+        console.log(`📊 Estrategia 3 (filtrados por iconos): ${eventCount} eventos encontrados`);
+      }
+    }
+  }
+  
+  // Estrategia 4: Buscar por texto de fechas
+  if (eventCount === 0) {
+    console.log('⚠️ Estrategia 3 falló, intentando estrategia 4 (búsqueda por fechas)...');
+    eventCards = page.locator('button').filter({
+      has: page.locator('p, span').filter({ 
+        hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4}/i 
+      })
+    });
+    eventCount = await eventCards.count();
+    console.log(`📊 Estrategia 4 (fechas): ${eventCount} eventos encontrados`);
+  }
+  
+  // Estrategia 5: Buscar por texto de tipos de eventos
+  if (eventCount === 0) {
+    console.log('⚠️ Estrategia 4 falló, intentando estrategia 5 (texto de eventos)...');
+    eventCards = page.locator('button').filter({
+      hasText: /(Cumpleaños|Despedida|Graduación|Revelación|Posadas|Baby Shower|Bautizo|Boda|Corporativa|Divorcio)/i
+    });
+    eventCount = await eventCards.count();
+    console.log(`📊 Estrategia 5 (texto eventos): ${eventCount} eventos encontrados`);
+  }
+  
+  // Estrategia 6: Buscar cualquier botón que contenga "dic" o "nov" (meses comunes)
+  if (eventCount === 0) {
+    console.log('⚠️ Estrategia 5 falló, intentando estrategia 6 (búsqueda por meses)...');
+    eventCards = page.locator('button').filter({
+      hasText: /\d{1,2}\s+(dic|nov|ene|feb|mar|abr|may|jun|jul|ago|sep|oct)\.?\s+\d{4}/i
+    });
+    eventCount = await eventCards.count();
+    console.log(`📊 Estrategia 6 (meses): ${eventCount} eventos encontrados`);
+  }
+  
+  // Si aún no encuentra eventos, hacer debug
+  if (eventCount === 0) {
+    console.log('⚠️ Todas las estrategias fallaron, haciendo debug...');
+    
+    // Contar todos los botones
+    const allButtons = page.locator('button');
+    const totalButtons = await allButtons.count();
+    console.log(`🔍 Total de botones en la página: ${totalButtons}`);
+    
+    // Buscar botones con texto que contenga "de" (patrón común en nombres de eventos)
+    const buttonsWithDe = page.locator('button').filter({
+      hasText: /\s+de\s+/i
+    });
+    const buttonsWithDeCount = await buttonsWithDe.count();
+    console.log(`🔍 Botones con patrón "de": ${buttonsWithDeCount}`);
+    
+    if (buttonsWithDeCount > 0) {
+      eventCards = buttonsWithDe;
+      eventCount = buttonsWithDeCount;
+      console.log('✅ Usando botones con patrón "de"');
+    } else {
+      throw new Error('❌ No se encontraron eventos en el dashboard con ninguna estrategia de búsqueda. Total de botones en página: ' + totalButtons);
+    }
+  }
+  
+  // Verificar que tenemos eventos
+  if (!eventCards) {
+    throw new Error('❌ No se pudo inicializar el locator de eventos');
+  }
+  
+  console.log(`✅ Eventos finales encontrados: ${eventCount}`);
   
   if (eventCount === 0) {
     throw new Error('❌ No hay eventos disponibles en el dashboard. Debe haber al menos un evento para agregar servicios.');
+  }
+  
+  // Esperar a que al menos el primer evento sea visible
+  try {
+    await eventCards.first().waitFor({ state: 'visible', timeout: 10000 });
+    console.log('✅ Al menos un evento es visible');
+  } catch (e) {
+    console.log('⚠️ El primer evento no es visible, pero continuando con los eventos encontrados...');
   }
   
   // Filtrar eventos con fecha futura
@@ -2366,7 +2459,7 @@ export async function agregarServicioAEventoExistente(page: Page) {
     
     if (!eventText) continue;
     
-    // Buscar fecha en el texto del evento (formato: "31 jul. 2026" o "31 jul 2026")
+    // Buscar fecha en el texto del evento (formatos: "31 jul. 2026", "31 jul 2026", "29 dic. 2025 - 12:00 PM")
     const dateMatch = eventText.match(/(\d{1,2})\s+(\w+)\.?\s+(\d{4})/);
     
     if (dateMatch) {
@@ -2422,12 +2515,33 @@ export async function agregarServicioAEventoExistente(page: Page) {
   await showStepMessage(page, '🔘 BUSCANDO BOTÓN "AGREGAR SERVICIOS"');
   await safeWaitForTimeout(page, 1000);
   
-  const botonAgregarServicios = page.getByRole('button', { name: /Agregar servicios/i });
-  await expect(botonAgregarServicios).toBeVisible({ timeout: 10000 });
+  // Buscar el botón con el nuevo diseño: tiene icono plus y texto "Agregar servicios"
+  const botonAgregarServicios = page.locator('button').filter({
+    has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+  }).filter({
+    has: page.locator('i.icon-plus')
+  }).first();
+  
+  // Fallback: buscar por texto accesible
+  const botonAgregarServiciosFallback = page.getByRole('button', { name: /Agregar servicios/i });
+  
+  let botonElement: ReturnType<typeof page.locator> | null = null;
+  
+  if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
+    botonElement = botonAgregarServicios;
+    console.log('✓ Botón "Agregar servicios" encontrado (selector específico con nuevo diseño)');
+  } else if (await botonAgregarServiciosFallback.count() > 0 && await botonAgregarServiciosFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+    botonElement = botonAgregarServiciosFallback;
+    console.log('✓ Botón "Agregar servicios" encontrado (fallback por texto accesible)');
+  } else {
+    throw new Error('❌ No se encontró el botón "Agregar servicios" con el nuevo diseño');
+  }
+  
+  await expect(botonElement).toBeVisible({ timeout: 10000 });
   console.log('✓ Botón "Agregar servicios" encontrado y visible');
   
   await showStepMessage(page, '🖱️ HACIENDO CLIC EN "AGREGAR SERVICIOS"');
-  await botonAgregarServicios.click();
+  await botonElement.click();
   await safeWaitForTimeout(page, 2000);
   console.log('✓ Se hizo clic en "Agregar servicios"');
   
@@ -2543,10 +2657,11 @@ export async function agregarServicioAEventoExistente(page: Page) {
     try {
       await page.waitForFunction(
         () => {
-          const buttons = Array.from(document.querySelectorAll('button[type="button"]'));
-          return buttons.some(button => {
-            const text = button.textContent || '';
-            return /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(text);
+          // Buscar el contenedor de eventos con scroll horizontal
+          const containers = Array.from(document.querySelectorAll('div.flex.flex-nowrap.overflow-x-auto'));
+          return containers.some(container => {
+            const buttons = container.querySelectorAll('button.flex.flex-col.bg-light-neutral');
+            return buttons.length > 0;
           });
         },
         { timeout: 90000 } // Esperar hasta 90 segundos
@@ -2559,29 +2674,126 @@ export async function agregarServicioAEventoExistente(page: Page) {
     // Esperar un poco más después de detectar eventos
     await safeWaitForTimeout(page, 5000);
     
-    // Buscar tarjetas de eventos
-    const eventCards2 = seccionVisible2 
-      ? seccionEventos2.locator('button[type="button"]').filter({
-          has: page.locator('p, span').filter({ 
-            hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
-          })
-        })
-      : page.locator('button[type="button"]').filter({
-          has: page.locator('p, span').filter({ 
-            hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
-          })
-        });
+    console.log('🔍 Buscando eventos con múltiples estrategias (segunda búsqueda)...');
     
-    // Esperar a que al menos un evento sea visible
-    try {
-      await eventCards2.first().waitFor({ state: 'visible', timeout: 60000 });
-      console.log('✅ Al menos un evento es visible');
-    } catch (e) {
-      console.log('⚠️ No se encontró ningún evento visible, continuando...');
+    // Estrategia más simple y directa: buscar botones que contengan iconos de eventos
+    let eventCards2: ReturnType<typeof page.locator> | null = null;
+    
+    // Estrategia 1: Buscar botones con iconos de eventos (más directo)
+    const iconosEventos = 'i.icon-cake, i.icon-disco-ball, i.icon-graduation-cap, i.icon-girl-boy, i.icon-star, i.icon-stroller, i.icon-baptism, i.icon-briefcase, i.icon-diamond, i.icon-broken-heart, i.icon-party';
+    
+    eventCards2 = page.locator('button').filter({
+      has: page.locator(iconosEventos)
+    });
+    
+    let eventCount2 = await eventCards2.count();
+    console.log(`📊 Estrategia 1 (iconos de eventos) - segunda búsqueda: ${eventCount2} eventos encontrados`);
+    
+    // Estrategia 2: Si no encuentra, buscar botones con clase específica
+    if (eventCount2 === 0) {
+      console.log('⚠️ Estrategia 1 falló, intentando estrategia 2 (segunda búsqueda)...');
+      eventCards2 = page.locator('button.flex.flex-col.bg-light-neutral.rounded-6');
+      eventCount2 = await eventCards2.count();
+      console.log(`📊 Estrategia 2 (clase específica) - segunda búsqueda: ${eventCount2} eventos encontrados`);
     }
     
-    const eventCount2 = await eventCards2.count();
-    console.log(`📊 Eventos encontrados en el dashboard: ${eventCount2}`);
+    // Estrategia 3: Buscar dentro del contenedor con scroll
+    if (eventCount2 === 0) {
+      console.log('⚠️ Estrategia 2 falló, intentando estrategia 3 (contenedor con scroll) - segunda búsqueda...');
+      const eventosContainer2 = page.locator('div.flex.flex-nowrap.overflow-x-auto').first();
+      const containerExists2 = await eventosContainer2.count() > 0;
+      
+      if (containerExists2) {
+        eventCards2 = eventosContainer2.locator('button');
+        eventCount2 = await eventCards2.count();
+        console.log(`📊 Estrategia 3 (contenedor scroll) - segunda búsqueda: ${eventCount2} botones encontrados`);
+        
+        // Filtrar solo los que tienen iconos de eventos
+        if (eventCount2 > 0) {
+          eventCards2 = eventosContainer2.locator('button').filter({
+            has: page.locator(iconosEventos)
+          });
+          eventCount2 = await eventCards2.count();
+          console.log(`📊 Estrategia 3 (filtrados por iconos) - segunda búsqueda: ${eventCount2} eventos encontrados`);
+        }
+      }
+    }
+    
+    // Estrategia 4: Buscar por texto de fechas
+    if (eventCount2 === 0) {
+      console.log('⚠️ Estrategia 3 falló, intentando estrategia 4 (búsqueda por fechas) - segunda búsqueda...');
+      eventCards2 = page.locator('button').filter({
+        has: page.locator('p, span').filter({ 
+          hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4}/i 
+        })
+      });
+      eventCount2 = await eventCards2.count();
+      console.log(`📊 Estrategia 4 (fechas) - segunda búsqueda: ${eventCount2} eventos encontrados`);
+    }
+    
+    // Estrategia 5: Buscar por texto de tipos de eventos
+    if (eventCount2 === 0) {
+      console.log('⚠️ Estrategia 4 falló, intentando estrategia 5 (texto de eventos) - segunda búsqueda...');
+      eventCards2 = page.locator('button').filter({
+        hasText: /(Cumpleaños|Despedida|Graduación|Revelación|Posadas|Baby Shower|Bautizo|Boda|Corporativa|Divorcio)/i
+      });
+      eventCount2 = await eventCards2.count();
+      console.log(`📊 Estrategia 5 (texto eventos) - segunda búsqueda: ${eventCount2} eventos encontrados`);
+    }
+    
+    // Estrategia 6: Buscar cualquier botón que contenga "dic" o "nov" (meses comunes)
+    if (eventCount2 === 0) {
+      console.log('⚠️ Estrategia 5 falló, intentando estrategia 6 (búsqueda por meses) - segunda búsqueda...');
+      eventCards2 = page.locator('button').filter({
+        hasText: /\d{1,2}\s+(dic|nov|ene|feb|mar|abr|may|jun|jul|ago|sep|oct)\.?\s+\d{4}/i
+      });
+      eventCount2 = await eventCards2.count();
+      console.log(`📊 Estrategia 6 (meses) - segunda búsqueda: ${eventCount2} eventos encontrados`);
+    }
+    
+    // Si aún no encuentra eventos, hacer debug
+    if (eventCount2 === 0) {
+      console.log('⚠️ Todas las estrategias fallaron, haciendo debug (segunda búsqueda)...');
+      
+      // Contar todos los botones
+      const allButtons2 = page.locator('button');
+      const totalButtons2 = await allButtons2.count();
+      console.log(`🔍 Total de botones en la página (segunda búsqueda): ${totalButtons2}`);
+      
+      // Buscar botones con texto que contenga "de" (patrón común en nombres de eventos)
+      const buttonsWithDe2 = page.locator('button').filter({
+        hasText: /\s+de\s+/i
+      });
+      const buttonsWithDeCount2 = await buttonsWithDe2.count();
+      console.log(`🔍 Botones con patrón "de" (segunda búsqueda): ${buttonsWithDeCount2}`);
+      
+      if (buttonsWithDeCount2 > 0) {
+        eventCards2 = buttonsWithDe2;
+        eventCount2 = buttonsWithDeCount2;
+        console.log('✅ Usando botones con patrón "de" (segunda búsqueda)');
+      } else {
+        throw new Error('❌ No se encontraron eventos en el dashboard con ninguna estrategia de búsqueda (segunda búsqueda). Total de botones en página: ' + totalButtons2);
+      }
+    }
+    
+    // Verificar que tenemos eventos
+    if (!eventCards2) {
+      throw new Error('❌ No se pudo inicializar el locator de eventos (segunda búsqueda)');
+    }
+    
+    console.log(`✅ Eventos finales encontrados (segunda búsqueda): ${eventCount2}`);
+    
+    if (eventCount2 === 0) {
+      throw new Error('❌ No hay eventos disponibles en el dashboard. Debe haber al menos un evento para agregar servicios.');
+    }
+    
+    // Esperar a que al menos el primer evento sea visible
+    try {
+      await eventCards2.first().waitFor({ state: 'visible', timeout: 10000 });
+      console.log('✅ Al menos un evento es visible (segunda búsqueda)');
+    } catch (e) {
+      console.log('⚠️ El primer evento no es visible, pero continuando con los eventos encontrados (segunda búsqueda)...');
+    }
     
     if (eventCount2 > selectedEventIndex && selectedEventIndex >= 0) {
       // Usar el mismo índice del evento que se seleccionó inicialmente
@@ -2598,9 +2810,29 @@ export async function agregarServicioAEventoExistente(page: Page) {
     }
     
     // Buscar y hacer clic en "Agregar servicios" nuevamente
-    const botonAgregarServicios2 = page.getByRole('button', { name: /Agregar servicios/i });
-    await expect(botonAgregarServicios2).toBeVisible({ timeout: 10000 });
-    await botonAgregarServicios2.click();
+    const botonAgregarServicios2 = page.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+    }).filter({
+      has: page.locator('i.icon-plus')
+    }).first();
+    
+    // Fallback: buscar por texto accesible
+    const botonAgregarServicios2Fallback = page.getByRole('button', { name: /Agregar servicios/i });
+    
+    let botonElement2: ReturnType<typeof page.locator> | null = null;
+    
+    if (await botonAgregarServicios2.count() > 0 && await botonAgregarServicios2.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement2 = botonAgregarServicios2;
+      console.log('✓ Botón "Agregar servicios" encontrado (selector específico con nuevo diseño)');
+    } else if (await botonAgregarServicios2Fallback.count() > 0 && await botonAgregarServicios2Fallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement2 = botonAgregarServicios2Fallback;
+      console.log('✓ Botón "Agregar servicios" encontrado (fallback por texto accesible)');
+    } else {
+      throw new Error('❌ No se encontró el botón "Agregar servicios" con el nuevo diseño');
+    }
+    
+    await expect(botonElement2).toBeVisible({ timeout: 10000 });
+    await botonElement2.click();
     await safeWaitForTimeout(page, 2000);
     console.log('✓ Se hizo clic en "Agregar servicios"');
     

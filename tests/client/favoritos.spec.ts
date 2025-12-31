@@ -248,9 +248,12 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
     }
 
     // Navegar por subcategorías si las hay
+    // NOTA: Si solo hay un servicio en una subcategoría, la aplicación navega directamente
+    // a la página de detalle del servicio. En ese caso, debemos buscar el servicio en la lista
+    // sin hacer clic en la subcategoría.
     for (let nivel = 1; nivel < servicio.rutaCategorias.length; nivel++) {
       const subcategoriaNombre = servicio.rutaCategorias[nivel];
-      console.log(`   📂 Navegando a subcategoría: "${subcategoriaNombre}"`);
+      console.log(`   📂 Intentando navegar a subcategoría: "${subcategoriaNombre}"`);
 
       const subcategoriaElement = page.locator('button, a, div[role="button"]').filter({
         hasText: new RegExp(subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
@@ -261,289 +264,331 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
       if (subcategoriaExists) {
         await expect(subcategoriaElement).toBeVisible({ timeout: 10000 });
         console.log(`   ✅ Subcategoría "${subcategoriaNombre}" encontrada`);
+        
+        // Guardar la URL actual antes de hacer clic
+        const urlAntes = page.url();
         await subcategoriaElement.click();
         await page.waitForLoadState('networkidle');
         await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
-        console.log(`   ✅ Clic realizado en "${subcategoriaNombre}"`);
+        
+        // Verificar si navegó a una página de detalle de servicio
+        const urlDespues = page.url();
+        if (urlDespues.includes('/service/') || urlDespues.includes('/services/')) {
+          console.log(`   ⚠️ Al hacer clic en la subcategoría "${subcategoriaNombre}", navegó directamente a una página de servicio`);
+          console.log(`   🔄 Volviendo atrás para buscar el servicio en la lista...`);
+          await page.goBack();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+          console.log(`   ✅ Regresó a la lista de servicios`);
+          // Salir del bucle de subcategorías - buscaremos el servicio en la lista actual
+          break;
+        } else {
+          console.log(`   ✅ Clic realizado en "${subcategoriaNombre}" y permaneció en la lista`);
+        }
       } else {
         console.log(`   ⚠️ No se encontró la subcategoría "${subcategoriaNombre}", continuando...`);
       }
     }
   }
 
-  // Buscar el servicio por nombre en el formulario de búsqueda
-  console.log('   🔍 Buscando campo de búsqueda...');
+  // Establecer la ubicación antes de buscar servicios
+  console.log('   📍 Estableciendo ubicación...');
   
-  // Esperar a que la página cargue completamente
-  await page.waitForLoadState('domcontentloaded');
-  await safeWaitForTimeout(page, 2000);
-  
-  // Intentar esperar a que el formulario o el input aparezcan
+  // Tomar screenshot antes de buscar el campo
+  console.log('   📸 Tomando screenshot inicial...');
   try {
-    await page.waitForSelector('input#Search', { state: 'attached', timeout: 10000 });
+    await page.screenshot({ path: `debug-ubicacion-inicial-${Date.now()}.png`, fullPage: true });
+    console.log('   📸 Screenshot inicial guardado');
   } catch (e) {
-    console.log('   ⚠️ No se encontró input#Search con waitForSelector, intentando otras estrategias...');
-  }
-  
-  // Buscar el input de búsqueda con múltiples estrategias
-  let searchInput = page.locator('input#Search');
-  let inputCount = await searchInput.count();
-  
-  if (inputCount === 0) {
-    console.log('   🔍 Intentando buscar por name="Search"...');
-    // Intentar buscar por name attribute
-    searchInput = page.locator('input[name="Search"]');
-    inputCount = await searchInput.count();
-  }
-  
-  if (inputCount === 0) {
-    console.log('   🔍 Intentando buscar dentro del formulario...');
-    // Intentar buscar dentro del formulario
-    const searchForm = page.locator('form#ServicesSearchForm');
-    const formCount = await searchForm.count();
-    if (formCount > 0) {
-      searchInput = searchForm.locator('input[type="text"]').first();
-      inputCount = await searchInput.count();
-    }
-  }
-  
-  if (inputCount === 0) {
-    console.log('   🔍 Intentando buscar cualquier input de texto con label "Buscar"...');
-    // Intentar buscar por label
-    const labelBuscar = page.locator('label:has-text("Buscar"), label[for="Search"]');
-    const labelCount = await labelBuscar.count();
-    if (labelCount > 0) {
-      const forAttr = await labelBuscar.getAttribute('for').catch(() => null);
-      if (forAttr) {
-        searchInput = page.locator(`input#${forAttr}`);
-        inputCount = await searchInput.count();
-      }
-    }
-  }
-  
-  if (inputCount === 0) {
-    console.log('   ⚠️ No se encontró el campo de búsqueda después de múltiples intentos');
-    console.log('   🔍 Esperando 3 segundos más y buscando de nuevo...');
-    // Intentar esperar un poco más y buscar de nuevo
-    await safeWaitForTimeout(page, 3000);
-    searchInput = page.locator('input#Search');
-    inputCount = await searchInput.count();
-    
-    if (inputCount === 0) {
-      // Último intento: buscar cualquier input dentro de un form que tenga id ServicesSearchForm
-      const form = page.locator('form#ServicesSearchForm');
-      const formExists = await form.count() > 0;
-      if (formExists) {
-        searchInput = form.locator('input').first();
-        inputCount = await searchInput.count();
-      }
-    }
-    
-    if (inputCount === 0) {
-      console.log('   ❌ No se encontró el campo de búsqueda (input#Search)');
-      // Debug: mostrar qué inputs hay en la página
-      const allInputs = await page.locator('input').count();
-      console.log(`   ℹ️ Total de inputs en la página: ${allInputs}`);
-      return false;
-    }
-  }
-  
-  console.log('   ✅ Campo de búsqueda encontrado');
-  
-  // Primero, establecer la ubicación (ciudad)
-  console.log('   📍 Estableciendo ubicación: Tepatitlan');
-  
-  // Buscar el campo de ubicación dentro del formulario
-  const searchForm = page.locator('form#ServicesSearchForm');
-  const formExists = await searchForm.count() > 0;
-  
-  let locationInput: any = null;
-  let locationInputCount = 0;
-  
-  if (formExists) {
-    // Buscar el input de ubicación dentro del formulario
-    // El HTML muestra que hay dos inputs: uno para búsqueda (Search) y otro para ubicación (Address)
-    // El de ubicación es el segundo input o el que tiene un label con for="Address"
-    
-    // Estrategia 1: Buscar por label "Ubicación" y luego el input asociado
-    const ubicacionLabel = searchForm.locator('label[for="Address"], label:has-text("Ubicación")').first();
-    const labelCount = await ubicacionLabel.count();
-    
-    if (labelCount > 0) {
-      const labelFor = await ubicacionLabel.getAttribute('for').catch(() => '');
-      if (labelFor) {
-        locationInput = searchForm.locator(`input#${labelFor}`).first();
-        locationInputCount = await locationInput.count();
-        if (locationInputCount > 0) {
-          console.log('   ✅ Campo de ubicación encontrado por label for="Address"');
-        }
-      }
-      
-      // Si no se encuentra por id, buscar el input cerca del label
-      if (locationInputCount === 0) {
-        const labelContainer = ubicacionLabel.locator('..').locator('..'); // Subir dos niveles
-        locationInput = labelContainer.locator('input').first();
-        locationInputCount = await locationInput.count();
-        if (locationInputCount > 0) {
-          console.log('   ✅ Campo de ubicación encontrado cerca del label');
-        }
-      }
-    }
-    
-    // Estrategia 2: Buscar el segundo input en el formulario (el primero es Search, el segundo es Address)
-    if (locationInputCount === 0) {
-      const allInputs = searchForm.locator('input[type="text"]');
-      const inputCount = await allInputs.count();
-      console.log(`   🔍 Total de inputs en el formulario: ${inputCount}`);
-      
-      // El segundo input debería ser el de ubicación
-      if (inputCount >= 2) {
-        locationInput = allInputs.nth(1); // Segundo input (índice 1)
-        const inputId = await locationInput.getAttribute('id').catch(() => '');
-        const inputName = await locationInput.getAttribute('name').catch(() => '');
-        const inputValue = await locationInput.inputValue().catch(() => '');
-        console.log(`   🔍 Segundo input - id: "${inputId}", name: "${inputName}", value: "${inputValue.substring(0, 50)}"`);
-        
-        // Verificar que no es el campo de búsqueda
-        if (inputId !== 'Search' && inputName !== 'Search') {
-          locationInputCount = await locationInput.count();
-          if (locationInputCount > 0) {
-            console.log('   ✅ Campo de ubicación encontrado como segundo input del formulario');
-          }
-        }
-      }
-    }
-    
-    // Estrategia 3: Buscar por el valor que contiene "Tepatitlán" o "Jalisco" o "Mexico"
-    if (locationInputCount === 0) {
-      const allInputs = searchForm.locator('input');
-      const inputCount = await allInputs.count();
-      
-      for (let i = 0; i < inputCount; i++) {
-        const input = allInputs.nth(i);
-        const inputId = await input.getAttribute('id').catch(() => '');
-        const inputName = await input.getAttribute('name').catch(() => '');
-        const inputValue = await input.inputValue().catch(() => '');
-        
-        // Si el input tiene un valor que parece una ubicación o tiene id/name relacionado con Address
-        if ((inputId === 'Address' || inputName === 'Address' || inputValue.includes('Tepatitlán') || inputValue.includes('Jalisco') || inputValue.includes('Mexico')) && inputId !== 'Search') {
-          locationInput = input;
-          locationInputCount = 1;
-          console.log(`   ✅ Campo de ubicación encontrado por valor/atributos (índice ${i})`);
-          break;
-        }
-      }
-    }
-  }
-  
-  // Si no se encontró dentro del formulario, buscar en toda la página
-  if (locationInputCount === 0) {
-    console.log('   🔍 Buscando campo de ubicación en toda la página...');
-    locationInput = page.locator('input#Address');
-    locationInputCount = await locationInput.count();
-    
-    if (locationInputCount === 0) {
-      locationInput = page.locator('input[name="Address"]');
-      locationInputCount = await locationInput.count();
-    }
-  }
-  
-  if (locationInputCount > 0) {
-    console.log('   ✅ Campo de ubicación encontrado');
-    
-    // Hacer clic en el campo de ubicación
-    await locationInput.click();
-    await safeWaitForTimeout(page, 500);
-    
-    // Limpiar el campo si tiene algún valor
-    await locationInput.fill('');
-    await safeWaitForTimeout(page, 300);
-    
-    // Escribir "Tepatitlan" en el campo de ubicación
-    console.log('   ✍️ Escribiendo "Tepatitlan" en el campo de ubicación...');
-    await locationInput.fill('Tepatitlan');
-    await safeWaitForTimeout(page, 2000); // Esperar a que aparezcan las sugerencias
-    
-    // Buscar las opciones del dropdown de Google Places
-    console.log('   🔍 Esperando sugerencias de Google Places...');
-    
-    let opcionesUbicacion = page.locator('ul li.cursor-pointer');
-    let opcionesCount = await opcionesUbicacion.count();
-    
-    // Intentar múltiples veces si no aparecen las opciones
-    for (let intento = 1; intento <= 5 && opcionesCount === 0; intento++) {
-      console.log(`   ⏳ Intento ${intento}/5: Esperando sugerencias...`);
-      await safeWaitForTimeout(page, 2000);
-      opcionesCount = await opcionesUbicacion.count();
-    }
-    
-    // Si no se encuentran con ese selector, intentar otros
-    if (opcionesCount === 0) {
-      opcionesUbicacion = page.locator('ul li, div[role="option"]');
-      opcionesCount = await opcionesUbicacion.count();
-    }
-    
-    if (opcionesCount > 0) {
-      console.log(`   📊 Opciones de ubicación encontradas: ${opcionesCount}`);
-      
-      // Seleccionar la primera opción
-      const primeraOpcion = opcionesUbicacion.first();
-      const textoOpcion = await primeraOpcion.textContent().catch(() => '');
-      console.log(`   🖱️ Seleccionando primera opción: "${textoOpcion?.trim()}"`);
-      
-      await primeraOpcion.click();
-      await safeWaitForTimeout(page, 1000);
-      console.log('   ✅ Ubicación seleccionada');
-    } else {
-      console.log('   ⚠️ No se encontraron opciones de ubicación, continuando sin seleccionar ubicación...');
-    }
-  } else {
-    console.log('   ⚠️ No se encontró el campo de ubicación, continuando sin especificar ubicación...');
-  }
-  
-  // Ahora escribir el nombre del servicio en el campo de búsqueda
-  console.log(`   📝 Escribiendo: "${servicio.nombre}"`);
-  
-  // Asegurarse de que el input esté visible
-  await searchInput.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
-    console.log('   ⚠️ El campo de búsqueda no está visible, intentando de todas formas...');
-  });
-  
-  // Limpiar el campo y escribir el nombre del servicio
-  await searchInput.click();
-  await searchInput.fill('');
-  await searchInput.fill(servicio.nombre);
-  await safeWaitForTimeout(page, 1000);
-  
-  // Buscar el botón de búsqueda o el icono de búsqueda
-  // El HTML muestra que hay un icono dentro de un div absoluto: <i class="cursor-pointer  text-[24px] icon icon-search"></i>
-  // El icono está en: <div class="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center text-gray-neutral"><i class="cursor-pointer  text-[24px] icon icon-search"></i></div>
-  const searchIcon = page.locator('input#Search').locator('..').locator('i.icon-search').first();
-  const searchButton = page.locator('button[type="submit"]:has(i.icon-search), button:has(i.icon-search)').first();
-  
-  const iconCount = await searchIcon.count();
-  const buttonExists = await searchButton.isVisible({ timeout: 2000 }).catch(() => false);
-  
-  if (buttonExists) {
-    console.log('   🔘 Haciendo clic en botón de búsqueda...');
-    await searchButton.click();
-  } else if (iconCount > 0) {
-    console.log('   🔘 Haciendo clic en icono de búsqueda...');
-    await searchIcon.click();
-  } else {
-    console.log('   ⌨️ Presionando Enter...');
-    await page.keyboard.press('Enter');
+    console.log(`   ⚠️ Error al tomar screenshot inicial: ${e}`);
   }
   
   await page.waitForLoadState('networkidle');
-  await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
-  console.log('   ✅ Búsqueda realizada');
-
-  // Esperar más tiempo para que los servicios se carguen completamente
-  console.log('   ⏳ Esperando a que los servicios se carguen...');
-  await safeWaitForTimeout(page, 3000); // Esperar 3 segundos adicionales
+  await safeWaitForTimeout(page, 3000); // Esperar más tiempo para que el formulario cargue
   
-  // Esperar a que aparezcan las tarjetas de servicios
+  // Buscar el formulario primero
+  const searchForm = page.locator('form#ServicesSearchForm, form');
+  const formExists = await searchForm.count() > 0;
+  console.log(`   📊 Formulario encontrado: ${formExists}`);
+  
+  // Buscar el campo de ubicación usando el label como referencia
+  // El HTML muestra: <label for="Address">Ubicación</label> y un <input> dentro del mismo div.relative
+  const locationLabel = page.locator('label[for="Address"]');
+  let locationInput: ReturnType<typeof page.locator> | null = null;
+  let locationInputCount = 0;
+  
+  // Estrategia 1: Buscar por id (si existe)
+  locationInput = page.locator('input#Address');
+  locationInputCount = await locationInput.count();
+  
+  // Estrategia 2: Buscar el input relacionado con el label (en el mismo div.relative)
+  if (locationInputCount === 0) {
+    const labelExists = await locationLabel.count() > 0;
+    if (labelExists) {
+      console.log('   🔍 Label "Ubicación" encontrado, buscando input relacionado...');
+      // El label y el input están en el mismo div.relative
+      // Estructura: <div class="relative"><input><label for="Address">
+      const relativeContainer = locationLabel.locator('..'); // Subir un nivel para llegar al div.relative
+      locationInput = relativeContainer.locator('input').first();
+      locationInputCount = await locationInput.count();
+      
+      if (locationInputCount > 0) {
+        console.log('   ✅ Campo de ubicación encontrado por label (mismo contenedor relativo)');
+      }
+    } else {
+      console.log('   ⚠️ Label[for="Address"] no encontrado, intentando otras estrategias...');
+    }
+  }
+  
+  // Estrategia 3: Buscar todos los inputs y encontrar el que tiene el label "Ubicación"
+  if (locationInputCount === 0) {
+    console.log('   🔍 Buscando todos los inputs y verificando si tienen label "Ubicación"...');
+    const allInputs = page.locator('input[type="text"], input:not([type])');
+    const totalInputs = await allInputs.count();
+    console.log(`   📊 Total de inputs encontrados: ${totalInputs}`);
+    
+    for (let i = 0; i < totalInputs; i++) {
+      const input = allInputs.nth(i);
+      // Verificar que no sea el campo de búsqueda
+      const inputId = await input.getAttribute('id').catch(() => '');
+      const inputName = await input.getAttribute('name').catch(() => '');
+      
+      if (inputId === 'Search' || inputName === 'Search') {
+        continue; // Saltar el campo de búsqueda
+      }
+      
+      // Buscar si hay un label "Ubicación" o label[for="Address"] en el contenedor del input
+      // El input está dentro de: <div class="relative"><input>...<label>
+      const inputContainer = input.locator('..'); // div.relative
+      const nearbyLabel = inputContainer.locator('label[for="Address"], label:has-text("Ubicación")');
+      const labelCount = await nearbyLabel.count();
+      
+      if (labelCount > 0) {
+        locationInput = input;
+        locationInputCount = 1;
+        console.log(`   ✅ Campo de ubicación encontrado (índice ${i}) - input con label "Ubicación"`);
+        break;
+      }
+    }
+  }
+  
+  // Estrategia 4: Buscar input con placeholder=" " que tenga un label "Ubicación" en su contenedor padre
+  if (locationInputCount === 0) {
+    console.log('   🔍 Buscando input con placeholder=" " que tenga label "Ubicación" cerca...');
+    const allInputs = page.locator('input[placeholder=" "]');
+    const inputCount = await allInputs.count();
+    console.log(`   📊 Inputs con placeholder=" " encontrados: ${inputCount}`);
+    
+    for (let i = 0; i < inputCount; i++) {
+      const input = allInputs.nth(i);
+      // Verificar si hay un label "Ubicación" o label[for="Address"] en el mismo contenedor relativo
+      const inputContainer = input.locator('..').locator('..'); // Subir dos niveles para llegar al div.relative
+      const nearbyLabel = inputContainer.locator('label[for="Address"], label:has-text("Ubicación")');
+      const labelCount = await nearbyLabel.count();
+      
+      if (labelCount > 0) {
+        locationInput = input;
+        locationInputCount = 1;
+        console.log(`   ✅ Campo de ubicación encontrado por label cercano (índice ${i})`);
+        break;
+      }
+    }
+  }
+  
+  // Estrategia 5: Buscar por el valor actual si contiene "Tepatitlán", "Jalisco" o alguna ciudad
+  if (locationInputCount === 0) {
+    console.log('   🔍 Buscando input por valor que contenga ubicación...');
+    const allInputs = page.locator('input[type="text"]');
+    const inputCount = await allInputs.count();
+    console.log(`   📊 Inputs de texto encontrados: ${inputCount}`);
+    
+    for (let i = 0; i < inputCount; i++) {
+      const input = allInputs.nth(i);
+      try {
+        const inputValue = await input.inputValue();
+        if (inputValue && (inputValue.includes('Tepatitlán') || inputValue.includes('Tepatitlan') || inputValue.includes('Jalisco') || inputValue.includes('Morelos'))) {
+          // Verificar que no sea el campo de búsqueda (Search)
+          const inputId = await input.getAttribute('id').catch(() => '');
+          const inputName = await input.getAttribute('name').catch(() => '');
+          if (inputId !== 'Search' && inputName !== 'Search') {
+            locationInput = input;
+            locationInputCount = 1;
+            console.log(`   ✅ Campo de ubicación encontrado por valor (índice ${i}): "${inputValue}"`);
+            break;
+          }
+        }
+      } catch (e) {
+        // Continuar con el siguiente input
+        continue;
+      }
+    }
+  }
+  
+  // Estrategia 6: Buscar cualquier input que tenga un label[for="Address"] asociado (usando el atributo for del label)
+  if (locationInputCount === 0) {
+    console.log('   🔍 Buscando input usando el atributo for="Address" del label...');
+    const labelFor = await locationLabel.getAttribute('for').catch(() => null);
+    if (labelFor === 'Address') {
+      // Buscar el input que debería estar asociado con este label
+      // Puede estar en el mismo contenedor o en un contenedor relacionado
+      const formContainer = locationLabel.locator('..').locator('..').locator('..'); // Subir niveles para encontrar el form o contenedor
+      locationInput = formContainer.locator('input').filter({
+        hasNot: page.locator('#Search, [name="Search"]')
+      }).first();
+      locationInputCount = await locationInput.count();
+      
+      if (locationInputCount > 0) {
+        console.log('   ✅ Campo de ubicación encontrado usando contenedor del label');
+      }
+    }
+  }
+  
+  if (locationInputCount === 0 || !locationInput) {
+    console.log('   ❌ No se encontró el campo de ubicación después de múltiples intentos');
+    console.log('   🔍 Debug: Buscando todos los inputs en la página...');
+    
+    // Tomar screenshot ANTES de hacer operaciones que puedan dar timeout
+    console.log('   📸 Tomando screenshot para debug (antes de buscar inputs)...');
+    try {
+      const screenshotPath = `debug-ubicacion-error-${Date.now()}.png`;
+      await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 5000 }).catch(() => {
+        console.log('   ⚠️ Error al tomar screenshot con fullPage, intentando viewport...');
+        return page.screenshot({ path: screenshotPath, timeout: 5000 });
+      });
+      console.log(`   📸 Screenshot guardado en: ${screenshotPath}`);
+    } catch (e) {
+      console.log(`   ⚠️ Error al tomar screenshot: ${e}`);
+    }
+    
+    // Intentar obtener información de debug (con timeout corto usando Promise.race)
+    try {
+      const allInputsPromise = page.locator('input').count();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+      const allInputs = await Promise.race([allInputsPromise, timeoutPromise]) as number;
+      console.log(`   📊 Total de inputs encontrados: ${allInputs}`);
+    } catch (e) {
+      console.log(`   ⚠️ Error al contar inputs: ${e}`);
+    }
+    
+    try {
+      const labelCountPromise = locationLabel.count();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+      const labelExists = await Promise.race([labelCountPromise, timeoutPromise]) as number;
+      console.log(`   📊 Label[for="Address"] existe: ${labelExists > 0}`);
+    } catch (e) {
+      console.log(`   ⚠️ Error al verificar label: ${e}`);
+    }
+    
+    // Obtener información básica que no debería dar timeout
+    try {
+      const currentUrl = page.url();
+      console.log(`   🔗 URL actual: ${currentUrl}`);
+    } catch (e) {
+      console.log(`   ⚠️ Error al obtener URL: ${e}`);
+    }
+    
+    throw new Error('❌ FALLO: No se pudo encontrar el campo de ubicación. La prueba requiere establecer una ubicación para continuar.');
+  }
+  
+  console.log('   ✅ Campo de ubicación encontrado');
+  
+  // Hacer clic en el campo de ubicación
+  await locationInput.click({ force: true });
+  await safeWaitForTimeout(page, 500);
+  
+  // Limpiar el campo si tiene algún valor
+  const currentValue = await locationInput.inputValue().catch(() => '');
+  if (currentValue && currentValue.trim().length > 0) {
+    // Buscar el botón de limpiar (icon-x) cerca del input
+    // El botón está en un div absoluto dentro del mismo contenedor que el input
+    const inputContainer = locationInput.locator('..').locator('..'); // Subir dos niveles para llegar al contenedor relativo
+    const clearButton = inputContainer.locator('button[aria-label="Clear address"], button:has(i.icon-x), button:has(i[class*="icon-x"])').first();
+    const clearButtonVisible = await clearButton.isVisible({ timeout: 2000 }).catch(() => false);
+    if (clearButtonVisible) {
+      console.log('   🗑️ Limpiando campo de ubicación...');
+      await clearButton.click();
+      await safeWaitForTimeout(page, 500);
+    } else {
+      // Si no hay botón de limpiar, limpiar manualmente seleccionando todo y borrando
+      await locationInput.click({ clickCount: 3 }); // Triple clic para seleccionar todo
+      await page.keyboard.press('Delete');
+      await safeWaitForTimeout(page, 300);
+    }
+  }
+  
+  // Escribir "Tepatitlan" en el campo de ubicación
+  console.log('   ✍️ Escribiendo "Tepatitlan" en el campo de ubicación...');
+  await locationInput.fill('Tepatitlan');
+  await safeWaitForTimeout(page, 2000); // Esperar a que aparezcan las sugerencias
+  
+  // Buscar las opciones del dropdown de Google Places
+  console.log('   🔍 Esperando sugerencias de Google Places...');
+  
+  let opcionesUbicacion = page.locator('ul li.cursor-pointer, div[role="option"], ul li[role="option"]');
+  let opcionesCount = await opcionesUbicacion.count();
+  
+  // Intentar múltiples veces si no aparecen las opciones
+  for (let intento = 1; intento <= 5 && opcionesCount === 0; intento++) {
+    console.log(`   ⏳ Intento ${intento}/5: Esperando sugerencias...`);
+    await safeWaitForTimeout(page, 2000);
+    opcionesCount = await opcionesUbicacion.count();
+  }
+  
+  // Si no se encuentran con ese selector, intentar otros
+  if (opcionesCount === 0) {
+    opcionesUbicacion = page.locator('ul li, div[role="option"], li[role="option"]');
+    opcionesCount = await opcionesUbicacion.count();
+  }
+  
+  if (opcionesCount > 0) {
+    console.log(`   📊 Opciones de ubicación encontradas: ${opcionesCount}`);
+    
+    // Seleccionar la primera opción que contenga "Tepatitlán" o "Tepatitlan"
+    let opcionSeleccionada = false;
+    for (let i = 0; i < opcionesCount; i++) {
+      const opcion = opcionesUbicacion.nth(i);
+      const textoOpcion = await opcion.textContent().catch(() => '') || '';
+      const textoLimpio = textoOpcion.toLowerCase();
+      
+      if (textoLimpio.includes('tepatitlán') || textoLimpio.includes('tepatitlan')) {
+        console.log(`   🖱️ Seleccionando opción "${textoOpcion.trim()}"`);
+        await opcion.click();
+        await safeWaitForTimeout(page, 1000);
+        opcionSeleccionada = true;
+        console.log('   ✅ Ubicación seleccionada');
+        break;
+      }
+    }
+    
+    // Si no se encontró una opción con "Tepatitlán", seleccionar la primera
+    if (!opcionSeleccionada) {
+      const primeraOpcion = opcionesUbicacion.first();
+      const textoOpcion = await primeraOpcion.textContent().catch(() => '');
+      console.log(`   🖱️ Seleccionando primera opción: "${textoOpcion?.trim()}"`);
+      await primeraOpcion.click();
+      await safeWaitForTimeout(page, 1000);
+      console.log('   ✅ Ubicación seleccionada');
+      opcionSeleccionada = true;
+    }
+    
+    // Verificar que se seleccionó una opción
+    if (!opcionSeleccionada) {
+      throw new Error('❌ FALLO: No se pudo seleccionar ninguna opción de ubicación. La prueba requiere establecer una ubicación para continuar.');
+    }
+  } else {
+    console.log('   ❌ No se encontraron opciones de ubicación después de escribir "Tepatitlan"');
+    throw new Error('❌ FALLO: No se encontraron opciones de ubicación después de escribir en el campo. La prueba requiere establecer una ubicación para continuar.');
+  }
+  
+  // Esperar a que la página actualice después de seleccionar la ubicación
+  await safeWaitForTimeout(page, 2000);
+  
+  // Después de navegar por categorías, buscar el servicio directamente en la lista de servicios
+  // NO usar el campo de búsqueda ya que encontraría primero las promociones en el carrusel
+  console.log('   🔍 Buscando servicio en la lista de servicios...');
+
+  // Esperar a que aparezcan las tarjetas de servicios (excluyendo promociones)
+  console.log('   ⏳ Esperando a que los servicios se carguen...');
   try {
     await page.waitForSelector('img[src*="imagedelivery"], img[alt]', { timeout: 10000, state: 'visible' });
     console.log('   ✅ Imágenes de servicios detectadas');
@@ -554,14 +599,18 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
   await safeWaitForTimeout(page, 2000); // Esperar 2 segundos más después de detectar imágenes
 
   // Buscar tarjetas de servicios en los resultados
+  // Excluir promociones buscando solo servicios que NO estén en el carrusel de promociones
+  // Las promociones tienen un div con clase que contiene "bg-[#FF7A00]" o "icon-promotion"
   const serviceCards = page.locator('button, div').filter({
     has: page.locator('img[src*="imagedelivery"], img[alt]')
   }).filter({
     has: page.locator('p, h3, h4, h5, h6')
+  }).filter({
+    hasNot: page.locator('i[class*="promotion"], div[class*="bg-[#FF7A00]"], div[style*="#FF7A00"]')
   });
 
   const cardCount = await serviceCards.count();
-  console.log(`   📊 Tarjetas de servicios encontradas: ${cardCount}`);
+  console.log(`   📊 Tarjetas de servicios encontradas (sin promociones): ${cardCount}`);
 
   if (cardCount === 0) {
     console.log('   ⚠️ No se encontraron tarjetas de servicios en los resultados');
@@ -754,23 +803,42 @@ async function toggleFavorito(page: Page, marcar: boolean): Promise<boolean> {
   await safeWaitForTimeout(page, 2000);
 
   // Buscar el botón de favoritos con múltiples estrategias
-  // El HTML muestra: <button><i class="icon icon-heart ..."></i></button>
-  let botonFavoritos = page.locator('button').filter({
-    has: page.locator('i[class*="heart"]')
-  }).first();
-
-  let botonVisible = await botonFavoritos.isVisible({ timeout: 10000 }).catch(() => false);
+  // El HTML muestra:
+  // Desktop: <button class="relative flex w-[40px] h-[40px]..."><i class="icon icon-heart text-[24px] text-primary-neutral"></i></button>
+  // Móvil: <button class="w-[40px] h-[40px] relative..."><i class="icon icon-heart text-dark-neutral text-[24px]"></i></button>
+  let botonFavoritos: ReturnType<typeof page.locator> | null = null;
+  let botonVisible = false;
   
-  // Si no se encuentra, intentar otros selectores
+  // Estrategia 1: Buscar botón con icono icon-heart (versión desktop - visible en lg)
+  botonFavoritos = page.locator('button').filter({
+    has: page.locator('i.icon.icon-heart')
+  }).filter({
+    hasNot: page.locator('i[class*="share"]') // Excluir botón de compartir que también puede tener iconos similares
+  }).first();
+  
+  botonVisible = await botonFavoritos.isVisible({ timeout: 5000 }).catch(() => false);
+  
+  // Estrategia 2: Si no se encuentra en desktop, buscar en móvil
   if (!botonVisible) {
-    console.log('   🔍 Intentando selector alternativo para botón de favoritos...');
-    botonFavoritos = page.locator('button').filter({
-      has: page.locator('i.icon.icon-heart, i.icon-heart, i.icon-heart-solid')
+    console.log('   🔍 Botón de favoritos no visible en desktop, buscando en móvil...');
+    botonFavoritos = page.locator('button.w-\\[40px\\].h-\\[40px\\]').filter({
+      has: page.locator('i.icon.icon-heart')
     }).first();
     botonVisible = await botonFavoritos.isVisible({ timeout: 5000 }).catch(() => false);
   }
   
-  // Si aún no se encuentra, buscar por aria-label
+  // Estrategia 3: Buscar cualquier botón que contenga un icono con clase icon-heart
+  if (!botonVisible) {
+    console.log('   🔍 Buscando botón con icono icon-heart de forma general...');
+    botonFavoritos = page.locator('button').filter({
+      has: page.locator('i[class*="icon-heart"]')
+    }).filter({
+      hasNot: page.locator('i[class*="share"]')
+    }).first();
+    botonVisible = await botonFavoritos.isVisible({ timeout: 5000 }).catch(() => false);
+  }
+  
+  // Estrategia 4: Buscar por aria-label si existe
   if (!botonVisible) {
     console.log('   🔍 Intentando buscar por aria-label...');
     const botonFavoritosAlt = page.locator('button[aria-label*="favorito" i], button[aria-label*="favorite" i]').first();
@@ -781,23 +849,28 @@ async function toggleFavorito(page: Page, marcar: boolean): Promise<boolean> {
     }
   }
   
-  // Si aún no se encuentra, buscar cualquier botón con un icono de corazón visible
+  // Estrategia 5: Buscar manualmente en todos los botones
   if (!botonVisible) {
-    console.log('   🔍 Intentando buscar botón con icono de corazón visible...');
+    console.log('   🔍 Buscando manualmente en todos los botones...');
     const todosLosBotones = page.locator('button');
     const cantidadBotones = await todosLosBotones.count();
+    console.log(`   📊 Total de botones encontrados: ${cantidadBotones}`);
     
-    for (let i = 0; i < Math.min(cantidadBotones, 20); i++) {
+    for (let i = 0; i < Math.min(cantidadBotones, 30); i++) {
       const boton = todosLosBotones.nth(i);
-      const tieneIconoHeart = await boton.locator('i[class*="heart"]').count() > 0;
+      const tieneIconoHeart = await boton.locator('i.icon.icon-heart, i[class*="icon-heart"]').count() > 0;
       
       if (tieneIconoHeart) {
-        const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
-        if (esVisible) {
-          botonFavoritos = boton;
-          botonVisible = true;
-          console.log(`   ✅ Botón de favoritos encontrado en índice ${i}`);
-          break;
+        // Verificar que no sea el botón de compartir
+        const tieneIconoShare = await boton.locator('i[class*="share"]').count() > 0;
+        if (!tieneIconoShare) {
+          const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
+          if (esVisible) {
+            botonFavoritos = boton;
+            botonVisible = true;
+            console.log(`   ✅ Botón de favoritos encontrado en índice ${i}`);
+            break;
+          }
         }
       }
     }
@@ -811,12 +884,19 @@ async function toggleFavorito(page: Page, marcar: boolean): Promise<boolean> {
 
   // Verificar el estado actual del icono
   // Buscar el icono dentro del botón
-  const iconHeart = botonFavoritos.locator('i[class*="heart"]').first();
+  const iconHeart = botonFavoritos.locator('i.icon.icon-heart, i[class*="icon-heart"]').first();
   const iconClass = await iconHeart.getAttribute('class').catch(() => '') || '';
-  const estaMarcado = iconClass.includes('heart-solid') || iconClass.includes('icon-heart-solid');
+  console.log(`   📊 Clase completa del icono: "${iconClass}"`);
+  
+  // El estado marcado se detecta por:
+  // 1. Clase que contiene "heart-solid" o "icon-heart-solid"
+  // 2. Clase que contiene "text-primary-neutral" (en desktop, cuando está marcado)
+  // 3. O si el icono tiene alguna clase específica de "marcado"
+  const estaMarcado = iconClass.includes('heart-solid') || 
+                      iconClass.includes('icon-heart-solid') ||
+                      iconClass.includes('text-primary-neutral');
   
   console.log(`   📊 Estado actual: ${estaMarcado ? 'marcado' : 'desmarcado'}`);
-  console.log(`   📊 Clase del icono: "${iconClass}"`);
 
   // Si queremos marcar y ya está marcado, o si queremos desmarcar y no está marcado, no hacer nada
   if ((marcar && estaMarcado) || (!marcar && !estaMarcado)) {
@@ -831,7 +911,9 @@ async function toggleFavorito(page: Page, marcar: boolean): Promise<boolean> {
 
   // Verificar que cambió el estado
   const nuevoIconClass = await iconHeart.getAttribute('class').catch(() => '') || '';
-  const nuevoEstado = nuevoIconClass.includes('heart-solid') || nuevoIconClass.includes('icon-heart-solid');
+  const nuevoEstado = nuevoIconClass.includes('heart-solid') || 
+                      nuevoIconClass.includes('icon-heart-solid') ||
+                      nuevoIconClass.includes('text-primary-neutral');
   
   console.log(`   📊 Nuevo estado: ${nuevoEstado ? 'marcado' : 'desmarcado'}`);
   console.log(`   📊 Nueva clase del icono: "${nuevoIconClass}"`);
@@ -862,9 +944,13 @@ test.describe('Favoritos del cliente', () => {
   let serviciosDelProveedor: ServicioInfo[] = [];
   let serviciosObtenidos = false;
 
-  test.beforeEach(async ({ page, browser }) => {
-    // Obtener servicios del proveedor solo la primera vez
-    if (!serviciosObtenidos) {
+  test.beforeEach(async ({ page, browser }, testInfo) => {
+    // La prueba "Desmarcar servicio como favorito desde la página de favoritos" 
+    // no necesita obtener servicios del proveedor
+    const esPruebaDesmarcarDesdeFavoritos = testInfo.title.includes('Desmarcar servicio como favorito desde la página de favoritos');
+    
+    // Obtener servicios del proveedor solo la primera vez y solo si la prueba los necesita
+    if (!serviciosObtenidos && !esPruebaDesmarcarDesdeFavoritos) {
       // Crear un nuevo contexto separado para el proveedor (sin cookies compartidas)
       const providerContext = await browser.newContext();
       const providerPage = await providerContext.newPage();
@@ -1129,7 +1215,23 @@ test.describe('Favoritos del cliente', () => {
   });
 
   test('Desmarcar servicio como favorito desde la página de favoritos', async ({ page }) => {
+    // Esta prueba no necesita obtener servicios del proveedor
+    // Solo necesita desmarcar cualquier servicio que esté marcado como favorito
+    
+    // Asegurarse de estar logueado como cliente (sin depender del beforeEach que obtiene servicios)
     await showStepMessage(page, '🔍 DESMARCANDO FAVORITO DESDE PÁGINA DE FAVORITOS');
+    
+    // Verificar si ya estamos logueados
+    const isLoggedIn = await page.locator('button:has(i.icon-user), a:has(i.icon-user)').isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      console.log('📋 Iniciando sesión como cliente...');
+      await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+    } else {
+      console.log('✅ Ya hay una sesión activa');
+    }
     
     // Navegar a la página de favoritos
     console.log('📂 Navegando a la página de favoritos...');
