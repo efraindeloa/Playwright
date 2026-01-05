@@ -579,243 +579,13 @@ test.describe('Dashboard de cliente', () => {
   });
 
   // ============================================
-  // GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+  // PRUEBAS POR SECCIÓN DEL DASHBOARD
   // ============================================
+  // Cada prueba valida una sección específica del dashboard
+  // según la estructura definida del proyecto
 
-  test('Se muestran todas las secciones principales del dashboard', async ({ page }) => {
-    await showStepMessage(page, '📋 VALIDANDO SECCIONES PRINCIPALES DEL DASHBOARD');
-    await page.waitForTimeout(1000);
-    
-    console.log('🔍 Validando mensaje de bienvenida...');
-    await expect(page.getByText(/Bienvenido/i)).toBeVisible();
-    console.log('✅ Mensaje de bienvenida visible');
-    
-    await showStepMessage(page, '🎉 VALIDANDO SECCIÓN "ELIGE TU FIESTA"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Validando sección "Elige tu fiesta"...');
-    // Excluir el overlay de showStepMessage - buscar solo elementos p que no estén dentro del overlay
-    const tituloEligeTuFiesta = page.locator('p.text-dark-neutral.font-extrabold').filter({ 
-      hasText: /^Elige tu fiesta$/i 
-    }).first();
-    await expect(tituloEligeTuFiesta).toBeVisible();
-    console.log('✅ Sección "Elige tu fiesta" visible');
-
-    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "NUEVA FIESTA"');
-    await page.waitForTimeout(1000);
-    // Buscar botón "Nueva fiesta" según el viewport
-    // Botón desktop: tiene clase "lg:flex" y es un botón cuadrado con icono grande
-    // Botón móvil: tiene clase "lg:hidden" y es un botón horizontal
-    const viewportWidth = page.viewportSize()?.width || 1400;
-    
-    if (viewportWidth >= 1024) {
-      // Desktop: buscar botón con clase "lg:flex" y estructura específica
-      const botonNuevaFiestaDesktop = page.locator('button.hidden.lg\\:flex').filter({
-        has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
-      });
-      
-      if (await botonNuevaFiestaDesktop.count() > 0) {
-        const esVisible = await botonNuevaFiestaDesktop.first().isVisible().catch(() => false);
-        if (esVisible) {
-          await expect(botonNuevaFiestaDesktop.first()).toBeVisible();
-          console.log('✅ Botón "Nueva fiesta" encontrado y visible (versión desktop)');
-        } else {
-        }
-      }
-      
-      // Fallback: buscar cualquier botón con "Nueva fiesta" o "Nuevo evento" que esté visible
-      // IMPORTANTE: Excluir botones con clase "lg:hidden" ya que están ocultos en desktop
-      if (await botonNuevaFiestaDesktop.count() === 0 || !(await botonNuevaFiestaDesktop.first().isVisible().catch(() => false))) {
-        // Buscar todos los botones con el texto, pero EXCLUIR explícitamente los que tienen lg:hidden
-        const todosLosBotones = page.locator('button:not(.lg\\:hidden)').filter({
-          has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
-        });
-        
-        const cantidadBotones = await todosLosBotones.count();
-        let botonVisibleEncontrado = false;
-        
-        // Revisar cada botón para encontrar uno que esté visible
-        for (let i = 0; i < cantidadBotones; i++) {
-          const boton = todosLosBotones.nth(i);
-          
-          // Verificar doblemente que NO tiene la clase lg:hidden usando el atributo class
-          const tieneClaseHidden = await boton.evaluate((el) => {
-            const classAttr = el.getAttribute('class') || '';
-            return classAttr.includes('lg:hidden');
-          }).catch(() => false);
-          
-          // Si tiene lg:hidden, saltarlo (es versión mobile)
-          if (tieneClaseHidden) {
-            console.log(`⚠️ Botón ${i} tiene lg:hidden, saltando...`);
-            continue;
-          }
-          
-          // Verificar que realmente es visible antes de hacer expect
-          const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
-          if (esVisible) {
-            // Verificar una vez más antes de hacer expect
-            const sigueVisible = await boton.isVisible({ timeout: 1000 }).catch(() => false);
-            if (sigueVisible) {
-              await expect(boton).toBeVisible();
-              console.log('✅ Botón "Nueva fiesta" encontrado y visible (fallback)');
-              botonVisibleEncontrado = true;
-              break;
-            }
-          }
-        }
-        
-        if (!botonVisibleEncontrado) {
-          // Verificar si hay algún botón con lg:hidden para reportar
-          const botonMobile = page.locator('button.lg\\:hidden').filter({
-            has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
-          }).first();
-          
-          if (await botonMobile.count() > 0) {
-            console.log('⚠️ Botón "Nueva fiesta" encontrado pero oculto (tiene clase lg:hidden - es versión mobile, no visible en desktop)');
-          } else {
-            console.log('⚠️ No se encontró el botón "Nueva fiesta" visible en desktop');
-          }
-        }
-      }
-    } else {
-      // Mobile: buscar botón con clase "lg:hidden"
-      console.log('🔍 Buscando botón "Nueva fiesta" (versión mobile)...');
-      const botonNuevaFiestaMobile = page.locator('button.lg\\:hidden').filter({
-        has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
-      });
-      
-      if (await botonNuevaFiestaMobile.count() > 0) {
-        const esVisible = await botonNuevaFiestaMobile.first().isVisible().catch(() => false);
-        if (esVisible) {
-          await expect(botonNuevaFiestaMobile.first()).toBeVisible();
-          console.log('✅ Botón "Nueva fiesta" encontrado y visible (versión mobile)');
-        } else {
-          console.log('⚠️ Botón "Nueva fiesta" encontrado pero oculto (puede ser que el viewport no sea mobile)');
-        }
-      } else {
-        console.log('⚠️ No se encontró el botón "Nueva fiesta" (mobile)');
-      }
-    }
-
-    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Validando botón "Agregar servicios"...');
-    
-    // Buscar el botón con el nuevo diseño: tiene icono plus y texto "Agregar servicios"
-    const botonAgregarServicios = page.locator('button').filter({
-      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
-    }).filter({
-      has: page.locator('i.icon-plus')
-    }).first();
-    
-    // Fallback: buscar por texto accesible
-    const botonAgregarServiciosFallback = page.getByRole('button', { name: /Agregar servicios/i });
-    
-    let botonVisible = false;
-    let botonElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
-      botonElement = botonAgregarServicios;
-      botonVisible = true;
-      console.log('✅ Botón "Agregar servicios" encontrado (selector específico con nuevo diseño)');
-    } else if (await botonAgregarServiciosFallback.count() > 0 && await botonAgregarServiciosFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
-      botonElement = botonAgregarServiciosFallback;
-      botonVisible = true;
-      console.log('✅ Botón "Agregar servicios" encontrado (fallback por texto accesible)');
-    }
-    
-    if (!botonVisible || !botonElement) {
-      throw new Error('❌ No se encontró el botón "Agregar servicios" con el nuevo diseño');
-    }
-    
-    await expect(botonElement).toBeVisible();
-    await expect(botonElement).toBeEnabled();
-    
-    // Validar que el botón tiene el icono plus
-    const iconoPlus = botonElement.locator('i.icon-plus');
-    const iconoVisible = await iconoPlus.isVisible({ timeout: 2000 }).catch(() => false);
-    if (iconoVisible) {
-      console.log('✅ Icono plus encontrado en el botón');
-    } else {
-      console.log('⚠️ Icono plus no encontrado, pero el botón es válido');
-    }
-    
-    // Validar que el botón tiene el texto "Agregar servicios"
-    const textoBoton = botonElement.locator('span.font-bold').filter({ hasText: /Agregar servicios/i });
-    const textoVisible = await textoBoton.isVisible({ timeout: 2000 }).catch(() => false);
-    if (textoVisible) {
-      console.log('✅ Texto "Agregar servicios" encontrado en el botón');
-    }
-    
-    console.log('✅ Botón "Agregar servicios" visible y habilitado');
-
-    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "ORDENAR POR"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Validando botón "Ordenar por"...');
-    const botonOrdenar = page.locator('button').filter({
-      has: page.locator('p').filter({ hasText: /Ordenar por/i })
-    });
-    await expect(botonOrdenar.first()).toBeVisible();
-    console.log('✅ Botón "Ordenar por" visible');
-
-    await showStepMessage(page, '📅 VALIDANDO CALENDARIO (DESKTOP)');
-    await page.waitForTimeout(1000);
-    // El calendario solo está visible en desktop (lg:flex)
-    console.log('🔍 Validando calendario (desktop)...');
-    const calendario = page.locator('div').filter({
-      has: page.locator('button').filter({
-        has: page.locator('p').filter({ hasText: /^Noviembre|^Diciembre|^Enero/i })
-      })
-    }).filter({
-      has: page.locator('p').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/ })
-    });
-    
-    // Solo validar si el viewport es lo suficientemente grande
-    if (page.viewportSize() && page.viewportSize()!.width >= 1024) {
-      const calendarioVisible = await calendario.first().isVisible({ timeout: 3000 }).catch(() => false);
-      if (calendarioVisible) {
-        await expect(calendario.first()).toBeVisible();
-        console.log('✅ Calendario visible (desktop)');
-      } else {
-        console.log('⚠️ Calendario no visible en este viewport');
-      }
-    } else {
-      console.log('⚠️ Calendario solo visible en viewports ≥1024px');
-    }
-
-    await showStepMessage(page, '💬 VALIDANDO SECCIÓN "¡FIESTACHAT!"');
-    await page.waitForTimeout(1000);
-    // Buscar el texto dentro del contenedor específico de Fiestachat (evitar el overlay)
-    console.log('🔍 Validando sección "¡Fiestachat!"...');
-    const seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
-      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-    });
-    
-    if (await seccionFiestachat.count() > 0) {
-      const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
-      const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
-      
-      await expect(tituloFiestachat).toBeVisible();
-      await expect(subtituloFiestachat).toBeVisible();
-      console.log('✅ Sección "¡Fiestachat!" visible (contenedor específico)');
-    } else {
-      // Fallback: buscar directamente pero excluyendo el overlay
-      console.log('🔍 Buscando sección "¡Fiestachat!" (fallback)...');
-      const tituloFiestachat = page.locator('p.text-regular.text-primary-neutral.text-center.font-bold').filter({
-        hasText: '¡Fiestachat!'
-      }).first();
-      const subtituloFiestachat = page.locator('p.text-small.text-dark-neutral.text-center').filter({
-        hasText: 'La línea directa a tu evento'
-      }).first();
-      
-      await expect(tituloFiestachat).toBeVisible();
-      await expect(subtituloFiestachat).toBeVisible();
-      console.log('✅ Sección "¡Fiestachat!" visible (fallback)');
-    }
-    
-    console.log('✅ Validación de secciones del dashboard completada');
-  });
-
-  test('Se muestran todos los elementos de la barra superior', async ({ page }) => {
+  // PRUEBA 1: Sección de Navegación (Navbar)
+  test('Validar sección de Navegación (Navbar)', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '📋 VALIDANDO ELEMENTOS COMPLETOS DE LA BARRA SUPERIOR');
@@ -1097,245 +867,550 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa de elementos de la barra superior finalizada');
   });
 
-  test('Se muestran conversaciones en la sección Fiestachat (navegación)', async ({ page }) => {
-    await showStepMessage(page, '💬 VALIDANDO Y NAVEGANDO A CHATS');
+  // PRUEBA 2: Sección de Bienvenida
+  test('Validar sección de Bienvenida', async ({ page }) => {
+    test.setTimeout(60000);
+    
+    await showStepMessage(page, '👋 VALIDANDO SECCIÓN DE BIENVENIDA');
     await page.waitForTimeout(1000);
-    // Buscar enlace de chats (puede estar en mobile o desktop)
-    console.log('🔍 Buscando enlace de chats...');
-    const enlaceChatsMobile = page.locator('a[href="/client/chats"]').filter({
-      has: page.locator('i.icon-message-square')
-    });
-    const enlaceChatsDesktop = page.locator('div.lg\\:block nav a[href="/client/chats"]');
     
-    let enlaceChats: ReturnType<typeof page.locator> | null = null;
+    console.log('🔍 Buscando mensaje de bienvenida...');
+    const mensajeBienvenida = page.getByText(/Bienvenido/i);
+    await expect(mensajeBienvenida).toBeVisible();
+    console.log('✅ Mensaje de bienvenida visible');
     
-    if (await enlaceChatsDesktop.count() > 0) {
-      enlaceChats = enlaceChatsDesktop.first();
-      await expect(enlaceChats).toBeVisible();
-      console.log('✅ Enlace de chats encontrado (desktop)');
-      
-      // Validar contador de mensajes antes de hacer clic
-      const contador = enlaceChats.locator('div.absolute').filter({
-        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-      }).locator('p, div').filter({
-        hasText: /\d+/
-      }).first();
-      
-      const contadorVisible = await contador.isVisible().catch(() => false);
-      if (contadorVisible) {
-        const textoContador = await contador.textContent();
-        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
-        if (numeroContador !== null && !isNaN(numeroContador)) {
-          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
-        }
-      } else {
-        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
-      }
-      
-      console.log('🖱️ Haciendo clic en enlace de chats...');
-      await enlaceChats.click();
-    } else if (await enlaceChatsMobile.count() > 0) {
-      enlaceChats = enlaceChatsMobile.first();
-      await expect(enlaceChats).toBeVisible();
-      console.log('✅ Enlace de chats encontrado (mobile)');
-      
-      // Validar contador de mensajes antes de hacer clic
-      const contador = enlaceChats.locator('div.absolute').filter({
-        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-      }).locator('p, div').filter({
-        hasText: /\d+/
-      }).first();
-      
-      const contadorVisible = await contador.isVisible().catch(() => false);
-      if (contadorVisible) {
-        const textoContador = await contador.textContent();
-        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
-        if (numeroContador !== null && !isNaN(numeroContador)) {
-          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
-        }
-      } else {
-        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
-      }
-      
-      console.log('🖱️ Haciendo clic en enlace de chats...');
-      await enlaceChats.click();
-    } else {
-      console.log('⚠️ No se encontró el enlace de chats');
-    }
+    // Validar que contiene el texto esperado
+    const textoBienvenida = await mensajeBienvenida.textContent();
+    console.log(`✅ Texto de bienvenida: "${textoBienvenida?.trim()}"`);
     
-    if (enlaceChats) {
-      await expect(page).toHaveURL(CHATS_URL);
-      console.log('✅ Navegación a chats exitosa');
-    }
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE BIENVENIDA FINALIZADA');
+    console.log('✅ Validación de sección de bienvenida completada');
+  });
 
-    await page.goto(DASHBOARD_URL);
+  // PRUEBA 3: Sección de Promociones
+  test('Validar sección de Promociones', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos para dar tiempo a que carguen las promociones
+    
+    await showStepMessage(page, '🎁 VALIDANDO SECCIÓN DE PROMOCIONES');
+    
+    // Esperar a que la página cargue completamente antes de buscar promociones
     await page.waitForLoadState('networkidle');
-
-    await showStepMessage(page, '❤️ NAVEGANDO A FAVORITOS');
-    await page.waitForTimeout(1000);
-    // Buscar enlace de favoritos (solo desktop)
-    console.log('🔍 Buscando enlace de favoritos...');
-    const enlaceFavoritos = page.locator('div.lg\\:block nav a[href="/client/favorites"]');
-    if (await enlaceFavoritos.count() > 0) {
-      await expect(enlaceFavoritos.first()).toBeVisible();
-      console.log('✅ Enlace de favoritos encontrado, haciendo clic...');
-      await enlaceFavoritos.first().click();
-      await expect(page).toHaveURL(FAVORITES_URL);
-      console.log('✅ Navegación a favoritos exitosa');
-      await page.goto(DASHBOARD_URL);
-      await page.waitForLoadState('networkidle');
-    } else {
-      console.log('⚠️ Enlace de favoritos no encontrado (solo visible en desktop)');
-    }
-
-    await showStepMessage(page, '👤 NAVEGANDO A PERFIL');
-    await page.waitForTimeout(1000);
-    // Buscar enlace de perfil (puede estar en mobile o desktop)
-    console.log('🔍 Buscando enlace de perfil...');
-    const enlacePerfilMobile = page.locator('a[href="/client/profile"]').filter({
-      has: page.locator('i.icon-user')
-    });
-    const enlacePerfilDesktop = page.locator('div.lg\\:block nav a[href="/client/profile"]');
+    await safeWaitForTimeout(page, 5000); // Espera adicional para que las promociones se rendericen
     
-    if (await enlacePerfilDesktop.count() > 0) {
-      await expect(enlacePerfilDesktop.first()).toBeVisible();
-      console.log('✅ Enlace de perfil encontrado (desktop), haciendo clic...');
-      await enlacePerfilDesktop.first().click();
-    } else if (await enlacePerfilMobile.count() > 0) {
-      await expect(enlacePerfilMobile.first()).toBeVisible();
-      console.log('✅ Enlace de perfil encontrado (mobile), haciendo clic...');
-      await enlacePerfilMobile.first().click();
-    } else {
-      console.log('⚠️ No se encontró el enlace de perfil');
+    console.log('🔍 Buscando sección de promociones...');
+    const seccionPromociones = page.locator('div.flex.flex-col.w-full.gap-3').filter({
+      has: page.locator('p').filter({
+        hasText: /las mejores promociones para ti|promociones/i
+      })
+    }).first();
+    
+    // Aumentar el timeout para buscar la sección (la app tarda en cargar promociones)
+    // La prueba debe fallar si la sección no se muestra
+    await expect(seccionPromociones).toBeVisible({ timeout: 30000 });
+    console.log('✅ Sección de promociones visible');
+    
+    // Validar título
+    const tituloPromociones = seccionPromociones.locator('p').filter({
+      hasText: /las mejores promociones para ti/i
+    }).first();
+    await expect(tituloPromociones).toBeVisible({ timeout: 10000 });
+    console.log('✅ Título "Las mejores promociones para ti" visible');
+    
+    // Validar que hay cards de promociones (al menos una)
+    const promoCards = page.locator('div[role="button"]').filter({
+      has: page.locator('div').filter({
+        has: page.locator('i.icon-promotion, i[class*="promotion"]')
+      })
+    });
+    
+    const cantidadCards = await promoCards.count();
+    console.log(`📊 Cards de promociones encontradas: ${cantidadCards}`);
+    
+    // La prueba debe fallar si no hay cards de promociones
+    expect(cantidadCards).toBeGreaterThan(0);
+    
+    // Verificar que al menos una card es visible
+    let alMenosUnaVisible = false;
+    for (let i = 0; i < Math.min(cantidadCards, 10); i++) {
+      const card = promoCards.nth(i);
+      const esVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
+      if (esVisible) {
+        alMenosUnaVisible = true;
+        await expect(card).toBeVisible();
+        console.log(`✅ Card de promoción ${i + 1} visible`);
+        break;
+      }
     }
-    await expect(page).toHaveURL(PROFILE_URL);
-    console.log('✅ Navegación a perfil exitosa');
+    
+    // La prueba debe fallar si ninguna card es visible
+    expect(alMenosUnaVisible).toBe(true);
+    console.log('✅ Al menos una card de promoción es visible');
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE PROMOCIONES FINALIZADA');
+    console.log('✅ Validación de sección de promociones completada');
+  });
 
-    await page.goto(DASHBOARD_URL);
-    console.log('✅ Prueba de navegación de barra superior completada');
+  // PRUEBA 4: Sección "Elige tu fiesta"
+  test('Validar sección "Elige tu fiesta"', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    await showStepMessage(page, '🎉 VALIDANDO SECCIÓN "ELIGE TU FIESTA"');
+    await page.waitForTimeout(1000);
+    
+    // 1. Validar título
+    console.log('🔍 Buscando título "Elige tu fiesta"...');
+    const titulo = page.locator('p.text-dark-neutral.font-extrabold').filter({ 
+      hasText: /^Elige tu fiesta$/i 
+    }).first();
+    await expect(titulo).toBeVisible();
+    console.log('✅ Título "Elige tu fiesta" visible');
+    
+    // 2. Validar botón "Nueva fiesta"
+    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "NUEVA FIESTA"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando botón "Nueva fiesta"...');
+    
+    const viewportWidth = page.viewportSize()?.width || 1400;
+    
+    if (viewportWidth >= 1024) {
+      // Desktop: buscar botón con clase "lg:flex"
+      const botonDesktop = page.locator('button.hidden.lg\\:flex').filter({
+        has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
+      }).first();
+      
+      if (await botonDesktop.count() > 0 && await botonDesktop.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await expect(botonDesktop).toBeVisible();
+        console.log('✅ Botón "Nueva fiesta" encontrado (desktop)');
+      } else {
+        // Fallback: buscar cualquier botón visible con el texto
+        const botonFallback = page.locator('button:not(.lg\\:hidden)').filter({
+          has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
+        }).first();
+        
+        if (await botonFallback.count() > 0 && await botonFallback.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await expect(botonFallback).toBeVisible();
+          console.log('✅ Botón "Nueva fiesta" encontrado (fallback)');
+        } else {
+          console.log('⚠️ Botón "Nueva fiesta" no visible en desktop');
+        }
+      }
+    } else {
+      // Mobile: buscar botón con clase "lg:hidden"
+      const botonMobile = page.locator('button.lg\\:hidden').filter({
+        has: page.locator('p').filter({ hasText: /Nueva fiesta|Nuevo evento/i })
+      }).first();
+      
+      if (await botonMobile.count() > 0 && await botonMobile.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await expect(botonMobile).toBeVisible();
+        console.log('✅ Botón "Nueva fiesta" encontrado (mobile)');
+      } else {
+        console.log('⚠️ Botón "Nueva fiesta" no visible en mobile');
+      }
+    }
+    
+    // 3. Validar carrusel de eventos
+    await showStepMessage(page, '📜 VALIDANDO CARRUSEL DE EVENTOS');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando carrusel de eventos...');
+    
+    const contenedorEventos = page.locator('div.flex.flex-nowrap.overflow-x-auto, div[class*="overflow-x-auto"]').filter({
+      has: page.locator('button').filter({
+        has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i })
+      })
+    }).first();
+    
+    const tieneCarrusel = await contenedorEventos.count() > 0;
+    if (tieneCarrusel) {
+      const carruselVisible = await contenedorEventos.isVisible({ timeout: 3000 }).catch(() => false);
+      if (carruselVisible) {
+        await expect(contenedorEventos).toBeVisible();
+        console.log('✅ Carrusel de eventos visible');
+        
+        // Validar que hay al menos un evento
+        const eventos = contenedorEventos.locator('button').filter({
+          has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i })
+        });
+        const cantidadEventos = await eventos.count();
+        console.log(`📊 Eventos encontrados en el carrusel: ${cantidadEventos}`);
+        
+        if (cantidadEventos > 0) {
+          console.log('✅ Al menos un evento encontrado en el carrusel');
+        } else {
+          console.log('ℹ️ No hay eventos en el carrusel (puede ser un estado vacío válido)');
+        }
+      }
+    } else {
+      console.log('ℹ️ Carrusel de eventos no encontrado (puede que no haya eventos creados)');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN "ELIGE TU FIESTA" FINALIZADA');
+    console.log('✅ Validación de sección "Elige tu fiesta" completada');
+  });
+
+  // PRUEBA 5: Sección "Agregar servicios"
+  test('Validar sección "Agregar servicios"', async ({ page }) => {
+    test.setTimeout(180000);
+    
+    await showStepMessage(page, '🔍 VALIDANDO SECCIÓN "AGREGAR SERVICIOS"');
+    await page.waitForTimeout(1000);
+    
+    // 1. Validar botón "Agregar servicios"
+    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando botón "Agregar servicios"...');
+    
+    const botonAgregarServicios = page.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+    }).filter({
+      has: page.locator('i.icon-plus')
+    }).first();
+    
+    const botonFallback = page.getByRole('button', { name: /Agregar servicios/i });
+    
+    let botonElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServicios;
+      console.log('✅ Botón "Agregar servicios" encontrado');
+    } else if (await botonFallback.count() > 0 && await botonFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonFallback;
+      console.log('✅ Botón "Agregar servicios" encontrado (fallback)');
+    } else {
+      throw new Error('❌ No se encontró el botón "Agregar servicios"');
+    }
+    
+    await expect(botonElement).toBeVisible();
+    await expect(botonElement).toBeEnabled();
+    console.log('✅ Botón "Agregar servicios" visible y habilitado');
+    
+    // 2. Validar lista "Servicios"
+    await showStepMessage(page, '📋 VALIDANDO LISTA "SERVICIOS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando lista "Servicios"...');
+    
+    // Buscar el título "Servicios"
+    const tituloServicios = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /^Servicios$/i
+    }).first();
+    
+    const tituloServiciosVisible = await tituloServicios.isVisible({ timeout: 3000 }).catch(() => false);
+    if (tituloServiciosVisible) {
+      await expect(tituloServicios).toBeVisible();
+      console.log('✅ Título "Servicios" visible');
+    } else {
+      console.log('ℹ️ Título "Servicios" no visible (puede estar en otro formato)');
+    }
+    
+    // 3. Validar lista "Sugerencias"
+    await showStepMessage(page, '💡 VALIDANDO LISTA "SUGERENCIAS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando lista "Sugerencias"...');
+    
+    // Buscar el título "Sugerencias"
+    const tituloSugerencias = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /^Sugerencias$/i
+    }).first();
+    
+    const tituloSugerenciasVisible = await tituloSugerencias.isVisible({ timeout: 3000 }).catch(() => false);
+    if (tituloSugerenciasVisible) {
+      await expect(tituloSugerencias).toBeVisible();
+      console.log('✅ Título "Sugerencias" visible');
+    } else {
+      console.log('ℹ️ Título "Sugerencias" no visible (puede estar en otro formato o no haber sugerencias)');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN "AGREGAR SERVICIOS" FINALIZADA');
+    console.log('✅ Validación de sección "Agregar servicios" completada');
+  });
+
+  // PRUEBA 6: Sección de servicios contactados
+  test('Validar sección de servicios contactados', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    await showStepMessage(page, '📞 VALIDANDO SECCIÓN DE SERVICIOS CONTACTADOS');
+    await page.waitForTimeout(1000);
+    
+    console.log('🔍 Buscando sección de servicios contactados...');
+    
+    // Buscar tarjetas de servicios contactados
+    // Estas tarjetas aparecen después de agregar servicios a eventos
+    // Excluir el mensaje de bienvenida buscando elementos que NO contengan "Bienvenido"
+    const tarjetasServicios = page.locator('div, button').filter({
+      has: page.locator('p, span').filter({ hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i })
+    }).filter({
+      hasNot: page.locator('p, span, h1, h2, h3, h4, h5, h6').filter({ hasText: /Bienvenido/i })
+    });
+    
+    const cantidadTarjetas = await tarjetasServicios.count();
+    console.log(`📊 Tarjetas de servicios contactados encontradas: ${cantidadTarjetas}`);
+    
+    if (cantidadTarjetas > 0) {
+      // Validar que al menos una tarjeta es visible
+      let alMenosUnaVisible = false;
+      for (let i = 0; i < Math.min(cantidadTarjetas, 5); i++) {
+        const tarjeta = tarjetasServicios.nth(i);
+        const esVisible = await tarjeta.isVisible({ timeout: 2000 }).catch(() => false);
+        if (esVisible) {
+          alMenosUnaVisible = true;
+          await expect(tarjeta).toBeVisible();
+          console.log(`✅ Tarjeta de servicio contactado ${i + 1} visible`);
+          
+          // Obtener el nombre del servicio
+          // Excluir explícitamente el mensaje de bienvenida
+          const nombreServicio = tarjeta.locator('p.font-bold, p[class*="font-bold"], h1, h2, h3, h4, h5, h6, p.text-medium.font-bold').first();
+          const nombreVisible = await nombreServicio.isVisible({ timeout: 1000 }).catch(() => false);
+          let nombreEncontrado = false;
+          
+          if (nombreVisible) {
+            const textoNombre = await nombreServicio.textContent();
+            const nombreLimpio = textoNombre?.trim() || '';
+            // Excluir el mensaje de bienvenida
+            if (nombreLimpio && !nombreLimpio.match(/Bienvenido/i)) {
+              console.log(`  ✓ Servicio: "${nombreLimpio}"`);
+              nombreEncontrado = true;
+            }
+          }
+          
+          // Fallback: buscar cualquier texto que parezca un nombre de servicio
+          // pero excluir el mensaje de bienvenida
+          if (!nombreEncontrado) {
+            const todosLosTextos = tarjeta.locator('p, h1, h2, h3, h4, h5, h6');
+            const cantidadTextos = await todosLosTextos.count();
+            for (let j = 0; j < Math.min(cantidadTextos, 10); j++) {
+              const texto = todosLosTextos.nth(j);
+              const textoContent = (await texto.textContent())?.trim() || '';
+              // Excluir textos que son estados, bienvenida u otros elementos
+              if (textoContent && 
+                  !textoContent.match(/PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO|Bienvenido/i) &&
+                  textoContent.length > 3 &&
+                  textoContent.length < 100) {
+                console.log(`  ✓ Servicio: "${textoContent}"`);
+                nombreEncontrado = true;
+                break;
+              }
+            }
+          }
+          
+          if (!nombreEncontrado) {
+            console.log('  ⚠️ No se pudo obtener el nombre del servicio');
+          }
+          
+          // Validar que tiene estado (PENDIENTE, ACEPTADO, etc.)
+          const estado = tarjeta.locator('p, span').filter({
+            hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i
+          }).first();
+          const estadoVisible = await estado.isVisible({ timeout: 1000 }).catch(() => false);
+          if (estadoVisible) {
+            const textoEstado = await estado.textContent();
+            console.log(`  ✓ Estado: "${textoEstado?.trim()}"`);
+          }
+          
+          break;
+        }
+      }
+      
+      if (alMenosUnaVisible) {
+        console.log('✅ Al menos una tarjeta de servicio contactado es visible');
+      }
+    } else {
+      console.log('ℹ️ No se encontraron tarjetas de servicios contactados (puede que no haya servicios contactados aún)');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE SERVICIOS CONTACTADOS FINALIZADA');
+    console.log('✅ Validación de sección de servicios contactados completada');
+  });
+
+  // PRUEBA 7: Sección de Calendario
+  test('Validar sección de Calendario', async ({ page }) => {
+    test.setTimeout(180000);
+    
+    // El calendario solo está visible en desktop (≥1024px)
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ El calendario solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    await showStepMessage(page, '📅 VALIDANDO SECCIÓN DE CALENDARIO');
+    await page.waitForTimeout(1000);
+    
+    console.log('🔍 Buscando calendario...');
+    
+    // Buscar calendario por días de la semana
+    let calendario = page.locator('div').filter({
+      has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+    }).first();
+    
+    let calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    // Estrategia alternativa: buscar por mes
+    if (!calendarioVisible) {
+      calendario = page.locator('div').filter({
+        has: page.locator('button, p, span').filter({ 
+          hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+    
+    // Estrategia alternativa: buscar por estructura de días
+    if (!calendarioVisible) {
+      calendario = page.locator('div').filter({
+        has: page.locator('button').filter({
+          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+    
+    if (calendarioVisible) {
+      await expect(calendario).toBeVisible();
+      console.log('✅ Calendario visible');
+      
+      // Validar días de la semana
+      const diasSemana = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+      let diasEncontrados = 0;
+      for (const dia of diasSemana) {
+        const diaElement = calendario.locator('p, span, div').filter({
+          hasText: new RegExp(`^${dia}$`, 'i')
+        }).first();
+        const diaVisible = await diaElement.isVisible({ timeout: 1000 }).catch(() => false);
+        if (diaVisible) {
+          diasEncontrados++;
+        }
+      }
+      console.log(`📊 Días de la semana encontrados: ${diasEncontrados}/7`);
+      
+      if (diasEncontrados >= 5) {
+        console.log('✅ Días de la semana visibles');
+      }
+    } else {
+      console.log('⚠️ Calendario no visible');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE CALENDARIO FINALIZADA');
+    console.log('✅ Validación de sección de calendario completada');
+  });
+
+  // PRUEBA 8: Sección Fiestachat
+  test('Validar sección Fiestachat', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    // La sección Fiestachat solo está visible en desktop (≥1024px)
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
+    await page.waitForTimeout(1000);
+    
+    console.log('🔍 Buscando sección Fiestachat...');
+    
+    // Buscar contenedor de Fiestachat
+    let seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
+      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+    });
+    
+    let contenedorEncontrado = await seccionFiestachat.count() > 0;
+    
+    if (!contenedorEncontrado) {
+      // Fallback: buscar cualquier contenedor que tenga el título
+      seccionFiestachat = page.locator('div').filter({
+        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+      }).first();
+      
+      contenedorEncontrado = await seccionFiestachat.count() > 0;
+    }
+    
+    if (contenedorEncontrado) {
+      const seccionVisible = await seccionFiestachat.isVisible({ timeout: 3000 }).catch(() => false);
+      if (seccionVisible) {
+        await expect(seccionFiestachat).toBeVisible();
+        console.log('✅ Contenedor de Fiestachat visible');
+        
+        // Validar título "¡Fiestachat!"
+        const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
+        const tituloVisible = await tituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
+        if (tituloVisible) {
+          await expect(tituloFiestachat).toBeVisible();
+          console.log('✅ Título "¡Fiestachat!" visible');
+        }
+        
+        // Validar subtítulo "La línea directa a tu evento"
+        const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
+        const subtituloVisible = await subtituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
+        if (subtituloVisible) {
+          await expect(subtituloFiestachat).toBeVisible();
+          console.log('✅ Subtítulo "La línea directa a tu evento" visible');
+        }
+        
+        // Validar notificaciones (pueden o no estar presentes)
+        const notificationButtons = seccionFiestachat.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+        const notificationCount = await notificationButtons.count();
+        console.log(`📊 Notificaciones encontradas: ${notificationCount}`);
+        
+        if (notificationCount > 0) {
+          console.log('✅ Notificaciones presentes en Fiestachat');
+        } else {
+          console.log('ℹ️ No hay notificaciones en Fiestachat (estado válido)');
+        }
+      } else {
+        console.log('⚠️ Contenedor de Fiestachat no visible');
+      }
+    } else {
+      console.log('⚠️ Sección Fiestachat no encontrada');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN FIESTACHAT FINALIZADA');
+    console.log('✅ Validación de sección Fiestachat completada');
+  });
+
+  // ============================================
+  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
+  // ============================================
+
+  test('Crear una nueva fiesta desde el dashboard', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
+    
+    await showStepMessage(page, '🎉 CREANDO NUEVA FIESTA DESDE EL DASHBOARD');
+    console.log('🚀 Iniciando flujo completo de creación de evento...');
+    
+    // Esta prueba ejecuta el flujo completo de creación de evento
+    // Reutiliza la función ejecutarFlujoCompletoCreacionEvento de cliente-eventos.spec.ts
+    // para evitar duplicación de código
+    
+    await ejecutarFlujoCompletoCreacionEvento(page);
+    console.log('✅ Flujo completo de creación de evento finalizado');
+  });
+
+  // ============================================================================
+  // TEST: Mapear estructura completa de categorías de servicios
+  // ============================================================================
+  test('Mapear estructura completa de categorías y subcategorías de servicios', async ({ page }) => {
+    test.setTimeout(600000); // 10 minutos para explorar todas las categorías
+    
+    await showStepMessage(page, '🗺️ Mapeando estructura completa de categorías de servicios');
+    
+    const resultado = await mapearEstructuraCategoriasServicios(page, DEFAULT_BASE_URL);
+    
+    // Validar que se encontraron categorías
+    expect(resultado.resumen.categoriasPrincipales).toBeGreaterThan(0);
+    
+    // Validar que al menos una ruta llegó a cards
+    expect(resultado.resumen.rutasConCards).toBeGreaterThan(0);
   });
 
   // ============================================
   // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
   // ============================================
-
-  test('Navega a Chats, Favoritos y Perfil desde la barra superior', async ({ page }) => {
-    await showStepMessage(page, '💬 VALIDANDO Y NAVEGANDO A CHATS');
-    await page.waitForTimeout(1000);
-    // Buscar enlace de chats (puede estar en mobile o desktop)
-    console.log('🔍 Buscando enlace de chats...');
-    const enlaceChatsMobile = page.locator('a[href="/client/chats"]').filter({
-      has: page.locator('i.icon-message-square')
-    });
-    const enlaceChatsDesktop = page.locator('div.lg\\:block nav a[href="/client/chats"]');
-    
-    let enlaceChats: ReturnType<typeof page.locator> | null = null;
-    
-    if (await enlaceChatsDesktop.count() > 0) {
-      enlaceChats = enlaceChatsDesktop.first();
-      await expect(enlaceChats).toBeVisible();
-      console.log('✅ Enlace de chats encontrado (desktop)');
-      
-      // Validar contador de mensajes antes de hacer clic
-      const contador = enlaceChats.locator('div.absolute').filter({
-        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-      }).locator('p, div').filter({
-        hasText: /\d+/
-      }).first();
-      
-      const contadorVisible = await contador.isVisible().catch(() => false);
-      if (contadorVisible) {
-        const textoContador = await contador.textContent();
-        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
-        if (numeroContador !== null && !isNaN(numeroContador)) {
-          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
-        }
-      } else {
-        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
-      }
-      
-      console.log('🖱️ Haciendo clic en enlace de chats...');
-      await enlaceChats.click();
-    } else if (await enlaceChatsMobile.count() > 0) {
-      enlaceChats = enlaceChatsMobile.first();
-      await expect(enlaceChats).toBeVisible();
-      console.log('✅ Enlace de chats encontrado (mobile)');
-      
-      // Validar contador de mensajes antes de hacer clic
-      const contador = enlaceChats.locator('div.absolute').filter({
-        has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-      }).locator('p, div').filter({
-        hasText: /\d+/
-      }).first();
-      
-      const contadorVisible = await contador.isVisible().catch(() => false);
-      if (contadorVisible) {
-        const textoContador = await contador.textContent();
-        const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
-        if (numeroContador !== null && !isNaN(numeroContador)) {
-          console.log(`✅ Contador de mensajes visible: ${numeroContador}`);
-        }
-      } else {
-        console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
-      }
-      
-      console.log('🖱️ Haciendo clic en enlace de chats...');
-      await enlaceChats.click();
-    } else {
-      console.log('⚠️ No se encontró el enlace de chats');
-    }
-    
-    if (enlaceChats) {
-      await expect(page).toHaveURL(CHATS_URL);
-      console.log('✅ Navegación a chats exitosa');
-    }
-
-    await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
-
-    await showStepMessage(page, '❤️ NAVEGANDO A FAVORITOS');
-    await page.waitForTimeout(1000);
-    // Buscar enlace de favoritos (solo desktop)
-    console.log('🔍 Buscando enlace de favoritos...');
-    const enlaceFavoritos = page.locator('div.lg\\:block nav a[href="/client/favorites"]');
-    if (await enlaceFavoritos.count() > 0) {
-      await expect(enlaceFavoritos.first()).toBeVisible();
-      console.log('✅ Enlace de favoritos encontrado, haciendo clic...');
-      await enlaceFavoritos.first().click();
-      await expect(page).toHaveURL(FAVORITES_URL);
-      console.log('✅ Navegación a favoritos exitosa');
-      await page.goto(DASHBOARD_URL);
-      await page.waitForLoadState('networkidle');
-    } else {
-      console.log('⚠️ Enlace de favoritos no encontrado (solo visible en desktop)');
-    }
-
-    await showStepMessage(page, '👤 NAVEGANDO A PERFIL');
-    await page.waitForTimeout(1000);
-    // Buscar enlace de perfil (puede estar en mobile o desktop)
-    console.log('🔍 Buscando enlace de perfil...');
-    const enlacePerfilMobile = page.locator('a[href="/client/profile"]').filter({
-      has: page.locator('i.icon-user')
-    });
-    const enlacePerfilDesktop = page.locator('div.lg\\:block nav a[href="/client/profile"]');
-    
-    if (await enlacePerfilDesktop.count() > 0) {
-      await expect(enlacePerfilDesktop.first()).toBeVisible();
-      console.log('✅ Enlace de perfil encontrado (desktop), haciendo clic...');
-      await enlacePerfilDesktop.first().click();
-    } else if (await enlacePerfilMobile.count() > 0) {
-      await expect(enlacePerfilMobile.first()).toBeVisible();
-      console.log('✅ Enlace de perfil encontrado (mobile), haciendo clic...');
-      await enlacePerfilMobile.first().click();
-    } else {
-      console.log('⚠️ No se encontró el enlace de perfil');
-    }
-    await expect(page).toHaveURL(PROFILE_URL);
-    console.log('✅ Navegación a perfil exitosa');
-
-    await page.goto(DASHBOARD_URL);
-    console.log('✅ Prueba de navegación de barra superior completada');
-  });
 
   test('Se muestran todos los elementos de la sección Fiestachat (desktop)', async ({ page }) => {
     await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
@@ -5086,42 +5161,6 @@ test.describe('Dashboard de cliente', () => {
     await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DEL CALENDARIO FINALIZADA');
     console.log('✅ Validación completa del calendario finalizada');
   });
-
-  // ============================================
-  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
-  // ============================================
-
-  test('Crear una nueva fiesta desde el dashboard', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
-    
-    await showStepMessage(page, '🎉 CREANDO NUEVA FIESTA DESDE EL DASHBOARD');
-    console.log('🚀 Iniciando flujo completo de creación de evento...');
-    
-    // Esta prueba ejecuta el flujo completo de creación de evento
-    // Reutiliza la función ejecutarFlujoCompletoCreacionEvento de cliente-eventos.spec.ts
-    // para evitar duplicación de código
-    
-    await ejecutarFlujoCompletoCreacionEvento(page);
-    console.log('✅ Flujo completo de creación de evento finalizado');
-  });
-
-  // ============================================================================
-  // TEST: Mapear estructura completa de categorías de servicios
-  // ============================================================================
-  test('Mapear estructura completa de categorías y subcategorías de servicios', async ({ page }) => {
-    test.setTimeout(600000); // 10 minutos para explorar todas las categorías
-    
-    await showStepMessage(page, '🗺️ Mapeando estructura completa de categorías de servicios');
-    
-    const resultado = await mapearEstructuraCategoriasServicios(page, DEFAULT_BASE_URL);
-    
-    // Validar que se encontraron categorías
-    expect(resultado.resumen.categoriasPrincipales).toBeGreaterThan(0);
-    
-    // Validar que al menos una ruta llegó a cards
-    expect(resultado.resumen.rutasConCards).toBeGreaterThan(0);
-  });
-
 
 });
 
