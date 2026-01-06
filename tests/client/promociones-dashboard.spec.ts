@@ -1573,177 +1573,226 @@ test.describe('Dashboard de Promociones - Cliente', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
     
-    // Estrategia 1: Buscar el nombre del servicio (puede estar en diferentes lugares)
+    // Primero verificar si hay una sección de promoción
+    console.log('🔍 Verificando si el servicio tiene promoción asociada...');
+    const seccionPromocion = page.locator('text=/Promociones especiales/i').first();
+    const tienePromocion = await seccionPromocion.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    let tituloPromocionEnPagina = '';
+    if (tienePromocion) {
+      console.log('✅ El servicio tiene una promoción asociada');
+      
+      // Buscar el título de la promoción en la sección de promoción
+      // El título está en p.text-dark-neutral.text-large.font-bold dentro de la sección de promoción
+      const tituloPromocionElement = page.locator('div.flex.flex-col.w-full.gap-2.max-w-\\[480px\\] p.text-dark-neutral.text-large.font-bold').first();
+      const tituloPromocionVisible = await tituloPromocionElement.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (tituloPromocionVisible) {
+        tituloPromocionEnPagina = (await tituloPromocionElement.textContent().catch(() => '')) || '';
+        console.log(`✅ Título de promoción encontrado en la página: "${tituloPromocionEnPagina.trim()}"`);
+        
+        // Verificar que el título de la promoción coincide con el esperado
+        const tituloEsperado = tituloPromocion.trim().toLowerCase();
+        const tituloEncontrado = tituloPromocionEnPagina.trim().toLowerCase();
+        
+        if (tituloEsperado === tituloEncontrado || tituloEncontrado.includes(tituloEsperado) || tituloEsperado.includes(tituloEncontrado)) {
+          console.log('✅ El título de la promoción en la página coincide con el esperado');
+        } else {
+          console.log(`⚠️ El título de la promoción en la página ("${tituloPromocionEnPagina.trim()}") no coincide exactamente con el esperado ("${tituloPromocion.trim()}")`);
+        }
+      } else {
+        console.log('⚠️ No se encontró el título de la promoción en la sección esperada');
+      }
+    } else {
+      console.log('ℹ️ El servicio no tiene promoción asociada (estructura estándar)');
+    }
+    
+    // Buscar el nombre del servicio
+    // Cuando hay promoción, el nombre del servicio está en h4 (desktop) o h6 (mobile) DESPUÉS de la sección de promoción
+    // Cuando no hay promoción, el nombre puede estar en h4, h5, h6, o en el header
     let nombreServicioEncontrado = false;
     let nombreServicioTexto = '';
     const SEARCH_TIMEOUT = 3000; // 3 segundos por búsqueda
     
     console.log('🔍 Buscando nombre del servicio...');
     
-    // Buscar por diferentes selectores comunes para el nombre del servicio
-    // Según el HTML, el nombre puede estar en h4, h5, h6
-    const selectoresNombre = [
-      'h4.text-dark-neutral',
-      'h5.text-dark-neutral',
-      'h6.text-dark-neutral',
-      'h4',
-      'h5',
-      'h6',
-      'h1',
-      'h2',
-      'p.text-large.font-bold',
-      'p[class*="text-large"][class*="font-bold"]',
-      'div[class*="service"] h1',
-      'div[class*="service"] h2',
-      'div[class*="title"]',
-      'span[class*="title"]'
-    ];
-    
-    for (const selector of selectoresNombre) {
-      try {
-        const elementoNombre = page.locator(selector).first();
-        const textoNombre = await Promise.race([
-          elementoNombre.textContent(),
+    // Estrategia: Buscar primero en h4, h5, h6 (estructura común de la página de servicio)
+    // Priorizar h4 para desktop y h6 para mobile cuando hay promoción
+    try {
+      // Intentar h4 primero (desktop - cuando hay promoción, el nombre está aquí)
+      const h4 = page.locator('h4.text-dark-neutral, h4').first();
+      const h4Visible = await Promise.race([
+        h4.isVisible(),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
+      ]).catch(() => false);
+      
+      if (h4Visible) {
+        nombreServicioTexto = await Promise.race([
+          h4.textContent(),
           new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
-        ]).catch(() => null);
+        ]).catch(() => '') || '';
         
-        if (textoNombre && textoNombre.trim().length > 0) {
-          // Verificar si el texto contiene el título de la promoción (o parte de él)
-          const tituloLimpio = tituloPromocion.trim().toLowerCase();
-          const textoNombreLimpio = textoNombre.trim().toLowerCase();
-          
-          // Comparar si el nombre del servicio contiene palabras clave del título de la promoción
-          const palabrasTitulo = tituloLimpio.split(/\s+/).filter(p => p.length > 3);
-          const coincide = palabrasTitulo.some(palabra => textoNombreLimpio.includes(palabra));
-          
-          if (coincide || textoNombreLimpio.includes(tituloLimpio) || tituloLimpio.includes(textoNombreLimpio)) {
-            nombreServicioEncontrado = true;
-            nombreServicioTexto = textoNombre.trim();
-            console.log(`✅ Nombre del servicio encontrado con selector "${selector}": "${nombreServicioTexto}"`);
-            break;
+        // Verificar que no sea el título de la promoción (si hay promoción)
+        if (tienePromocion && tituloPromocionEnPagina) {
+          const textoLimpio = nombreServicioTexto.trim().toLowerCase();
+          const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+          if (textoLimpio === tituloPromoLimpio) {
+            console.log('⚠️ El h4 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...');
+            nombreServicioTexto = '';
           }
         }
-      } catch (error) {
-        // Continuar con el siguiente selector
-        continue;
+        
+        if (nombreServicioTexto.trim().length > 0) {
+          nombreServicioEncontrado = true;
+          console.log(`✅ Nombre del servicio encontrado (h4): "${nombreServicioTexto.trim()}"`);
+        }
       }
-    }
-    
-    // Si no se encontró por coincidencia, buscar en h4, h5, h6 (estructura común de la página de servicio)
-    if (!nombreServicioEncontrado) {
-      console.log('🔍 Buscando nombre del servicio en h4, h5, h6...');
-      try {
-        // Intentar h4 primero (desktop)
-        const h4 = page.locator('h4.text-dark-neutral, h4').first();
-        const h4Visible = await Promise.race([
-          h4.isVisible(),
+      
+      // Si no se encontró en h4, intentar h5 (desktop - header superior)
+      if (!nombreServicioEncontrado) {
+        const h5 = page.locator('h5.text-dark-neutral, h5').first();
+        const h5Visible = await Promise.race([
+          h5.isVisible(),
           new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
         ]).catch(() => false);
         
-        if (h4Visible) {
+        if (h5Visible) {
           nombreServicioTexto = await Promise.race([
-            h4.textContent(),
+            h5.textContent(),
+            new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
+          ]).catch(() => '') || '';
+          
+          // Verificar que no sea el título de la promoción (si hay promoción)
+          if (tienePromocion && tituloPromocionEnPagina) {
+            const textoLimpio = nombreServicioTexto.trim().toLowerCase();
+            const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+            if (textoLimpio === tituloPromoLimpio) {
+              console.log('⚠️ El h5 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...');
+              nombreServicioTexto = '';
+            }
+          }
+          
+          if (nombreServicioTexto.trim().length > 0) {
+            nombreServicioEncontrado = true;
+            console.log(`✅ Nombre del servicio encontrado (h5): "${nombreServicioTexto.trim()}"`);
+          }
+        }
+      }
+      
+      // Si no se encontró en h5, intentar h6 (mobile - cuando hay promoción, el nombre está aquí)
+      if (!nombreServicioEncontrado) {
+        const h6 = page.locator('h6.text-dark-neutral, h6').first();
+        const h6Visible = await Promise.race([
+          h6.isVisible(),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
+        ]).catch(() => false);
+        
+        if (h6Visible) {
+          nombreServicioTexto = await Promise.race([
+            h6.textContent(),
+            new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
+          ]).catch(() => '') || '';
+          
+          // Verificar que no sea el título de la promoción (si hay promoción)
+          if (tienePromocion && tituloPromocionEnPagina) {
+            const textoLimpio = nombreServicioTexto.trim().toLowerCase();
+            const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+            if (textoLimpio === tituloPromoLimpio) {
+              console.log('⚠️ El h6 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...');
+              nombreServicioTexto = '';
+            }
+          }
+          
+          if (nombreServicioTexto.trim().length > 0) {
+            nombreServicioEncontrado = true;
+            console.log(`✅ Nombre del servicio encontrado (h6): "${nombreServicioTexto.trim()}"`);
+          }
+        }
+      }
+      
+      // Como último recurso, intentar h1 o h2
+      if (!nombreServicioEncontrado) {
+        const h1 = page.locator('h1').first();
+        const h1Visible = await Promise.race([
+          h1.isVisible(),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
+        ]).catch(() => false);
+        
+        if (h1Visible) {
+          nombreServicioTexto = await Promise.race([
+            h1.textContent(),
             new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
           ]).catch(() => '') || '';
           
           if (nombreServicioTexto.trim().length > 0) {
             nombreServicioEncontrado = true;
-            console.log(`✅ Nombre del servicio encontrado (h4): "${nombreServicioTexto.trim()}"`);
+            console.log(`✅ Nombre del servicio encontrado (h1): "${nombreServicioTexto.trim()}"`);
           }
-        }
-        
-        // Si no se encontró en h4, intentar h5 (desktop)
-        if (!nombreServicioEncontrado) {
-          const h5 = page.locator('h5.text-dark-neutral, h5').first();
-          const h5Visible = await Promise.race([
-            h5.isVisible(),
+        } else {
+          const h2 = page.locator('h2').first();
+          const h2Visible = await Promise.race([
+            h2.isVisible(),
             new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
           ]).catch(() => false);
           
-          if (h5Visible) {
+          if (h2Visible) {
             nombreServicioTexto = await Promise.race([
-              h5.textContent(),
+              h2.textContent(),
               new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
             ]).catch(() => '') || '';
             
             if (nombreServicioTexto.trim().length > 0) {
               nombreServicioEncontrado = true;
-              console.log(`✅ Nombre del servicio encontrado (h5): "${nombreServicioTexto.trim()}"`);
+              console.log(`✅ Nombre del servicio encontrado (h2): "${nombreServicioTexto.trim()}"`);
             }
           }
         }
-        
-        // Si no se encontró en h5, intentar h6 (mobile)
-        if (!nombreServicioEncontrado) {
-          const h6 = page.locator('h6.text-dark-neutral, h6').first();
-          const h6Visible = await Promise.race([
-            h6.isVisible(),
-            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
-          ]).catch(() => false);
-          
-          if (h6Visible) {
-            nombreServicioTexto = await Promise.race([
-              h6.textContent(),
-              new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
-            ]).catch(() => '') || '';
-            
-            if (nombreServicioTexto.trim().length > 0) {
-              nombreServicioEncontrado = true;
-              console.log(`✅ Nombre del servicio encontrado (h6): "${nombreServicioTexto.trim()}"`);
-            }
-          }
-        }
-        
-        // Como último recurso, intentar h1 o h2
-        if (!nombreServicioEncontrado) {
-          const h1 = page.locator('h1').first();
-          const h1Visible = await Promise.race([
-            h1.isVisible(),
-            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
-          ]).catch(() => false);
-          
-          if (h1Visible) {
-            nombreServicioTexto = await Promise.race([
-              h1.textContent(),
-              new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
-            ]).catch(() => '') || '';
-            
-            if (nombreServicioTexto.trim().length > 0) {
-              nombreServicioEncontrado = true;
-              console.log(`✅ Nombre del servicio encontrado (h1): "${nombreServicioTexto.trim()}"`);
-            }
-          } else {
-            const h2 = page.locator('h2').first();
-            const h2Visible = await Promise.race([
-              h2.isVisible(),
-              new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEARCH_TIMEOUT))
-            ]).catch(() => false);
-            
-            if (h2Visible) {
-              nombreServicioTexto = await Promise.race([
-                h2.textContent(),
-                new Promise<string | null>((resolve) => setTimeout(() => resolve(null), SEARCH_TIMEOUT))
-              ]).catch(() => '') || '';
-              
-              if (nombreServicioTexto.trim().length > 0) {
-                nombreServicioEncontrado = true;
-                console.log(`✅ Nombre del servicio encontrado (h2): "${nombreServicioTexto.trim()}"`);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.log('⚠️ Error al buscar nombre en headers, continuando...');
       }
+    } catch (error) {
+      console.log('⚠️ Error al buscar nombre en headers, continuando...');
     }
     
-    // Buscar la descripción del servicio
-    console.log('🔍 Buscando descripción del servicio...');
+    // Buscar la descripción
+    console.log('🔍 Buscando descripción...');
+    let descripcionPromocionEnPagina = '';
     let descripcionServicioEncontrada = false;
     let descripcionServicioTexto = '';
     
-    // Buscar por diferentes selectores comunes para la descripción
+    // Si hay promoción, primero buscar la descripción de la promoción
+    if (tienePromocion) {
+      console.log('🔍 Buscando descripción de la promoción...');
+      // La descripción de la promoción está en p.text-dark-neutral dentro de la sección de promoción (después del título)
+      const descripcionPromocionElement = page.locator('div.flex.flex-col.w-full.gap-2.max-w-\\[480px\\] p.text-dark-neutral').nth(1);
+      const descripcionPromocionVisible = await descripcionPromocionElement.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (descripcionPromocionVisible) {
+        descripcionPromocionEnPagina = (await descripcionPromocionElement.textContent().catch(() => '')) || '';
+        console.log(`✅ Descripción de promoción encontrada: "${descripcionPromocionEnPagina.trim().substring(0, 100)}${descripcionPromocionEnPagina.trim().length > 100 ? '...' : ''}"`);
+        
+        // Verificar que la descripción de la promoción coincide con la esperada
+        if (descripcionPromocion.trim().length > 0) {
+          const descEsperada = descripcionPromocion.trim().toLowerCase();
+          const descEncontrada = descripcionPromocionEnPagina.trim().toLowerCase();
+          
+          if (descEsperada === descEncontrada || descEncontrada.includes(descEsperada) || descEsperada.includes(descEncontrada)) {
+            console.log('✅ La descripción de la promoción en la página coincide con la esperada');
+          } else {
+            console.log(`⚠️ La descripción de la promoción en la página no coincide exactamente con la esperada`);
+          }
+        }
+      } else {
+        console.log('⚠️ No se encontró la descripción de la promoción en la sección esperada');
+      }
+    }
+    
+    // Buscar la descripción del servicio (está después de la sección de promoción, si hay promoción)
+    console.log('🔍 Buscando descripción del servicio...');
+    
+    // Buscar por diferentes selectores comunes para la descripción del servicio
+    // Cuando hay promoción, la descripción del servicio está en p.text-dark-neutral dentro de div.flex.flex-col.w-full.gap-2 (después de la sección de promoción)
     const selectoresDescripcion = [
+      'div.flex.flex-col.w-full.gap-2 p.text-dark-neutral.break-words',
+      'p.text-dark-neutral.break-words',
       'p[class*="description"]',
       'div[class*="description"]',
       'p.text-dark-neutral',
@@ -1762,7 +1811,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
         
         if (count === 0) continue;
         
-        for (let i = 0; i < Math.min(count, 5); i++) {
+        for (let i = 0; i < Math.min(count, 10); i++) {
           try {
             const elemento = elementosDescripcion.nth(i);
             const textoDesc = await Promise.race([
@@ -1771,11 +1820,22 @@ test.describe('Dashboard de Promociones - Cliente', () => {
             ]).catch(() => '');
             
             if (textoDesc && textoDesc.trim().length > 10) {
-              // Verificar si la descripción contiene palabras clave de la descripción de la promoción
-              const descPromoLimpia = descripcionPromocion.trim().toLowerCase();
-              const descServicioLimpia = textoDesc.trim().toLowerCase();
+              // Si hay promoción, verificar que no sea la descripción de la promoción
+              if (tienePromocion && descripcionPromocionEnPagina) {
+                const textoLimpio = textoDesc.trim().toLowerCase();
+                const descPromoLimpio = descripcionPromocionEnPagina.trim().toLowerCase();
+                if (textoLimpio === descPromoLimpio) {
+                  // Es la descripción de la promoción, no la del servicio, continuar
+                  continue;
+                }
+              }
               
-              if (descPromoLimpia && descPromoLimpia.length > 0) {
+              // Si hay descripción de promoción esperada, verificar coincidencia
+              if (descripcionPromocion.trim().length > 0 && !tienePromocion) {
+                // Si no hay sección de promoción visible pero hay descripción esperada, puede ser que la descripción del servicio coincida
+                const descPromoLimpia = descripcionPromocion.trim().toLowerCase();
+                const descServicioLimpia = textoDesc.trim().toLowerCase();
+                
                 const palabrasDescPromo = descPromoLimpia.split(/\s+/).filter(p => p.length > 4);
                 const coincide = palabrasDescPromo.some(palabra => descServicioLimpia.includes(palabra));
                 
@@ -1786,11 +1846,11 @@ test.describe('Dashboard de Promociones - Cliente', () => {
                   break;
                 }
               } else {
-                // Si no hay descripción en la promoción, usar la primera descripción larga encontrada
+                // Si no hay descripción de promoción esperada o ya verificamos que no es la descripción de la promoción, usar esta
                 if (textoDesc.trim().length > 20) {
                   descripcionServicioEncontrada = true;
                   descripcionServicioTexto = textoDesc.trim();
-                  console.log(`✅ Descripción del servicio encontrada (sin comparación): "${descripcionServicioTexto.substring(0, 100)}${descripcionServicioTexto.length > 100 ? '...' : ''}"`);
+                  console.log(`✅ Descripción del servicio encontrada: "${descripcionServicioTexto.substring(0, 100)}${descripcionServicioTexto.length > 100 ? '...' : ''}"`);
                   break;
                 }
               }

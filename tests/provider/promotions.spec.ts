@@ -70,6 +70,14 @@ function getRandomImagePath(): string {
 const PROMO_TITLE_PREFIX = 'Promo de prueba';
 const PROMO_EDITED_PREFIX = 'Promo Editada';
 
+// Valores para oferta corta (short offer)
+const SHORT_OFFER_VALUES = ['2x1', '3x2', '10%', '20%', '$100', '$200', '$1,000', '$2,000'];
+
+// Función para obtener un valor aleatorio de oferta corta
+function getRandomShortOffer(): string {
+  return SHORT_OFFER_VALUES[Math.floor(Math.random() * SHORT_OFFER_VALUES.length)];
+}
+
 // Términos de búsqueda
 const SEARCH_TERM = 'Promo de prueba';
 const NON_EXISTENT_SEARCH_TERM = 'Término que no existe';
@@ -261,9 +269,10 @@ test.describe('Gestión de promociones', () => {
     await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await shortOfferInput.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
-    const shortOffer = '10% OFF';
+    const shortOffer = getRandomShortOffer();
     await shortOfferInput.fill(shortOffer);
     await page.waitForTimeout(500);
+    console.log(`✅ Oferta corta: "${shortOffer}"`);
     
     // Subir imagen
     await showStepMessage(page, '📷 SUBIENDO IMAGEN');
@@ -626,8 +635,10 @@ test.describe('Gestión de promociones', () => {
     await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await shortOfferInput.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
-    await shortOfferInput.fill('TEST');
+    const shortOffer = getRandomShortOffer();
+    await shortOfferInput.fill(shortOffer);
     await page.waitForTimeout(500);
+    console.log(`✅ Oferta corta: "${shortOffer}"`);
 
     // Intentar seleccionar fecha de fin en el pasado
     await showStepMessage(page, '⚠️ INTENTANDO SELECCIONAR FECHA DE FIN EN EL PASADO');
@@ -715,8 +726,10 @@ test.describe('Gestión de promociones', () => {
     await expect(shortOfferInput).toBeVisible({ timeout: WAIT_FOR_ELEMENT_TIMEOUT });
     await shortOfferInput.scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
-    await shortOfferInput.fill('TEST');
+    const shortOffer = getRandomShortOffer();
+    await shortOfferInput.fill(shortOffer);
     await page.waitForTimeout(500);
+    console.log(`✅ Oferta corta: "${shortOffer}"`);
 
     // Intentar seleccionar fecha de fin menor que inicio
     await showStepMessage(page, '⚠️ INTENTANDO SELECCIONAR FECHA FIN MENOR QUE INICIO');
@@ -1241,9 +1254,10 @@ test.describe('Gestión de promociones', () => {
     
     // Actualizar oferta corta
     await showStepMessage(page, '🏷️ ACTUALIZANDO OFERTA CORTA');
-    const editedShortOffer = '20% OFF';
+    const editedShortOffer = getRandomShortOffer();
     await page.locator('input[id="ShortTitle"]').fill(editedShortOffer);
     await page.waitForTimeout(500);
+    console.log(`✅ Oferta corta actualizada: "${editedShortOffer}"`);
 
     // Borrar imagen actual si existe
     await showStepMessage(page, '🗑️ ELIMINANDO IMAGEN ACTUAL');
@@ -2406,8 +2420,10 @@ test.describe('Gestión de promociones', () => {
 
     // 6. Llenar oferta corta
     await showStepMessage(page, '🏷️ LLENANDO OFERTA CORTA');
-    await page.locator('input[id="ShortTitle"]').fill('TEST');
+    const shortOffer = getRandomShortOffer();
+    await page.locator('input[id="ShortTitle"]').fill(shortOffer);
     await page.waitForTimeout(500);
+    console.log(`✅ Oferta corta: "${shortOffer}"`);
     const isDisabledAfterShortOffer = await finalizarButton.isDisabled();
     console.log(`   Estado después de oferta corta: ${isDisabledAfterShortOffer ? 'Deshabilitado' : 'Habilitado'}`);
 
@@ -2908,8 +2924,10 @@ test.describe('Gestión de promociones', () => {
         await page.locator('input[id="ShortTitle"]').fill(ofertaCorta);
         await page.waitForTimeout(500);
       } else {
-        await page.locator('input[id="ShortTitle"]').fill('TEST');
+        const shortOffer = getRandomShortOffer();
+        await page.locator('input[id="ShortTitle"]').fill(shortOffer);
         await page.waitForTimeout(500);
+        console.log(`✅ Oferta corta: "${shortOffer}"`);
       }
 
       // Subir imagen (opcional, puede fallar si no hay imagen)
@@ -3512,6 +3530,10 @@ test.describe('Gestión de promociones', () => {
         console.log(`   🔧 Usando servicio índice ${servicioNum} (grupo ${servicioIndex + 1} de 3)`);
         
         try {
+          // Seleccionar oferta corta de la lista (cíclico)
+          const shortOfferIndex = (promoIndex + 1) % SHORT_OFFER_VALUES.length;
+          const shortOffer = SHORT_OFFER_VALUES[shortOfferIndex];
+          
           // Crear la promoción
           const exito = await crearPromocionCompleta(
             page,
@@ -3520,7 +3542,7 @@ test.describe('Gestión de promociones', () => {
             fechaFinStr,
             servicioNum, // Debería ser 0, 1, o 2 para los 3 grupos
             `Descripción promoción ${promocionNum} del grupo ${servicioIndex + 1}`,
-            `OFF${promoIndex + 1}`
+            shortOffer
           );
           
           if (exito) {
@@ -3758,6 +3780,10 @@ test.describe('Gestión de promociones', () => {
       console.log(`   🔧 Usando servicio índice ${servicioIndex}`);
       
       try {
+        // Seleccionar oferta corta de la lista (cíclico)
+        const shortOfferIndex = servicioNum % SHORT_OFFER_VALUES.length;
+        const shortOffer = SHORT_OFFER_VALUES[shortOfferIndex];
+        
         // Crear la promoción
         const exito = await crearPromocionCompleta(
           page,
@@ -3766,7 +3792,7 @@ test.describe('Gestión de promociones', () => {
           fechaFinStr,
           servicioIndex,
           `Descripción promoción para servicio ${servicioNum}`,
-          `OFF${servicioNum}`
+          shortOffer
         );
         
         if (exito) {

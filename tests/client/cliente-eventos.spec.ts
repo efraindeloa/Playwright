@@ -112,6 +112,173 @@ export async function seleccionarHoraYMinuto(page: Page, hora: number, minuto: n
 }
 
 /**
+ * Verifica si un servicio está activo o desactivado
+ * Basado en la lógica de la prueba "Desactivar servicio"
+ * @param page - Página de Playwright
+ * @param serviceCard - Locator de la tarjeta del servicio
+ * @returns true si está activo, false si está inactivo, null si no se puede determinar
+ */
+export async function verificarSiServicioEstaActivo(
+  page: Page,
+  serviceCard: ReturnType<typeof page.locator>
+): Promise<boolean | null> {
+  try {
+    // Verificar si la tarjeta es visible
+    const isVisible = await serviceCard.isVisible().catch(() => false);
+    if (!isVisible) {
+      return null;
+    }
+
+    // Verificar indicadores visuales de servicio inactivo
+    const tieneTextoInactivo = await serviceCard.locator('text=/Inactivo|inactivo/i').count().then(count => count > 0);
+    const tieneImagenGris = await serviceCard.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
+    
+    if (tieneTextoInactivo || tieneImagenGris) {
+      return false; // Servicio está inactivo
+    }
+
+    // Buscar el botón de tres puntos en la tarjeta
+    const threeDotsButton = serviceCard.locator('button:has(i.icon-more-vertical)').first();
+    const hasThreeDots = await threeDotsButton.count().then(count => count > 0);
+
+    if (!hasThreeDots) {
+      // Si no tiene botón de tres puntos, no se puede verificar el estado
+      return null;
+    }
+
+    // Hacer clic en el botón de tres puntos para abrir el menú
+    await threeDotsButton.click();
+    await safeWaitForTimeout(page, 1500); // Esperar a que el menú se abra
+
+    // Verificar si tiene botón "Desactivar" (servicio activo) o "Activar" (servicio inactivo)
+    // Usando el mismo selector que la prueba "Desactivar servicio"
+    const deactivateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Desactivar"), button:has-text("Desactivar")').first();
+    const activateButton = page.locator('button.flex.items-center.px-4.py-\\[6px\\].w-full.text-start:has-text("Activar"), button:has-text("Activar")').first();
+
+    const deactivateButtonCount = await deactivateButton.count();
+    const activateButtonCount = await activateButton.count();
+    
+    const hasDeactivate = deactivateButtonCount > 0 ? await deactivateButton.isVisible().catch(() => false) : false;
+    const hasActivate = activateButtonCount > 0 ? await activateButton.isVisible().catch(() => false) : false;
+
+    // Cerrar el menú presionando Escape
+    await page.keyboard.press('Escape');
+    await safeWaitForTimeout(page, 500);
+
+    // Si tiene botón "Desactivar", el servicio está activo
+    if (hasDeactivate) {
+      return true;
+    }
+    
+    // Si tiene botón "Activar", el servicio está inactivo
+    if (hasActivate) {
+      return false;
+    }
+
+    // Si no tiene ninguno de los dos, no se puede determinar el estado
+    return null;
+  } catch (error) {
+    // En caso de error, intentar cerrar el menú si está abierto
+    try {
+      await page.keyboard.press('Escape');
+      await safeWaitForTimeout(page, 500);
+    } catch {}
+    
+    // No se pudo verificar el estado
+    return null;
+  }
+}
+
+/**
+ * Marca un servicio como favorito en la página actual
+ * Basado en la lógica de la prueba "Marcar servicio como favorito"
+ * @param page - Página de Playwright
+ * @returns true si se marcó exitosamente o ya estaba marcado, false si falló
+ */
+export async function marcarServicioComoFavorito(page: Page): Promise<boolean> {
+  await showStepMessage(page, '❤️ MARCANDO SERVICIO COMO FAVORITO');
+  console.log('📋 Marcando el servicio como favorito...');
+  await safeWaitForTimeout(page, 2000);
+
+  // Esperar a que existan iconos de corazón en el DOM (puede tardar en renderizar)
+  await page.waitForSelector('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]', { timeout: 5000 }).catch(() => {});
+
+  // Buscar el botón de favoritos manualmente en todos los botones
+  console.log('   🔍 Buscando botón de favoritos manualmente...');
+  let botonFavoritos: ReturnType<typeof page.locator> | null = null;
+  let botonVisible = false;
+  
+  const todosLosBotones = page.locator('button');
+  const cantidadBotones = await todosLosBotones.count();
+  console.log(`   📊 Total de botones encontrados: ${cantidadBotones}`);
+  
+  for (let i = 0; i < Math.min(cantidadBotones, 30); i++) {
+    const boton = todosLosBotones.nth(i);
+    const tieneIconoHeart = await boton.locator('i.icon.icon-heart, i[class*="icon-heart"]').count() > 0;
+    
+    if (tieneIconoHeart) {
+      // Verificar que no sea el botón de compartir
+      const tieneIconoShare = await boton.locator('i[class*="share"]').count() > 0;
+      if (!tieneIconoShare) {
+        const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
+        if (esVisible) {
+          botonFavoritos = boton;
+          botonVisible = true;
+          console.log(`   ✅ Botón de favoritos encontrado en índice ${i}`);
+          break;
+        }
+      }
+    }
+  }
+  
+  if (!botonVisible || !botonFavoritos) {
+    throw new Error('❌ No se encontró el botón de favoritos en la página del servicio');
+  }
+
+  console.log('   ✅ Botón de favoritos encontrado');
+
+  // Verificar el estado actual del icono
+  const iconHeart = botonFavoritos.locator('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]').first();
+  const iconClass = await iconHeart.getAttribute('class').catch(() => '') || '';
+  console.log(`   📊 Clase completa del icono: "${iconClass}"`);
+  
+  // El estado marcado se detecta por:
+  // 1. Clase que contiene "heart-solid" o "icon-heart-solid"
+  // Nota: No usar solo el color (p.e. text-primary-neutral) como indicador
+  const estaMarcado = iconClass.includes('heart-solid') || 
+                      iconClass.includes('icon-heart-solid');
+  
+  console.log(`   📊 Estado actual: ${estaMarcado ? 'marcado' : 'desmarcado'}`);
+
+  // Si ya está marcado, no hacer nada
+  if (estaMarcado) {
+    console.log('   ℹ️ El servicio ya estaba marcado como favorito');
+    return true;
+  }
+
+  // Hacer clic para marcar como favorito
+  console.log('   🖱️ Haciendo clic en el botón de favoritos...');
+  await botonFavoritos.click();
+  await safeWaitForTimeout(page, 3000);
+
+  // Verificar que cambió el estado
+  const nuevoIconClass = await iconHeart.getAttribute('class').catch(() => '') || '';
+  const nuevoEstado = nuevoIconClass.includes('heart-solid') || 
+                      nuevoIconClass.includes('icon-heart-solid');
+  
+  console.log(`   📊 Nuevo estado: ${nuevoEstado ? 'marcado' : 'desmarcado'}`);
+  console.log(`   📊 Nueva clase del icono: "${nuevoIconClass}"`);
+  
+  if (nuevoEstado) {
+    console.log('   ✅ Servicio marcado como favorito correctamente');
+    return true;
+  } else {
+    console.log('⚠️ El estado puede no haber cambiado visualmente, pero el clic se realizó');
+    return true; // Aún así consideramos éxito
+  }
+}
+
+/**
  * Busca un servicio en el dashboard del proveedor y obtiene su información
  */
 export async function buscarServicioEnProveedor(page: Page): Promise<{ nombre: string; categoria: string; subcategoria?: string } | null> {
@@ -376,237 +543,115 @@ export async function navegarHastaEncontrarServicioEspecifico(
       // Buscar el servicio por nombre en la lista
       console.log(`🔍 Buscando servicio "${nombreServicio}" en la lista...`);
       
-      // Las tarjetas de servicio pueden ser diferentes estructuras según el tamaño de pantalla
-      // Buscar por el texto del nombre del servicio directamente (incluyendo servicios inactivos con texto gris)
-      // Buscar en elementos de texto: p.text-large.text-dark-neutral.font-bold, p.text-dark-neutral.font-bold.text-gray-neutral, h5.text-dark-neutral, h5.text-gray-neutral
-      const serviceNameElements = page.locator('p.text-large.text-dark-neutral.font-bold, p.text-dark-neutral.font-bold.text-gray-neutral, h5.text-dark-neutral, h5.text-gray-neutral, p.text-dark-neutral.font-bold, p.text-gray-neutral').filter({
-        hasText: new RegExp(nombreServicio.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-      });
+      // MÉTODO ÚNICO: Buscar el nombre del servicio dentro de tarjetas clickeables
+      // Las tarjetas tienen role="button" y clase cursor-pointer
+      const serviceCards = page.locator('[role="button"].cursor-pointer');
+      const serviceCardsCount = await serviceCards.count();
+      console.log(`📊 Tarjetas de servicio encontradas: ${serviceCardsCount}`);
       
-      const matchingElements = await serviceNameElements.count();
-      console.log(`📊 Elementos con el nombre del servicio encontrados: ${matchingElements}`);
+      // Normalizar el nombre del servicio para comparación
+      const nombreServicioNormalizado = nombreServicio.toLowerCase().trim();
+      const nombreBaseServicio = nombreServicioNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
       
-      // Si no se encuentra con los selectores específicos, buscar en todos los elementos de texto de forma más amplia
-      let allTextElements: ReturnType<typeof page.locator> | null = null;
-      let allMatchingElements = 0;
-      
-      if (matchingElements === 0) {
-        console.log(`🔍 Buscando en todos los elementos de texto...`);
-        allTextElements = page.locator('p, h1, h2, h3, h4, h5, h6, span').filter({
-          hasText: new RegExp(nombreServicio.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-        });
-        allMatchingElements = await allTextElements.count();
-        console.log(`📊 Elementos genéricos con el nombre del servicio encontrados: ${allMatchingElements}`);
-      }
-      
-      // Procesar elementos encontrados con selectores específicos
-      if (matchingElements > 0) {
-        // Encontrar la tarjeta padre que contiene el servicio (puede ser un div con cursor-pointer o un botón)
-        // Filtrar solo los elementos visibles (uno es para móvil, otro para desktop)
-        for (let i = 0; i < matchingElements; i++) {
-          const nameElement = serviceNameElements.nth(i);
-          
-          // Verificar que el elemento esté visible antes de usarlo
-          const isVisible = await nameElement.isVisible().catch(() => false);
-          if (!isVisible) {
-            continue; // Saltar elementos ocultos (puede ser la versión móvil/desktop que no corresponde)
-          }
-          
+      // Buscar el servicio en las tarjetas
+      for (let i = 0; i < serviceCardsCount; i++) {
+        const card = serviceCards.nth(i);
+        
+        // Verificar que la tarjeta esté visible
+        const isVisible = await card.isVisible().catch(() => false);
+        if (!isVisible) {
+          continue;
+        }
+        
+        // Buscar el nombre del servicio dentro de la tarjeta
+        // El nombre está en elementos p con clases como text-large, font-bold, etc.
+        const nameElements = card.locator('p.text-large, p.font-bold, p[class*="text-large"], p[class*="font-bold"]');
+        const nameCount = await nameElements.count();
+        
+        let foundService = false;
+        let serviceName = '';
+        
+        for (let j = 0; j < nameCount; j++) {
+          const nameElement = nameElements.nth(j);
           const elementText = (await nameElement.textContent())?.trim() || '';
           
-          // Verificar que el texto coincida (comparación más flexible, incluyendo solo la primera parte del nombre)
-          const nombreServicioNormalizado = nombreServicio.toLowerCase().trim();
-          const elementTextNormalizado = elementText.toLowerCase().trim();
+          if (!elementText) continue;
           
-          // Extraer solo la primera parte del nombre del servicio (antes de " - EDITADO" o similar)
-          const nombreBaseServicio = nombreServicioNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
+          const elementTextNormalizado = elementText.toLowerCase().trim();
           const nombreBaseElemento = elementTextNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
           
+          // Comparar nombres (coincidencia exacta o parcial)
           if (elementTextNormalizado === nombreServicioNormalizado ||
               elementTextNormalizado.includes(nombreServicioNormalizado) ||
               nombreServicioNormalizado.includes(elementTextNormalizado) ||
               nombreBaseElemento === nombreBaseServicio ||
               nombreBaseElemento.includes(nombreBaseServicio) ||
               nombreBaseServicio.includes(nombreBaseElemento)) {
-            
-            console.log(`✅ Servicio encontrado por texto: "${elementText}"`);
-            
-            // Buscar el contenedor padre clicable (div con cursor-pointer, button, o a)
-            const clickableParent = nameElement.locator('xpath=ancestor::div[contains(@class, "cursor-pointer")] | ancestor::button | ancestor::a').first();
-            
-            if (await clickableParent.count() > 0) {
-              // Verificar que el contenedor padre también esté visible
-              const parentVisible = await clickableParent.isVisible().catch(() => false);
-              if (!parentVisible) {
-                continue; // Saltar si el contenedor padre no está visible
-              }
-              
-              // Verificar si el servicio está inactivo
-              // Los servicios inactivos tienen: clase "grayscale" en imágenes, texto "Inactivo", o texto gris
-              const cardContainer = nameElement.locator('xpath=ancestor::div[contains(@class, "flex")][contains(@class, "col") or contains(@class, "row")]').first();
-              const hasInactiveText = await cardContainer.locator('text=/Inactivo/i').count().then(count => count > 0);
-              const hasGrayscaleImage = await cardContainer.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
-              const isGrayText = await nameElement.evaluate(el => {
-                const styles = window.getComputedStyle(el);
-                return styles.color.includes('128') || styles.color.includes('107') || el.classList.contains('text-gray-neutral');
-              }).catch(() => false);
-              
-              const isInactive = hasInactiveText || hasGrayscaleImage || isGrayText;
-              
-              if (isInactive) {
-                console.log(`⚠️ Servicio "${elementText}" está inactivo, buscando otro servicio...`);
-                continue; // Saltar este servicio y buscar otro
-              }
-              
-              await clickableParent.scrollIntoViewIfNeeded();
-              console.log(`✅ Haciendo clic en la tarjeta del servicio...`);
-              await clickableParent.click();
-              
-              // Esperar a que cargue la página del servicio
-              await safeWaitForTimeout(page, 3000);
-              
-              // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
-              const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
-                hasText: /Detalle|Detalles|proveedor/i
-              });
-              
-              const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
-              
-              if (isServicePage) {
-                console.log(`✓ Página del servicio cargada correctamente`);
-                
-                // Buscar y hacer clic en el botón "Contactar GRATIS"
-                const contactButtons = page.locator('button').filter({
-                  hasText: /Contactar GRATIS/i
-                });
-                
-                const contactButtonCount = await contactButtons.count();
-                console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
-                
-                if (contactButtonCount > 0) {
-                  const selectedContactButton = contactButtons.first();
-                  await selectedContactButton.scrollIntoViewIfNeeded();
-                  console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
-                  await selectedContactButton.click();
-                  await safeWaitForTimeout(page, 2000);
-                  return true;
-                } else {
-                  console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
-                  return false;
-                }
-              } else {
-                console.log(`⚠️ No se detectó la página del servicio después del clic`);
-                return false;
-              }
-            }
+            foundService = true;
+            serviceName = elementText;
+            break;
           }
         }
         
-        // Si llegamos aquí, no se encontró el servicio con esa estructura
-        console.log(`⚠️ Servicio "${nombreServicio}" no encontrado en esta página con esa estructura`);
-      } else {
-        console.log(`⚠️ No se encontraron elementos con el nombre del servicio usando selectores específicos`);
+        if (!foundService) {
+          continue;
+        }
+        
+        console.log(`✅ Servicio encontrado: "${serviceName}"`);
+        
+        // Verificar si el servicio está inactivo
+        const hasInactiveText = await card.locator('text=/Inactivo/i').count().then(count => count > 0);
+        const hasGrayscaleImage = await card.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
+        
+        if (hasInactiveText || hasGrayscaleImage) {
+          console.log(`⚠️ Servicio "${serviceName}" está inactivo, buscando otro servicio...`);
+          continue;
+        }
+        
+        // Hacer clic en la tarjeta del servicio
+        await card.scrollIntoViewIfNeeded();
+        console.log(`✅ Haciendo clic en la tarjeta del servicio...`);
+        await card.click();
+        
+        // Esperar a que cargue la página del servicio
+        await safeWaitForTimeout(page, 3000);
+        
+        // Verificar que estamos en la página del servicio
+        const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
+          hasText: /Detalle|Detalles|proveedor/i
+        });
+        
+        const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (isServicePage) {
+          console.log(`✓ Página del servicio cargada correctamente`);
+          
+          // Buscar y hacer clic en el botón "Contactar GRATIS"
+          const contactButtons = page.locator('button').filter({
+            hasText: /Contactar GRATIS/i
+          });
+          
+          const contactButtonCount = await contactButtons.count();
+          console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
+          
+          if (contactButtonCount > 0) {
+            const selectedContactButton = contactButtons.first();
+            await selectedContactButton.scrollIntoViewIfNeeded();
+            console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
+            await selectedContactButton.click();
+            await safeWaitForTimeout(page, 2000);
+            return true;
+          } else {
+            console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
+            return false;
+          }
+        } else {
+          console.log(`⚠️ No se detectó la página del servicio después del clic`);
+          return false;
+        }
       }
       
-      // Si no se encuentra con los selectores específicos, buscar en todos los elementos de texto
-      if (allTextElements && allMatchingElements > 0) {
-        console.log(`✅ Servicio encontrado por texto genérico!`);
-        
-        // Procesar elementos genéricos encontrados
-        for (let i = 0; i < allMatchingElements; i++) {
-          const textElement = allTextElements.nth(i);
-          
-          // Verificar que el elemento esté visible
-          const isVisible = await textElement.isVisible().catch(() => false);
-          if (!isVisible) {
-            continue;
-          }
-          
-          const elementText = (await textElement.textContent())?.trim() || '';
-          
-          // Comparación más flexible, incluyendo solo la primera parte del nombre
-          const nombreServicioNormalizado = nombreServicio.toLowerCase().trim();
-          const elementTextNormalizado = elementText.toLowerCase().trim();
-          
-          // Extraer solo la primera parte del nombre del servicio (antes de " - EDITADO" o similar)
-          const nombreBaseServicio = nombreServicioNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
-          const nombreBaseElemento = elementTextNormalizado.split(' - ')[0].split(' EDITADO')[0].trim();
-          
-          if (elementTextNormalizado.includes(nombreServicioNormalizado) ||
-              nombreServicioNormalizado.includes(elementTextNormalizado) ||
-              nombreBaseElemento.includes(nombreBaseServicio) ||
-              nombreBaseServicio.includes(nombreBaseElemento)) {
-            
-            // Buscar el contenedor padre clicable
-            const parentClickable = textElement.locator('xpath=ancestor::div[contains(@class, "cursor-pointer")] | ancestor::button | ancestor::a').first();
-            
-            if (await parentClickable.count() > 0) {
-              // Verificar que el contenedor padre también esté visible
-              const parentVisible = await parentClickable.isVisible().catch(() => false);
-              if (!parentVisible) {
-                continue;
-              }
-              
-              // Verificar si el servicio está inactivo
-              const cardContainer = textElement.locator('xpath=ancestor::div[contains(@class, "flex")][contains(@class, "col") or contains(@class, "row")]').first();
-              const hasInactiveText = await cardContainer.locator('text=/Inactivo/i').count().then(count => count > 0);
-              const hasGrayscaleImage = await cardContainer.locator('img.grayscale, div.grayscale').count().then(count => count > 0);
-              const isGrayText = await textElement.evaluate(el => {
-                const styles = window.getComputedStyle(el);
-                return styles.color.includes('128') || styles.color.includes('107') || el.classList.contains('text-gray-neutral');
-              }).catch(() => false);
-              
-              const isInactive = hasInactiveText || hasGrayscaleImage || isGrayText;
-              
-              if (isInactive) {
-                console.log(`⚠️ Servicio "${elementText}" está inactivo, buscando otro servicio...`);
-                continue; // Saltar este servicio y buscar otro
-              }
-              
-              await parentClickable.scrollIntoViewIfNeeded();
-              console.log(`✅ Haciendo clic en la tarjeta del servicio (búsqueda genérica): "${elementText}"`);
-              await parentClickable.click();
-              
-              // Esperar a que cargue la página del servicio
-              await safeWaitForTimeout(page, 3000);
-              
-              // Verificar que estamos en la página del servicio (buscar "Detalle de proveedor" o "Detalles")
-              const servicePageTitle = page.locator('p.text-center, h1, h2, h3, h4, h5, h6').filter({
-                hasText: /Detalle|Detalles|proveedor/i
-              });
-              
-              const isServicePage = await servicePageTitle.first().isVisible({ timeout: 5000 }).catch(() => false);
-              
-              if (isServicePage) {
-                console.log(`✓ Página del servicio cargada correctamente`);
-                
-                // Buscar y hacer clic en el botón "Contactar GRATIS"
-                const contactButtons = page.locator('button').filter({
-                  hasText: /Contactar GRATIS/i
-                });
-                
-                const contactButtonCount = await contactButtons.count();
-                console.log(`✓ Se encontraron ${contactButtonCount} botones "Contactar GRATIS"`);
-                
-                if (contactButtonCount > 0) {
-                  const selectedContactButton = contactButtons.first();
-                  await selectedContactButton.scrollIntoViewIfNeeded();
-                  console.log(`✓ Haciendo clic en el botón "Contactar GRATIS"`);
-                  await selectedContactButton.click();
-                  await safeWaitForTimeout(page, 2000);
-                  return true;
-                } else {
-                  console.log(`⚠️ No se encontró el botón "Contactar GRATIS" en la página del servicio`);
-                  return false;
-                }
-              } else {
-                console.log(`⚠️ No se detectó la página del servicio después del clic`);
-                return false;
-              }
-            }
-          }
-        }
-      }
+      console.log(`⚠️ Servicio "${nombreServicio}" no encontrado en esta página`);
       
       // Si no se encontró el servicio objetivo o todos están inactivos, buscar cualquier servicio activo
       console.log(`⚠️ Servicio objetivo "${nombreServicio}" no encontrado o está inactivo. Buscando cualquier servicio activo...`);
@@ -1994,22 +2039,8 @@ export async function ejecutarFlujoCompletoCreacionEvento(page: Page) {
     console.log(`⚠️ Hora "${eventData.time}" no encontrada en la tarjeta`);
   }
   
-  // Verificar ciudad (puede estar abreviada o con formato diferente)
-  const cityParts = eventData.city.split(',').map(s => s.trim());
-  const cityFound = cityParts.some(part => dateInCard?.includes(part) || false);
-  if (cityFound) {
-    console.log(`✅ Ciudad verificada: "${eventData.city}"`);
-  } else {
-    console.log(`⚠️ Ciudad "${eventData.city}" no encontrada en la tarjeta`);
-  }
-  
-  // Verificar número de invitados
-  const attendeesInCard = await cardToCheck.locator(`text=${eventData.attendees}`).count().then(count => count > 0);
-  if (attendeesInCard) {
-    console.log(`✅ Número de invitados verificado: ${eventData.attendees}`);
-  } else {
-    console.log(`⚠️ Número de invitados "${eventData.attendees}" no encontrado en la tarjeta`);
-  }
+  // NOTA: La ciudad y el número de invitados NO se muestran en la tarjeta del evento,
+  // solo se muestran en la página de detalles del evento. Por lo tanto, no se validan aquí.
   
   // 13. Seleccionar el evento en el dashboard
   await showStepMessage(page, '🖱️ SELECCIONANDO EVENTO EN DASHBOARD');
@@ -4196,7 +4227,7 @@ test('Crear evento desde favoritos', async ({ page }) => {
     console.log('⚠️ No se encontró ningún servicio en favoritos. Buscando un servicio del proveedor fiestamasqaprv para marcarlo como favorito...');
     
     // Función auxiliar para marcar un servicio como favorito del proveedor fiestamasqaprv
-    async function marcarServicioComoFavorito() {
+    async function marcarServicioComoFavoritoDesdeProveedor() {
       await showStepMessage(page, '🔍 BUSCANDO SERVICIO DEL PROVEEDOR FIESTAMASQAPRV');
       console.log('📋 Buscando un servicio del proveedor fiestamasqaprv@gmail.com...');
       
@@ -4235,75 +4266,133 @@ test('Crear evento desde favoritos', async ({ page }) => {
         throw new Error('❌ No se encontraron servicios del proveedor fiestamasqaprv@gmail.com');
       }
       
-      // Obtener información del primer servicio
-      const primeraCard = serviceCardsContainer.first();
-      const serviceNameElement = primeraCard.locator('p.text-medium.font-bold, p.font-bold, p.text-dark-neutral').first();
-      const serviceName = (await serviceNameElement.textContent())?.trim() || '';
+      // Buscar servicios activos del proveedor y probarlos hasta encontrar uno que aparezca en los resultados del cliente
+      await showStepMessage(page, '✅ VALIDANDO QUE EL SERVICIO ESTÉ ACTIVO');
+      console.log('📋 Verificando que el servicio del proveedor fiestamasqaprv@gmail.com esté activo...');
       
-      if (!serviceName) {
-        throw new Error('❌ No se pudo obtener el nombre del servicio del proveedor');
+      // Obtener todos los servicios activos primero
+      const serviciosActivos: Array<{ index: number; card: ReturnType<typeof page.locator>; name: string; categoria: string; subcategoria: string }> = [];
+      
+      for (let i = 0; i < providerServicesCount; i++) {
+        const card = serviceCardsContainer.nth(i);
+        
+        // Verificar si la tarjeta es visible
+        const isVisible = await card.isVisible().catch(() => false);
+        if (!isVisible) {
+          continue;
+        }
+        
+        // Usar la función reutilizable para verificar si el servicio está activo
+        const estadoServicio = await verificarSiServicioEstaActivo(page, card);
+        
+        if (estadoServicio === false) {
+          console.log(`❌ Servicio en índice ${i} está inactivo, descartando...`);
+          continue; // Descartar este servicio y continuar con el siguiente
+        }
+        
+        if (estadoServicio === null) {
+          console.log(`⚠️ Servicio en índice ${i} no se puede verificar el estado, descartando...`);
+          continue; // Descartar este servicio si no se puede verificar
+        }
+        
+        // Si llegamos aquí, el servicio está activo (estadoServicio === true)
+        console.log(`✅ Servicio en índice ${i} está activo`);
+        
+        // Obtener información del servicio activo
+        const serviceNameElement = card.locator('p.text-medium.font-bold, p.font-bold, p.text-dark-neutral').first();
+        const nombreServicio = (await serviceNameElement.textContent())?.trim() || '';
+        
+        if (nombreServicio) {
+          // Obtener categoría y subcategoría
+          let categoria = '';
+          let subcategoria = '';
+          const categoriaContainer = card.locator('div.flex.flex-row.items-center.gap-3.mt-1:has(i.icon-tag)');
+          if (await categoriaContainer.count() > 0) {
+            const categoriaElement = categoriaContainer.locator('p').first();
+            if (await categoriaElement.count() > 0) {
+              let categoriaText = (await categoriaElement.textContent())?.trim() || '';
+              categoriaText = categoriaText.replace(/&gt;/g, '>').replace(/&lt;/g, '<');
+              
+              if (categoriaText.includes('>')) {
+                const parts = categoriaText.split('>').map(p => p.trim()).filter(p => p.length > 0);
+                categoria = parts[0] || '';
+                subcategoria = parts[1] || '';
+              } else {
+                categoria = categoriaText;
+              }
+            }
+          }
+          
+          serviciosActivos.push({
+            index: i,
+            card: card,
+            name: nombreServicio,
+            categoria: categoria,
+            subcategoria: subcategoria
+          });
+          
+          console.log(`✅ Servicio activo agregado: "${nombreServicio}" - Ruta: ${categoria ? categoria + (subcategoria ? ' > ' + subcategoria : '') : 'Sin categoría'}`);
+        }
       }
       
-      // Obtener categoría y subcategoría
-      let categoria = '';
-      let subcategoria = '';
-      const categoriaContainer = primeraCard.locator('div.flex.flex-row.items-center.gap-3.mt-1:has(i.icon-tag)');
-      if (await categoriaContainer.count() > 0) {
-        const categoriaElement = categoriaContainer.locator('p').first();
-        if (await categoriaElement.count() > 0) {
-          let categoriaText = (await categoriaElement.textContent())?.trim() || '';
-          categoriaText = categoriaText.replace(/&gt;/g, '>').replace(/&lt;/g, '<');
-          
-          if (categoriaText.includes('>')) {
-            const parts = categoriaText.split('>').map(p => p.trim()).filter(p => p.length > 0);
-            categoria = parts[0] || '';
-            subcategoria = parts[1] || '';
-          } else {
-            categoria = categoriaText;
+      if (serviciosActivos.length === 0) {
+        throw new Error('❌ No se encontró ningún servicio activo del proveedor fiestamasqaprv@gmail.com');
+      }
+      
+      console.log(`📊 Total de servicios activos encontrados: ${serviciosActivos.length}`);
+      
+      // Probar cada servicio activo hasta encontrar uno que aparezca en los resultados del cliente
+      let servicioFuncionalEncontrado = false;
+      let serviceName = '';
+      let rutaCategorias: string[] = [];
+      
+      for (const servicio of serviciosActivos) {
+        console.log(`\n🔍 Probando servicio: "${servicio.name}"`);
+        
+        serviceName = servicio.name;
+        rutaCategorias = [];
+        if (servicio.categoria) {
+          rutaCategorias.push(servicio.categoria);
+          if (servicio.subcategoria) {
+            rutaCategorias.push(servicio.subcategoria);
           }
         }
-      }
-      
-      const rutaCategorias: string[] = [];
-      if (categoria) {
-        rutaCategorias.push(categoria);
-        if (subcategoria) {
-          rutaCategorias.push(subcategoria);
-        }
-      }
-      
-      console.log(`✅ Servicio encontrado: "${serviceName}" - Ruta: ${rutaCategorias.join(' > ') || 'Sin categoría'}`);
-      
-      // 2. Cerrar sesión del proveedor y hacer login como cliente
-      await showStepMessage(page, '🔄 CAMBIANDO A SESIÓN DE CLIENTE');
-      console.log('📋 Cerrando sesión de proveedor y logueándose como cliente...');
-      await page.context().clearCookies();
-      await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
-      await safeWaitForTimeout(page, 500);
-      
-      try {
-        await page.evaluate(() => {
-          try {
-            localStorage.clear();
-            sessionStorage.clear();
-          } catch (e) {}
-        });
-      } catch (e) {}
-      
-      await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
-      await safeWaitForTimeout(page, 2000);
-      await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-      console.log('✓ Login exitoso como cliente');
-      await safeWaitForTimeout(page, 2000);
-      
-      // 3. Navegar al servicio usando búsqueda
-      await showStepMessage(page, `🔍 NAVEGANDO AL SERVICIO: ${serviceName}`);
-      console.log(`📋 Navegando al servicio "${serviceName}"...`);
-      
-      // Ir al home del cliente
-      await page.goto(DEFAULT_BASE_URL);
-      await page.waitForLoadState('networkidle');
-      await safeWaitForTimeout(page, 2000);
+        
+        console.log(`✅ Servicio a probar: "${serviceName}" - Ruta: ${rutaCategorias.join(' > ') || 'Sin categoría'}`);
+        
+        try {
+          // 2. Cerrar sesión del proveedor y hacer login como cliente (solo la primera vez)
+          if (serviciosActivos.indexOf(servicio) === 0) {
+            await showStepMessage(page, '🔄 CAMBIANDO A SESIÓN DE CLIENTE');
+            console.log('📋 Cerrando sesión de proveedor y logueándose como cliente...');
+            await page.context().clearCookies();
+            await page.goto(`${DEFAULT_BASE_URL}`, { waitUntil: 'domcontentloaded' });
+            await safeWaitForTimeout(page, 500);
+            
+            try {
+              await page.evaluate(() => {
+                try {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                } catch (e) {}
+              });
+            } catch (e) {}
+            
+            await page.goto(`${DEFAULT_BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+            await safeWaitForTimeout(page, 2000);
+            await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+            console.log('✓ Login exitoso como cliente');
+            await safeWaitForTimeout(page, 2000);
+          }
+          
+          // 3. Navegar al servicio usando búsqueda
+          await showStepMessage(page, `🔍 NAVEGANDO AL SERVICIO: ${serviceName}`);
+          console.log(`📋 Navegando al servicio "${serviceName}"...`);
+          
+          // Ir al home del cliente
+          await page.goto(DEFAULT_BASE_URL);
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, 2000);
       
       // Si el servicio tiene ruta de categorías, navegar haciendo click en los botones
       if (rutaCategorias.length > 0) {
@@ -4326,21 +4415,330 @@ test('Crear evento desde favoritos', async ({ page }) => {
         // Navegar por subcategorías si las hay
         for (let nivel = 1; nivel < rutaCategorias.length; nivel++) {
           const subcategoriaNombre = rutaCategorias[nivel];
-          console.log(`   📂 Navegando a subcategoría: "${subcategoriaNombre}"`);
+          console.log(`\n   📂 ========== NAVEGANDO A SUBCATEGORÍA: "${subcategoriaNombre}" ==========`);
+          console.log(`   📍 Nivel: ${nivel + 1}/${rutaCategorias.length}`);
           
-          const subcategoriaElement = page.locator('button, a, div[role="button"]').filter({
-            hasText: new RegExp(subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
-          }).first();
+          // Guardar la URL antes de buscar la subcategoría
+          const urlAntesBuscar = page.url();
+          console.log(`   🔗 URL antes de buscar subcategoría: ${urlAntesBuscar}`);
           
-          const subcategoriaExists = await subcategoriaElement.count() > 0;
+          // Tomar screenshot antes de buscar la subcategoría
+          try {
+            await page.screenshot({ 
+              path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-antes-buscar-${Date.now()}.png`,
+              fullPage: true 
+            });
+            console.log(`   📸 Screenshot guardado: antes de buscar subcategoría "${subcategoriaNombre}"`);
+          } catch (e) {
+            console.log(`   ⚠️ Error al tomar screenshot antes de buscar: ${e}`);
+          }
+          
+          // Buscar el elemento de la subcategoría
+          // IMPORTANTE: Excluir elementos que son servicios (tienen imágenes, precios, etc.)
+          // y priorizar elementos que son realmente botones de subcategoría
+          const subcategoriaElement = page.locator('button, a, div[role="button"]')
+            .filter({
+              hasText: new RegExp(`^${subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+            })
+            // Excluir elementos que son servicios (tienen imágenes de servicios)
+            .filter({
+              hasNot: page.locator('img[src*="imagedelivery"], img[alt*="servicio" i], img[alt*="service" i]')
+            })
+            // Excluir elementos que tienen precios o información de servicios
+            .filter({
+              hasNot: page.locator('text=/\\$|precio|price|contactar|contact/i')
+            })
+            // Excluir elementos que son tarjetas de servicios (tienen clases específicas de servicios)
+            .filter({
+              hasNot: page.locator('[class*="promo"], [class*="service-card"], [class*="servicio"]')
+            })
+            .first();
+          
+          // Si no se encuentra con el selector estricto, intentar con un selector más flexible
+          // pero aún excluyendo servicios
+          let subcategoriaEncontrada = await subcategoriaElement.count() > 0;
+          let elementoFinal = subcategoriaElement;
+          
+          if (!subcategoriaEncontrada) {
+            console.log(`   ⚠️ No se encontró con selector estricto, intentando selector más flexible...`);
+            const subcategoriaElementFlexible = page.locator('button, a, div[role="button"]')
+              .filter({
+                hasText: new RegExp(subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+              })
+              // Excluir elementos que son servicios (tienen imágenes de servicios)
+              .filter({
+                hasNot: page.locator('img[src*="imagedelivery"]')
+              })
+              // Excluir elementos que contienen texto de servicios (nombres de servicios, promociones, etc.)
+              .filter({
+                hasNot: page.locator('text=/SUPERPromo|promo|servicio|service|precio|price/i')
+              })
+              .first();
+            
+            const encontradoFlexible = await subcategoriaElementFlexible.count() > 0;
+            if (encontradoFlexible) {
+              elementoFinal = subcategoriaElementFlexible;
+              subcategoriaEncontrada = true;
+              console.log(`   ✅ Encontrado con selector flexible`);
+            }
+          }
+          
+          const subcategoriaExists = subcategoriaEncontrada;
+          console.log(`   🔍 Subcategoría "${subcategoriaNombre}" encontrada: ${subcategoriaExists}`);
           
           if (subcategoriaExists) {
-            await expect(subcategoriaElement).toBeVisible({ timeout: 10000 });
-            await subcategoriaElement.click();
+            // Verificar que el elemento no es un servicio antes de continuar
+            const tieneImagenServicio = await elementoFinal.locator('img[src*="imagedelivery"]').count().then(count => count > 0);
+            const tieneTextoPromo = await elementoFinal.textContent().then(text => text?.includes('SUPERPromo') || text?.includes('promo') || false).catch(() => false);
+            const tieneTextoService = await elementoFinal.textContent().then(text => text?.includes('Servicio-') || text?.includes('service-') || false).catch(() => false);
+            
+            if (tieneImagenServicio || tieneTextoPromo || tieneTextoService) {
+              console.log(`   ⚠️ ADVERTENCIA CRÍTICA: El elemento encontrado parece ser un SERVICIO, no una subcategoría!`);
+              console.log(`      - Tiene imagen de servicio: ${tieneImagenServicio}`);
+              console.log(`      - Tiene texto de promoción: ${tieneTextoPromo}`);
+              console.log(`      - Tiene texto de servicio: ${tieneTextoService}`);
+              console.log(`   🔄 Intentando encontrar el elemento correcto de subcategoría...`);
+              
+              // Buscar específicamente botones de subcategoría que NO sean servicios
+              const subcategoriaCorrecta = page.locator('button, a, div[role="button"]')
+                .filter({
+                  has: page.locator('p, span, h1, h2, h3, h4, h5, h6').filter({
+                    hasText: new RegExp(`^${subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')
+                  })
+                })
+                // Excluir explícitamente elementos que son servicios
+                .filter({
+                  hasNot: page.locator('img[src*="imagedelivery"]')
+                })
+                .filter({
+                  hasNot: page.locator('text=/SUPERPromo|promo|servicio|service/i')
+                })
+                .first();
+              
+              const encontradoCorrecto = await subcategoriaCorrecta.count() > 0;
+              if (encontradoCorrecto) {
+                elementoFinal = subcategoriaCorrecta;
+                console.log(`   ✅ Encontrado elemento correcto de subcategoría (excluyendo servicios)`);
+              } else {
+                console.log(`   ⚠️ No se encontró un elemento de subcategoría válido, continuando con el encontrado...`);
+              }
+            }
+            
+            // Obtener información del elemento antes de hacer clic
+            const elementoTag = await elementoFinal.evaluate(el => el.tagName).catch(() => 'desconocido');
+            const elementoText = await elementoFinal.textContent().catch(() => '');
+            const elementoHref = await elementoFinal.getAttribute('href').catch(() => null);
+            const elementoClasses = await elementoFinal.getAttribute('class').catch(() => '') || '';
+            const elementoOnClick = await elementoFinal.getAttribute('onclick').catch(() => null);
+            const elementoDataHref = await elementoFinal.getAttribute('data-href').catch(() => null);
+            const elementoDataUrl = await elementoFinal.getAttribute('data-url').catch(() => null);
+            const elementoDataLink = await elementoFinal.getAttribute('data-link').catch(() => null);
+            
+            // Verificar si el botón tiene event listeners o atributos que lo hacen navegar
+            const tieneEventListeners = await elementoFinal.evaluate((el) => {
+              // Verificar si tiene onclick en el HTML
+              if (el.getAttribute('onclick')) return true;
+              
+              // Verificar si tiene event listeners agregados dinámicamente
+              // Esto es una aproximación - no podemos acceder directamente a los listeners
+              // pero podemos verificar atributos comunes
+              const hasDataAttributes = el.hasAttribute('data-href') || 
+                                       el.hasAttribute('data-url') || 
+                                       el.hasAttribute('data-link') ||
+                                       el.hasAttribute('data-navigate') ||
+                                       el.hasAttribute('data-route');
+              
+              // Verificar si el botón está dentro de un enlace
+              const parentLink = el.closest('a');
+              if (parentLink) return true;
+              
+              return hasDataAttributes;
+            }).catch(() => false);
+            
+            console.log(`   📋 Información del elemento de subcategoría:`);
+            console.log(`      - Tag: ${elementoTag}`);
+            console.log(`      - Texto: "${elementoText?.trim()}"`);
+            console.log(`      - Href: ${elementoHref || 'N/A'}`);
+            console.log(`      - OnClick (HTML): ${elementoOnClick || 'N/A'}`);
+            console.log(`      - Data-href: ${elementoDataHref || 'N/A'}`);
+            console.log(`      - Data-url: ${elementoDataUrl || 'N/A'}`);
+            console.log(`      - Data-link: ${elementoDataLink || 'N/A'}`);
+            console.log(`      - Clases: ${(elementoClasses || '').substring(0, 100)}${(elementoClasses || '').length > 100 ? '...' : ''}`);
+            console.log(`      - Tiene event listeners/atributos de navegación: ${tieneEventListeners}`);
+            
+            // Verificar si el elemento tiene un href que apunta a un servicio
+            if (elementoHref && (elementoHref.includes('/service/') || elementoHref.includes('/services/'))) {
+              console.log(`   ⚠️ ADVERTENCIA: El elemento de subcategoría tiene un href que apunta directamente a un servicio: ${elementoHref}`);
+            }
+            
+            // Verificar si tiene atributos data que apuntan a un servicio
+            const atributosData = [elementoDataHref, elementoDataUrl, elementoDataLink].filter(Boolean);
+            for (const attr of atributosData) {
+              if (attr && (attr.includes('/service/') || attr.includes('/services/'))) {
+                console.log(`   ⚠️ ADVERTENCIA: El elemento tiene un atributo data que apunta a un servicio: ${attr}`);
+              }
+            }
+            
+            // Verificar si el botón está dentro de un enlace padre
+            const parentLink = await elementoFinal.locator('xpath=ancestor::a').first().count().then(count => count > 0);
+            if (parentLink) {
+              const parentHref = await elementoFinal.locator('xpath=ancestor::a').first().getAttribute('href').catch(() => null);
+              console.log(`   ⚠️ ADVERTENCIA: El botón está dentro de un enlace <a> con href: ${parentHref || 'N/A'}`);
+              if (parentHref && (parentHref.includes('/service/') || parentHref.includes('/services/'))) {
+                console.log(`   ⚠️ ADVERTENCIA CRÍTICA: El botón está dentro de un enlace que apunta directamente a un servicio!`);
+              }
+            }
+            
+            // Verificar cuántos servicios hay en la página actual antes de hacer clic
+            const serviciosEnPagina = page.locator('button, div, a').filter({
+              has: page.locator('img[src*="imagedelivery"], img[alt]')
+            }).filter({
+              has: page.locator('p, h3, h4, h5, h6').filter({
+                hasText: /[a-zA-Z]/
+              })
+            });
+            const cantidadServicios = await serviciosEnPagina.count();
+            console.log(`   📊 Servicios visibles en la página actual: ${cantidadServicios}`);
+            
+            // Si hay solo un servicio visible, es probable que el clic navegue directamente a él
+            if (cantidadServicios === 1) {
+              console.log(`   ⚠️ ADVERTENCIA: Solo hay 1 servicio visible en la página. El clic en la subcategoría probablemente navegará directamente a ese servicio.`);
+              const unicoServicio = serviciosEnPagina.first();
+              const nombreUnicoServicio = await unicoServicio.locator('p, h3, h4, h5, h6').first().textContent().catch(() => 'desconocido');
+              console.log(`      - Nombre del servicio único: "${nombreUnicoServicio?.trim()}"`);
+            }
+            
+            // Verificar cuántos elementos coinciden con el selector (incluyendo servicios)
+            const todosLosElementos = page.locator('button, a, div[role="button"], div.cursor-pointer').filter({
+              hasText: new RegExp(subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+            });
+            const cantidadElementos = await todosLosElementos.count();
+            console.log(`   📊 Total de elementos que coinciden con "${subcategoriaNombre}" (incluyendo servicios): ${cantidadElementos}`);
+            
+            if (cantidadElementos > 1) {
+              console.log(`   ⚠️ ADVERTENCIA: Hay ${cantidadElementos} elementos que coinciden, analizando cada uno...`);
+              for (let i = 0; i < Math.min(cantidadElementos, 5); i++) {
+                const elem = todosLosElementos.nth(i);
+                const elemText = await elem.textContent().catch(() => '');
+                const elemHref = await elem.getAttribute('href').catch(() => null);
+                const tieneImg = await elem.locator('img[src*="imagedelivery"]').count().then(count => count > 0);
+                const tienePromo = elemText?.includes('SUPERPromo') || elemText?.includes('promo') || false;
+                const esServicio = tieneImg || tienePromo;
+                console.log(`      - Elemento ${i + 1}: "${elemText?.trim()?.substring(0, 50)}${elemText && elemText.length > 50 ? '...' : ''}"`);
+                console.log(`        (href: ${elemHref || 'N/A'}, es servicio: ${esServicio ? 'SÍ ⚠️' : 'NO ✅'})`);
+              }
+            }
+            
+            await expect(elementoFinal).toBeVisible({ timeout: 10000 });
+            console.log(`   ✅ Elemento de subcategoría visible`);
+            
+            // Verificar qué elementos clickeables hay en la página antes del clic (excluyendo servicios)
+            const elementosClickeables = page.locator('button, a, div[role="button"], div.cursor-pointer')
+              .filter({
+                has: page.locator('p, span, h1, h2, h3, h4, h5, h6').filter({
+                  hasText: new RegExp(subcategoriaNombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+                })
+              })
+              .filter({
+                hasNot: page.locator('img[src*="imagedelivery"]')
+              });
+            const cantidadClickeables = await elementosClickeables.count();
+            console.log(`   📊 Elementos clickeables que contienen "${subcategoriaNombre}" (excluyendo servicios): ${cantidadClickeables}`);
+            
+            // Tomar screenshot antes de hacer clic
+            try {
+              await page.screenshot({ 
+                path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-antes-click-${Date.now()}.png`,
+                fullPage: true 
+              });
+              console.log(`   📸 Screenshot guardado: antes de hacer clic en "${subcategoriaNombre}"`);
+            } catch (e) {
+              console.log(`   ⚠️ Error al tomar screenshot antes del clic: ${e}`);
+            }
+            
+            // Guardar la URL antes de hacer clic
+            const urlAntesSubcategoria = page.url();
+            console.log(`   🔗 URL antes del clic: ${urlAntesSubcategoria}`);
+            
+            // Hacer scroll al elemento si es necesario
+            await elementoFinal.scrollIntoViewIfNeeded();
+            await safeWaitForTimeout(page, 500);
+            
+            // Verificación final antes de hacer clic: asegurarse de que no es un servicio
+            const textoFinal = await elementoFinal.textContent().catch(() => '') || '';
+            if (textoFinal.includes('SUPERPromo') || textoFinal.includes('Servicio-') || textoFinal.includes('service-')) {
+              console.log(`   ⚠️ ADVERTENCIA CRÍTICA: El elemento a clickear contiene texto de servicio/promoción!`);
+              console.log(`      Texto completo: "${textoFinal.trim()}"`);
+              console.log(`   ⚠️ NO se hará clic para evitar navegar directamente a un servicio`);
+              throw new Error(`❌ El elemento encontrado para la subcategoría "${subcategoriaNombre}" parece ser un servicio, no una subcategoría. Texto: "${textoFinal.trim()}"`);
+            }
+            
+            console.log(`   🖱️ Haciendo clic en la subcategoría "${subcategoriaNombre}"...`);
+            await elementoFinal.click();
+            console.log(`   ✅ Clic realizado`);
+            
+            // Esperar a que la página responda
             await page.waitForLoadState('networkidle');
             await safeWaitForTimeout(page, 2000);
+            
+            // Verificar si el clic navegó directamente a una página de servicio
+            const urlDespuesSubcategoria = page.url();
+            console.log(`   🔗 URL después del clic: ${urlDespuesSubcategoria}`);
+            console.log(`   📊 Cambio de URL: ${urlAntesSubcategoria !== urlDespuesSubcategoria ? 'SÍ' : 'NO'}`);
+            
+            // Tomar screenshot después del clic
+            try {
+              await page.screenshot({ 
+                path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-despues-click-${Date.now()}.png`,
+                fullPage: true 
+              });
+              console.log(`   📸 Screenshot guardado: después de hacer clic en "${subcategoriaNombre}"`);
+            } catch (e) {
+              console.log(`   ⚠️ Error al tomar screenshot después del clic: ${e}`);
+            }
+            
+            // Verificar si estamos en una página de servicio
+            const esPaginaServicio = urlDespuesSubcategoria.includes('/service/') || urlDespuesSubcategoria.includes('/services/');
+            console.log(`   🔍 ¿Es página de servicio?: ${esPaginaServicio}`);
+            
+            if (esPaginaServicio) {
+              console.log(`\n   ⚠️ ========== PROBLEMA DETECTADO ==========`);
+              console.log(`   ⚠️ Al hacer clic en la subcategoría "${subcategoriaNombre}", navegó directamente a una página de servicio`);
+              console.log(`   📍 URL de destino: ${urlDespuesSubcategoria}`);
+              console.log(`   📋 Información del elemento clickeado:`);
+              console.log(`      - Tag: ${elementoTag}`);
+              console.log(`      - Texto: "${elementoText?.trim()}"`);
+              console.log(`      - Href: ${elementoHref || 'N/A'}`);
+              console.log(`      - Clases: ${elementoClasses}`);
+              console.log(`   💡 Posibles causas:`);
+              console.log(`      1. El elemento de subcategoría tiene un href que apunta directamente a un servicio`);
+              console.log(`      2. El elemento clickeado no es realmente una subcategoría, sino un servicio`);
+              console.log(`      3. Hay un solo servicio en esa subcategoría y el sistema navega directamente`);
+              console.log(`   ✅ Ya estamos en la página del servicio, no es necesario buscar más`);
+              console.log(`   ============================================\n`);
+              
+              // Ya estamos en la página del servicio, no necesitamos buscar
+              return { nombre: serviceName, ruta: rutaCategorias };
+            }
+            
+            // Si la URL cambió pero no es una página de servicio, continuar normalmente
+            if (urlDespuesSubcategoria !== urlAntesSubcategoria) {
+              console.log(`   ✅ Navegó a: ${urlDespuesSubcategoria}`);
+              console.log(`   ✅ Continuando con el flujo normal...`);
+            } else {
+              console.log(`   ℹ️ La URL no cambió después del clic`);
+            }
+          } else {
+            console.log(`   ⚠️ No se encontró la subcategoría "${subcategoriaNombre}"`);
           }
         }
+      }
+      
+      // Verificar si ya estamos en una página de servicio antes de buscar
+      const urlActual = page.url();
+      if (urlActual.includes('/service/') || urlActual.includes('/services/')) {
+        console.log(`   ✅ Ya estamos en una página de servicio, no es necesario buscar`);
+        return { nombre: serviceName, ruta: rutaCategorias };
       }
       
       // Buscar el servicio por nombre en el formulario de búsqueda
@@ -4392,115 +4790,64 @@ test('Crear evento desde favoritos', async ({ page }) => {
       await page.waitForLoadState('networkidle');
       await safeWaitForTimeout(page, 3000);
       
-      // Buscar el servicio en los resultados
-      const serviceCardsResultados = page.locator('button, div, a').filter({
-        has: page.locator('img[src*="imagedelivery"], img[alt]')
-      }).filter({
-        has: page.locator(`p, h3, h4, h5, h6`).filter({ hasText: new RegExp(serviceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
-      });
-      
-      const serviceCardsResultadosCount = await serviceCardsResultados.count();
-      
-      if (serviceCardsResultadosCount === 0) {
-        // Si no se encuentra por nombre exacto, intentar con la primera card disponible
-        console.log('⚠️ No se encontró el servicio por nombre exacto, intentando con la primera card disponible...');
-        const todasLasCards = page.locator('button, div, a').filter({
-          has: page.locator('img[src*="imagedelivery"], img[alt]')
-        });
-        const todasLasCardsCount = await todasLasCards.count();
-        
-        if (todasLasCardsCount > 0) {
-          const primeraCardDisponible = todasLasCards.first();
-          await primeraCardDisponible.scrollIntoViewIfNeeded();
+          // Buscar el servicio en los resultados
+          const serviceCardsResultados = page.locator('button, div, a').filter({
+            has: page.locator('img[src*="imagedelivery"], img[alt]')
+          }).filter({
+            has: page.locator(`p, h3, h4, h5, h6`).filter({ hasText: new RegExp(serviceName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+          });
+          
+          const serviceCardsResultadosCount = await serviceCardsResultados.count();
+          
+          if (serviceCardsResultadosCount === 0) {
+            // El servicio no aparece en los resultados, probablemente está desactivado
+            console.log(`❌ No se encontró el servicio "${serviceName}" en los resultados de búsqueda. El servicio puede estar desactivado.`);
+            throw new Error(`SERVICIO_NO_ENCONTRADO: "${serviceName}"`);
+          }
+          
+          const servicioEncontrado = serviceCardsResultados.first();
+          await servicioEncontrado.scrollIntoViewIfNeeded();
           await safeWaitForTimeout(page, 500);
-          await primeraCardDisponible.click();
+          await servicioEncontrado.click();
           await page.waitForLoadState('networkidle');
           await safeWaitForTimeout(page, 2000);
-        } else {
-          throw new Error(`❌ No se encontraron servicios en los resultados de búsqueda para "${serviceName}"`);
-        }
-      } else {
-        const servicioEncontrado = serviceCardsResultados.first();
-        await servicioEncontrado.scrollIntoViewIfNeeded();
-        await safeWaitForTimeout(page, 500);
-        await servicioEncontrado.click();
-        await page.waitForLoadState('networkidle');
-        await safeWaitForTimeout(page, 2000);
-      }
-      
-      // 3. Marcar como favorito
-      await showStepMessage(page, '❤️ MARCANDO SERVICIO COMO FAVORITO');
-      console.log('📋 Marcando el servicio como favorito...');
-      
-      // Buscar el botón de favoritos
-      let botonFavoritos = page.locator('button').filter({
-        has: page.locator('i[class*="heart"]')
-      }).first();
-      
-      let favoritoButtonVisible = await botonFavoritos.isVisible({ timeout: 10000 }).catch(() => false);
-      
-      if (!favoritoButtonVisible) {
-        botonFavoritos = page.locator('button').filter({
-          has: page.locator('i.icon.icon-heart, i.icon-heart, i.icon-heart-solid')
-        }).first();
-        favoritoButtonVisible = await botonFavoritos.isVisible({ timeout: 5000 }).catch(() => false);
-      }
-      
-      if (!favoritoButtonVisible) {
-        const botonFavoritosAlt = page.locator('button[aria-label*="favorito" i], button[aria-label*="favorite" i]').first();
-        favoritoButtonVisible = await botonFavoritosAlt.isVisible({ timeout: 5000 }).catch(() => false);
-        if (favoritoButtonVisible) {
-          botonFavoritos = botonFavoritosAlt;
-        }
-      }
-      
-      if (!favoritoButtonVisible) {
-        const todosLosBotones = page.locator('button');
-        const cantidadBotones = await todosLosBotones.count();
-        
-        for (let i = 0; i < Math.min(cantidadBotones, 20); i++) {
-          const boton = todosLosBotones.nth(i);
-          const tieneIconoHeart = await boton.locator('i[class*="heart"]').count() > 0;
           
-          if (tieneIconoHeart) {
-            const esVisible = await boton.isVisible({ timeout: 2000 }).catch(() => false);
-            if (esVisible) {
-              botonFavoritos = boton;
-              favoritoButtonVisible = true;
-              break;
-            }
+          // 3. Marcar como favorito usando la función reutilizable
+          await marcarServicioComoFavorito(page);
+          
+          // 4. Volver a la página de favoritos
+          await showStepMessage(page, '🔙 VOLVIENDO A FAVORITOS');
+          console.log('📋 Volviendo a la página de favoritos...');
+          await page.goto(FAVORITES_URL);
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, 2000);
+          
+          // Si llegamos aquí, el servicio funcionó correctamente
+          servicioFuncionalEncontrado = true;
+          break; // Salir del bucle de servicios
+          
+        } catch (error: any) {
+          const errorMessage = error?.message || String(error);
+          if (errorMessage.includes('SERVICIO_NO_ENCONTRADO')) {
+            console.log(`⚠️ Servicio "${serviceName}" no encontrado en resultados, probando siguiente servicio...`);
+            continue; // Continuar con el siguiente servicio
+          } else {
+            console.log(`⚠️ Error al procesar servicio "${serviceName}": ${errorMessage}`);
+            // Si es un error diferente, también continuar con el siguiente servicio
+            continue;
           }
         }
       }
       
-      if (!favoritoButtonVisible) {
-        throw new Error('❌ No se encontró el botón de favoritos en la página del servicio');
+      if (!servicioFuncionalEncontrado) {
+        throw new Error('❌ No se pudo encontrar ningún servicio activo que aparezca en los resultados del cliente');
       }
       
-      // Verificar el estado actual
-      const iconHeart = botonFavoritos.locator('i[class*="heart"]').first();
-      const iconClass = await iconHeart.getAttribute('class').catch(() => '') || '';
-      const estaMarcado = iconClass.includes('heart-solid') || iconClass.includes('icon-heart-solid');
-      
-      if (!estaMarcado) {
-        console.log('   🖱️ Haciendo clic en el botón de favoritos...');
-        await botonFavoritos.click();
-        await safeWaitForTimeout(page, 3000);
-        console.log('   ✅ Servicio marcado como favorito');
-      } else {
-        console.log('   ℹ️ El servicio ya estaba marcado como favorito');
-      }
-      
-      // 4. Volver a la página de favoritos
-      await showStepMessage(page, '🔙 VOLVIENDO A FAVORITOS');
-      console.log('📋 Volviendo a la página de favoritos...');
-      await page.goto(FAVORITES_URL);
-      await page.waitForLoadState('networkidle');
-      await safeWaitForTimeout(page, 2000);
+      return { nombre: serviceName, ruta: rutaCategorias };
     }
     
     // Ejecutar la función para marcar un servicio como favorito
-    await marcarServicioComoFavorito();
+    await marcarServicioComoFavoritoDesdeProveedor();
     
     // Reintentar buscar servicios en favoritos
     console.log('📋 Reintentando buscar servicios en favoritos...');

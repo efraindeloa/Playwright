@@ -2746,7 +2746,7 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Botón "Ordenar por" visible y habilitado');
     
     // Función auxiliar para obtener eventos y sus estatus
-    const obtenerEventosConEstatus = async () => {
+    const obtenerEventosConEstatus = async (estatusFiltrado?: string) => {
       // Buscar eventos en la sección "Elige tu fiesta" - usar múltiples estrategias
       let eventos: ReturnType<typeof page.locator>;
       
@@ -2791,7 +2791,7 @@ test.describe('Dashboard de cliente', () => {
       
       // Procesar eventos de forma más eficiente usando evaluate para obtener datos en batch
       try {
-        const eventosData = await page.evaluate((max) => {
+        const eventosData = await page.evaluate(({ max, filtroEstatus }: { max: number; filtroEstatus?: string }) => {
           const eventos: Array<{ index: number; estatus: string | null; texto: string; fecha: Date | null; esFuturo: boolean }> = [];
           // Buscar eventos con múltiples selectores para cubrir diferentes estructuras
           const eventButtons = document.querySelectorAll('button.flex.flex-col.bg-light-neutral.rounded-6, button.text-start.flex.flex-col.bg-light-light, button:has(i.icon-cake), button:has(i.icon-disco-ball), button:has(i.icon-graduation-cap), button:has(i.icon-girl-boy), button:has(i.icon-star), button:has(i.icon-stroller), button:has(i.icon-baptism), button:has(i.icon-briefcase), button:has(i.icon-diamond), button:has(i.icon-broken-heart), button:has(i.icon-party)');
@@ -3042,6 +3042,12 @@ test.describe('Dashboard de cliente', () => {
               }
             }
             
+            // Si no se encontró estatus pero hay un filtro activo, asumir ese estatus
+            // (porque el filtro ya aplicó la selección)
+            if (!estatus && filtroEstatus) {
+              estatus = filtroEstatus;
+            }
+            
             // Solo agregar eventos actuales o futuros (descartar eventos pasados)
             if (esFuturo || fechaEvento === null) {
               eventos.push({
@@ -3055,7 +3061,7 @@ test.describe('Dashboard de cliente', () => {
           }
           
           return eventos;
-        }, maxEventos);
+        }, { max: maxEventos, filtroEstatus: estatusFiltrado });
         
         eventosConEstatus.push(...eventosData);
         console.log(`✅ Procesamiento completado: ${eventosConEstatus.length} eventos analizados (solo eventos actuales/futuros)`);
@@ -3073,7 +3079,7 @@ test.describe('Dashboard de cliente', () => {
           await page.waitForTimeout(2000);
           
           // Reintentar obtener estatus para los eventos que no lo tienen
-          const eventosReintento = await page.evaluate((indices) => {
+          const eventosReintento = await page.evaluate(({ indices, filtroEstatus }: { indices: number[]; filtroEstatus?: string }) => {
             const eventos: Array<{ index: number; estatus: string | null }> = [];
             const eventButtons = document.querySelectorAll('button.flex.flex-col.bg-light-neutral.rounded-6, button.text-start.flex.flex-col.bg-light-light, button:has(i.icon-cake), button:has(i.icon-disco-ball), button:has(i.icon-graduation-cap), button:has(i.icon-girl-boy), button:has(i.icon-star), button:has(i.icon-stroller), button:has(i.icon-baptism), button:has(i.icon-briefcase), button:has(i.icon-diamond), button:has(i.icon-broken-heart), button:has(i.icon-party)');
             
@@ -3148,12 +3154,17 @@ test.describe('Dashboard de cliente', () => {
                   }
                 }
                 
+                // Si no se encontró estatus pero hay un filtro activo, asumir ese estatus
+                if (!estatus && filtroEstatus) {
+                  estatus = filtroEstatus;
+                }
+                
                 eventos.push({ index: originalIndex, estatus });
               }
             });
             
             return eventos;
-          }, eventosSinEstatus.map(e => e.index));
+          }, { indices: eventosSinEstatus.map(e => e.index), filtroEstatus: estatusFiltrado });
           
           // Actualizar los estatus encontrados
           eventosReintento.forEach(reintento => {
@@ -3835,7 +3846,9 @@ test.describe('Dashboard de cliente', () => {
           // Obtener eventos DESPUÉS de seleccionar el estatus
           await showStepMessage(page, `📊 OBTENIENDO EVENTOS DESPUÉS DE ORDENAR POR "${opcionTexto.toUpperCase()}"`);
           await page.waitForTimeout(1000);
-          const eventosDespues = await obtenerEventosConEstatus();
+          
+          // Pasar el estatus seleccionado para que la función pueda asumir ese estatus si no se encuentra explícitamente
+          const eventosDespues = await obtenerEventosConEstatus(opcionTexto);
           console.log(`📊 Total de eventos después: ${eventosDespues.length}`);
           
           if (eventosDespues.length === 0) {

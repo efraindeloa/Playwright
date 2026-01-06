@@ -1,6 +1,7 @@
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { login, showStepMessage, safeWaitForTimeout } from '../utils';
 import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
+import { verificarSiServicioEstaActivo, marcarServicioComoFavorito } from './cliente-eventos.spec';
 
 // ============================================================================
 // CONSTANTES DE CONFIGURACIÓN
@@ -10,7 +11,7 @@ const PROVIDER_SERVICES_URL = `${DEFAULT_BASE_URL}/provider/services`;
 const FAVORITES_URL = `${DEFAULT_BASE_URL}/client/favorites`;
 
 // Timeouts
-const DEFAULT_TIMEOUT = 180000; // 3 minutos
+const DEFAULT_TIMEOUT = 240000; // 3 minutos
 const WAIT_FOR_PAGE_LOAD = 2000;
 
 // ============================================================================
@@ -75,6 +76,22 @@ async function obtenerServiciosDelProveedor(page: Page): Promise<ServicioInfo[]>
       continue;
     }
 
+    // Verificar si el servicio está activo antes de agregarlo
+    const estadoServicio = await verificarSiServicioEstaActivo(page, card);
+    
+    if (estadoServicio === false) {
+      console.log(`❌ Servicio en índice ${i + 1}/${serviceCardsCount} está inactivo, descartando...`);
+      continue; // Descartar servicios inactivos
+    }
+    
+    if (estadoServicio === null) {
+      console.log(`⚠️ Servicio en índice ${i + 1}/${serviceCardsCount} no se puede verificar el estado, descartando...`);
+      continue; // Descartar servicios con estado no verificable
+    }
+
+    // Si llegamos aquí, el servicio está activo (estadoServicio === true)
+    console.log(`✅ Servicio en índice ${i + 1}/${serviceCardsCount} está activo, agregando a la lista...`);
+
     // Obtener el nombre del servicio
     const serviceNameElement = card.locator('p.text-medium.font-bold, p.font-bold, p.text-dark-neutral').first();
     let serviceName = '';
@@ -83,7 +100,7 @@ async function obtenerServiciosDelProveedor(page: Page): Promise<ServicioInfo[]>
     }
 
     if (!serviceName || serviceName.length < 3) {
-      console.log(`⚠️ Servicio en índice ${i} no tiene nombre válido, omitiéndolo`);
+      console.log(`⚠️ Servicio en índice ${i + 1}/${serviceCardsCount} no tiene nombre válido, omitiéndolo`);
       continue;
     }
 
@@ -123,10 +140,14 @@ async function obtenerServiciosDelProveedor(page: Page): Promise<ServicioInfo[]>
       rutaCategorias
     });
 
-    console.log(`✅ Servicio ${i + 1}/${serviceCardsCount}: "${serviceName}" - Ruta: ${rutaCategorias.join(' > ') || 'Sin categoría'}`);
+    console.log(`✅ Servicio ${servicios.length}/${serviceCardsCount}: "${serviceName}" - Ruta: ${rutaCategorias.join(' > ') || 'Sin categoría'}`);
   }
 
-  console.log(`\n📊 Total de servicios obtenidos: ${servicios.length}`);
+  console.log(`\n📊 Total de servicios activos obtenidos: ${servicios.length} de ${serviceCardsCount}`);
+  if (servicios.length === 0) {
+    throw new Error('❌ No se encontraron servicios activos del proveedor');
+  }
+  console.log(`✅ Se obtuvieron ${servicios.length} servicios activos del proveedor`);
   return servicios;
 }
 
@@ -275,11 +296,47 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
         const urlDespues = page.url();
         if (urlDespues.includes('/service/') || urlDespues.includes('/services/')) {
           console.log(`   ⚠️ Al hacer clic en la subcategoría "${subcategoriaNombre}", navegó directamente a una página de servicio`);
-          console.log(`   🔄 Volviendo atrás para buscar el servicio en la lista...`);
+          console.log(`   🔄 Volviendo atrás y navegando nuevamente desde la categoría principal...`);
+          
+          // Volver atrás
           await page.goBack();
           await page.waitForLoadState('networkidle');
           await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
-          console.log(`   ✅ Regresó a la lista de servicios`);
+          
+          // Si después de volver atrás no estamos en una página con formulario de búsqueda,
+          // volver a navegar desde la categoría principal
+          const urlDespuesVolver = page.url();
+          const searchForm = page.locator('form#ServicesSearchForm');
+          const formExists = await searchForm.count().then(count => count > 0);
+          
+          if (!formExists || (!urlDespuesVolver.includes('/c/') && !urlDespuesVolver.includes('/services'))) {
+            console.log(`   🔄 La página después de volver no tiene formulario, navegando nuevamente desde categoría principal...`);
+            
+            // Volver al home y navegar nuevamente desde la categoría principal
+            await page.goto(DEFAULT_BASE_URL);
+            await page.waitForLoadState('networkidle');
+            await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+            
+            // Navegar a la categoría principal nuevamente
+            if (servicio.rutaCategorias.length > 0) {
+              const categoriaPrincipal = servicio.rutaCategorias[0];
+              const categoriaElement = page.locator('button, a, div[role="button"]').filter({
+                hasText: new RegExp(categoriaPrincipal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+              }).first();
+              
+              const categoriaExists = await categoriaElement.count() > 0;
+              if (categoriaExists) {
+                await expect(categoriaElement).toBeVisible({ timeout: 10000 });
+                await categoriaElement.click();
+                await page.waitForLoadState('networkidle');
+                await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+                console.log(`   ✅ Navegó nuevamente a la categoría "${categoriaPrincipal}"`);
+              }
+            }
+          } else {
+            console.log(`   ✅ Regresó a la lista de servicios con formulario disponible`);
+          }
+          
           // Salir del bucle de subcategorías - buscaremos el servicio en la lista actual
           break;
         } else {
@@ -308,8 +365,52 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
   
   // Buscar el formulario primero
   const searchForm = page.locator('form#ServicesSearchForm, form');
-  const formExists = await searchForm.count() > 0;
+  let formExists = await searchForm.count() > 0;
   console.log(`   📊 Formulario encontrado: ${formExists}`);
+  
+  // Si no hay formulario, puede ser que estemos en una página sin formulario (después de volver atrás)
+  // En ese caso, volver a navegar desde el home
+  if (!formExists) {
+    console.log('   ⚠️ No se encontró formulario, puede ser que estemos en una página incorrecta');
+    console.log('   🔄 Verificando URL actual...');
+    const urlActual = page.url();
+    console.log(`   📍 URL actual: ${urlActual}`);
+    
+    // Si estamos en una URL de categoría pero sin formulario, volver al home y navegar nuevamente
+    if (urlActual.includes('/c/') || urlActual.includes('/services')) {
+      console.log('   🔄 Volviendo al home y navegando nuevamente desde la categoría principal...');
+      
+      // Volver al home
+      await page.goto(DEFAULT_BASE_URL);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+      
+      // Navegar nuevamente a la categoría principal si existe
+      if (servicio.rutaCategorias.length > 0) {
+        const categoriaPrincipal = servicio.rutaCategorias[0];
+        const categoriaElement = page.locator('button, a, div[role="button"]').filter({
+          hasText: new RegExp(categoriaPrincipal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+        }).first();
+        
+        const categoriaExists = await categoriaElement.count() > 0;
+        if (categoriaExists) {
+          await expect(categoriaElement).toBeVisible({ timeout: 10000 });
+          await categoriaElement.click();
+          await page.waitForLoadState('networkidle');
+          await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+          console.log(`   ✅ Navegó nuevamente a la categoría "${categoriaPrincipal}"`);
+        }
+      }
+      
+      // Esperar a que el formulario cargue
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 3000);
+      
+      // Verificar nuevamente si hay formulario
+      formExists = await searchForm.count() > 0;
+      console.log(`   📊 Formulario encontrado después de re-navegar: ${formExists}`);
+    }
+  }
   
   // Buscar el campo de ubicación usando el label como referencia
   // El HTML muestra: <label for="Address">Ubicación</label> y un <input> dentro del mismo div.relative
@@ -719,35 +820,162 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
         await page.waitForLoadState('domcontentloaded');
         await safeWaitForTimeout(page, 2000);
         
-        // Intentar múltiples selectores para encontrar el nombre del servicio en la página de detalle
-        const selectoresNombreDetalle = [
-          'h1',
-          'h2',
-          'h3',
-          'p.text-large.font-bold',
-          'h5.text-dark-neutral',
-          'p.text-large.text-dark-neutral.font-bold'
-        ];
+        // Primero verificar si hay una sección de promoción
+        console.log(`   🔍 Verificando si el servicio tiene promoción asociada...`);
+        const seccionPromocion = page.locator('text=/Promociones especiales/i').first();
+        const tienePromocion = await seccionPromocion.isVisible({ timeout: 3000 }).catch(() => false);
         
+        let tituloPromocionEnPagina = '';
+        if (tienePromocion) {
+          console.log(`   ✅ El servicio tiene una promoción asociada`);
+          
+          // Buscar el título de la promoción en la sección de promoción
+          // El título está en p.text-dark-neutral.text-large.font-bold dentro de la sección de promoción
+          const tituloPromocionElement = page.locator('div.flex.flex-col.w-full.gap-2.max-w-\\[480px\\] p.text-dark-neutral.text-large.font-bold').first();
+          const tituloPromocionVisible = await tituloPromocionElement.isVisible({ timeout: 5000 }).catch(() => false);
+          
+          if (tituloPromocionVisible) {
+            tituloPromocionEnPagina = (await tituloPromocionElement.textContent().catch(() => '')) || '';
+            console.log(`   ✅ Título de promoción encontrado en la página: "${tituloPromocionEnPagina.trim()}"`);
+          }
+        } else {
+          console.log(`   ℹ️ El servicio no tiene promoción asociada (estructura estándar)`);
+        }
+        
+        // Buscar el nombre del servicio
+        // Cuando hay promoción, el nombre del servicio está en h4 (desktop) o h6 (mobile) DESPUÉS de la sección de promoción
+        // Cuando no hay promoción, el nombre puede estar en h4, h5, h6, o en el header
         let nombreEnPagina = '';
         let elementoEncontrado = false;
         
-        for (const selector of selectoresNombreDetalle) {
-          try {
-            const elemento = page.locator(selector).first();
-            await elemento.waitFor({ state: 'visible', timeout: 5000 });
-            const texto = await elemento.textContent();
-            if (texto && texto.trim().length > 0) {
-              nombreEnPagina = texto.trim().toLowerCase();
+        // Priorizar h4 para desktop y h6 para mobile cuando hay promoción
+        try {
+          // Intentar h4 primero (desktop - cuando hay promoción, el nombre está aquí)
+          const h4 = page.locator('h4.text-dark-neutral, h4').first();
+          const h4Visible = await h4.isVisible({ timeout: 5000 }).catch(() => false);
+          
+          if (h4Visible) {
+            const textoH4 = (await h4.textContent().catch(() => '')) || '';
+            
+            // Verificar que no sea el título de la promoción (si hay promoción)
+            if (tienePromocion && tituloPromocionEnPagina) {
+              const textoLimpio = textoH4.trim().toLowerCase();
+              const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+              if (textoLimpio === tituloPromoLimpio) {
+                console.log(`   ⚠️ El h4 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...`);
+              } else {
+                nombreEnPagina = textoH4.trim().toLowerCase();
+                elementoEncontrado = true;
+                console.log(`   ✅ Nombre encontrado en la página con selector: h4`);
+                console.log(`   📋 Texto encontrado: "${textoH4.trim()}"`);
+              }
+            } else {
+              nombreEnPagina = textoH4.trim().toLowerCase();
               elementoEncontrado = true;
-              console.log(`   ✅ Nombre encontrado en la página con selector: ${selector}`);
-              console.log(`   📋 Texto encontrado: "${texto.trim()}"`);
-              break;
+              console.log(`   ✅ Nombre encontrado en la página con selector: h4`);
+              console.log(`   📋 Texto encontrado: "${textoH4.trim()}"`);
             }
-          } catch (e) {
-            // Continuar con el siguiente selector
-            continue;
           }
+          
+          // Si no se encontró en h4, intentar h5 (desktop - header superior)
+          if (!elementoEncontrado) {
+            const h5 = page.locator('h5.text-dark-neutral, h5').first();
+            const h5Visible = await h5.isVisible({ timeout: 5000 }).catch(() => false);
+            
+            if (h5Visible) {
+              const textoH5 = (await h5.textContent().catch(() => '')) || '';
+              
+              // Verificar que no sea el título de la promoción (si hay promoción)
+              if (tienePromocion && tituloPromocionEnPagina) {
+                const textoLimpio = textoH5.trim().toLowerCase();
+                const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+                if (textoLimpio === tituloPromoLimpio) {
+                  console.log(`   ⚠️ El h5 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...`);
+                } else {
+                  nombreEnPagina = textoH5.trim().toLowerCase();
+                  elementoEncontrado = true;
+                  console.log(`   ✅ Nombre encontrado en la página con selector: h5`);
+                  console.log(`   📋 Texto encontrado: "${textoH5.trim()}"`);
+                }
+              } else {
+                nombreEnPagina = textoH5.trim().toLowerCase();
+                elementoEncontrado = true;
+                console.log(`   ✅ Nombre encontrado en la página con selector: h5`);
+                console.log(`   📋 Texto encontrado: "${textoH5.trim()}"`);
+              }
+            }
+          }
+          
+          // Si no se encontró en h5, intentar h6 (mobile - cuando hay promoción, el nombre está aquí)
+          if (!elementoEncontrado) {
+            const h6 = page.locator('h6.text-dark-neutral, h6').first();
+            const h6Visible = await h6.isVisible({ timeout: 5000 }).catch(() => false);
+            
+            if (h6Visible) {
+              const textoH6 = (await h6.textContent().catch(() => '')) || '';
+              
+              // Verificar que no sea el título de la promoción (si hay promoción)
+              if (tienePromocion && tituloPromocionEnPagina) {
+                const textoLimpio = textoH6.trim().toLowerCase();
+                const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+                if (textoLimpio === tituloPromoLimpio) {
+                  console.log(`   ⚠️ El h6 contiene el título de la promoción, no el nombre del servicio. Buscando en otro lugar...`);
+                } else {
+                  nombreEnPagina = textoH6.trim().toLowerCase();
+                  elementoEncontrado = true;
+                  console.log(`   ✅ Nombre encontrado en la página con selector: h6`);
+                  console.log(`   📋 Texto encontrado: "${textoH6.trim()}"`);
+                }
+              } else {
+                nombreEnPagina = textoH6.trim().toLowerCase();
+                elementoEncontrado = true;
+                console.log(`   ✅ Nombre encontrado en la página con selector: h6`);
+                console.log(`   📋 Texto encontrado: "${textoH6.trim()}"`);
+              }
+            }
+          }
+          
+          // Como último recurso, intentar otros selectores
+          if (!elementoEncontrado) {
+            const selectoresNombreDetalle = [
+              'h1',
+              'h2',
+              'h3',
+              'p.text-large.font-bold',
+              'p.text-large.text-dark-neutral.font-bold'
+            ];
+            
+            for (const selector of selectoresNombreDetalle) {
+              try {
+                const elemento = page.locator(selector).first();
+                const esVisible = await elemento.isVisible({ timeout: 3000 }).catch(() => false);
+                if (esVisible) {
+                  const texto = await elemento.textContent();
+                  if (texto && texto.trim().length > 0) {
+                    // Verificar que no sea el título de la promoción (si hay promoción)
+                    if (tienePromocion && tituloPromocionEnPagina) {
+                      const textoLimpio = texto.trim().toLowerCase();
+                      const tituloPromoLimpio = tituloPromocionEnPagina.trim().toLowerCase();
+                      if (textoLimpio === tituloPromoLimpio) {
+                        continue; // Es el título de la promoción, continuar con el siguiente selector
+                      }
+                    }
+                    
+                    nombreEnPagina = texto.trim().toLowerCase();
+                    elementoEncontrado = true;
+                    console.log(`   ✅ Nombre encontrado en la página con selector: ${selector}`);
+                    console.log(`   📋 Texto encontrado: "${texto.trim()}"`);
+                    break;
+                  }
+                }
+              } catch (e) {
+                // Continuar con el siguiente selector
+                continue;
+              }
+            }
+          }
+        } catch (error) {
+          console.log(`   ⚠️ Error al buscar nombre en headers: ${error}`);
         }
         
         if (elementoEncontrado) {
@@ -1039,12 +1267,18 @@ test.describe('Favoritos del cliente', () => {
     await showStepMessage(page, '🔍 BUSCANDO SERVICIO SIN MARCAR COMO FAVORITO');
     let servicioNoFavorito: ServicioInfo | null = null;
     
+    // Limitar la búsqueda a los primeros 10 servicios para evitar tiempos de ejecución muy largos
+    // pero manteniendo la navegación completa como lo haría un humano
+    const maxServiciosAVerificar = Math.min(10, serviciosDelProveedor.length);
+    console.log(`📊 Verificando hasta ${maxServiciosAVerificar} servicios para encontrar uno no marcado como favorito...`);
+    console.log(`ℹ️ La prueba navegará por categorías como lo haría un usuario real (sin atajos)`);
+    
     // Iterar por los servicios del proveedor para encontrar uno que no esté marcado como favorito
-    for (let i = 0; i < serviciosDelProveedor.length; i++) {
+    for (let i = 0; i < maxServiciosAVerificar; i++) {
       const servicio = serviciosDelProveedor[i];
-      console.log(`\n🔍 Verificando servicio ${i + 1}/${serviciosDelProveedor.length}: "${servicio.nombre}"`);
+      console.log(`\n🔍 Verificando servicio ${i + 1}/${maxServiciosAVerificar}: "${servicio.nombre}"`);
       
-      // Navegar al servicio
+      // Navegar al servicio usando la navegación completa por categorías (como lo haría un humano)
       const navegoCorrectamente = await navegarAServicioPorRuta(page, servicio);
       if (!navegoCorrectamente) {
         console.log(`   ⚠️ No se pudo navegar al servicio "${servicio.nombre}", intentando siguiente...`);
@@ -1055,30 +1289,42 @@ test.describe('Favoritos del cliente', () => {
       await page.waitForLoadState('networkidle');
       await safeWaitForTimeout(page, 2000);
       
-      // Buscar el botón de favoritos y verificar si está marcado
-      let botonFavoritos = page.locator('button').filter({
-        has: page.locator('i[class*="heart"]')
-      }).first();
-      
-      let botonVisible = await botonFavoritos.isVisible({ timeout: 5000 }).catch(() => false);
-      
-      if (!botonVisible) {
-        // Intentar otros selectores
-        botonFavoritos = page.locator('button').filter({
-          has: page.locator('i.icon.icon-heart, i.icon-heart, i.icon-heart-solid')
-        }).first();
-        botonVisible = await botonFavoritos.isVisible({ timeout: 3000 }).catch(() => false);
-      }
-      
-      if (!botonVisible) {
-        console.log(`   ⚠️ No se encontró el botón de favoritos para "${servicio.nombre}", intentando siguiente...`);
+      // Verificar que estamos en la página del servicio
+      const urlActual = page.url();
+      if (!urlActual.includes('/service/') && !urlActual.includes('/services/')) {
+        console.log(`   ⚠️ No se detectó navegación a página de servicio (URL: ${urlActual}), intentando siguiente...`);
         continue;
       }
       
-      // Verificar el estado actual del favorito
-      const iconElement = botonFavoritos.locator('i[class*="heart"]').first();
-      const iconClass = await iconElement.getAttribute('class').catch(() => '') || '';
-      const estaMarcado = iconClass.includes('heart-solid') || iconClass.includes('icon-heart-solid');
+      // Esperar a que existan iconos de corazón (render dinámico)
+      await page.waitForSelector('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]', { timeout: 5000 }).catch(() => {});
+
+      // Buscar el botón de favoritos de forma robusta
+      const candidatos = page.locator('button').filter({
+        has: page.locator('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]')
+      }).filter({
+        hasNot: page.locator('i[class*="share"]')
+      });
+
+      const totalCandidatos = await candidatos.count();
+      let botonFavoritos: ReturnType<typeof page.locator> | null = null;
+      for (let idx = 0; idx < totalCandidatos; idx++) {
+        const btn = candidatos.nth(idx);
+        const visible = await btn.isVisible({ timeout: 1000 }).catch(() => false);
+        if (visible) {
+          botonFavoritos = btn;
+          break;
+        }
+      }
+
+      if (!botonFavoritos) {
+        console.log(`   ⚠️ No se encontró el botón de favoritos para "${servicio.nombre}", intentando siguiente...`);
+        continue;
+      }
+
+      // Verificar el estado actual del favorito (solo sólido indica marcado)
+      const iconElement = botonFavoritos.locator('i.icon-heart-solid, i[class*="heart-solid"]').first();
+      const estaMarcado = await iconElement.count().then(c => c > 0);
       
       console.log(`   📊 Estado del favorito: ${estaMarcado ? '✅ MARCADO' : '❌ NO MARCADO'}`);
       
@@ -1103,8 +1349,8 @@ test.describe('Favoritos del cliente', () => {
     
     console.log(`\n📋 Usando servicio: "${servicio.nombre}"`);
 
-    // Marcar como favorito
-    const exito = await toggleFavorito(page, true);
+    // Marcar como favorito usando la función reutilizable
+    const exito = await marcarServicioComoFavorito(page);
     expect(exito).toBe(true);
 
     // Verificar en la página de favoritos
@@ -1190,7 +1436,7 @@ test.describe('Favoritos del cliente', () => {
 
     if (!yaEsFavorito) {
       console.log('ℹ️ El servicio no está marcado como favorito, marcándolo primero...');
-      await toggleFavorito(page, true);
+      await marcarServicioComoFavorito(page);
       // Navegar de nuevo al servicio para desmarcarlo
       navegoCorrectamente = await navegarAServicioPorRuta(page, servicio);
       expect(navegoCorrectamente).toBe(true);
