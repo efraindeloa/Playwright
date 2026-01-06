@@ -351,15 +351,6 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
   // Establecer la ubicación antes de buscar servicios
   console.log('   📍 Estableciendo ubicación...');
   
-  // Tomar screenshot antes de buscar el campo
-  console.log('   📸 Tomando screenshot inicial...');
-  try {
-    await page.screenshot({ path: `debug-ubicacion-inicial-${Date.now()}.png`, fullPage: true });
-    console.log('   📸 Screenshot inicial guardado');
-  } catch (e) {
-    console.log(`   ⚠️ Error al tomar screenshot inicial: ${e}`);
-  }
-  
   await page.waitForLoadState('networkidle');
   await safeWaitForTimeout(page, 3000); // Esperar más tiempo para que el formulario cargue
   
@@ -547,19 +538,6 @@ async function navegarAServicioPorRuta(page: Page, servicio: ServicioInfo): Prom
   if (locationInputCount === 0 || !locationInput) {
     console.log('   ❌ No se encontró el campo de ubicación después de múltiples intentos');
     console.log('   🔍 Debug: Buscando todos los inputs en la página...');
-    
-    // Tomar screenshot ANTES de hacer operaciones que puedan dar timeout
-    console.log('   📸 Tomando screenshot para debug (antes de buscar inputs)...');
-    try {
-      const screenshotPath = `debug-ubicacion-error-${Date.now()}.png`;
-      await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 5000 }).catch(() => {
-        console.log('   ⚠️ Error al tomar screenshot con fullPage, intentando viewport...');
-        return page.screenshot({ path: screenshotPath, timeout: 5000 });
-      });
-      console.log(`   📸 Screenshot guardado en: ${screenshotPath}`);
-    } catch (e) {
-      console.log(`   ⚠️ Error al tomar screenshot: ${e}`);
-    }
     
     // Intentar obtener información de debug (con timeout corto usando Promise.race)
     try {

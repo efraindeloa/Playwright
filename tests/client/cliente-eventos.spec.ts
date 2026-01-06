@@ -4422,17 +4422,6 @@ test('Crear evento desde favoritos', async ({ page }) => {
           const urlAntesBuscar = page.url();
           console.log(`   🔗 URL antes de buscar subcategoría: ${urlAntesBuscar}`);
           
-          // Tomar screenshot antes de buscar la subcategoría
-          try {
-            await page.screenshot({ 
-              path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-antes-buscar-${Date.now()}.png`,
-              fullPage: true 
-            });
-            console.log(`   📸 Screenshot guardado: antes de buscar subcategoría "${subcategoriaNombre}"`);
-          } catch (e) {
-            console.log(`   ⚠️ Error al tomar screenshot antes de buscar: ${e}`);
-          }
-          
           // Buscar el elemento de la subcategoría
           // IMPORTANTE: Excluir elementos que son servicios (tienen imágenes, precios, etc.)
           // y priorizar elementos que son realmente botones de subcategoría
@@ -4645,17 +4634,6 @@ test('Crear evento desde favoritos', async ({ page }) => {
             const cantidadClickeables = await elementosClickeables.count();
             console.log(`   📊 Elementos clickeables que contienen "${subcategoriaNombre}" (excluyendo servicios): ${cantidadClickeables}`);
             
-            // Tomar screenshot antes de hacer clic
-            try {
-              await page.screenshot({ 
-                path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-antes-click-${Date.now()}.png`,
-                fullPage: true 
-              });
-              console.log(`   📸 Screenshot guardado: antes de hacer clic en "${subcategoriaNombre}"`);
-            } catch (e) {
-              console.log(`   ⚠️ Error al tomar screenshot antes del clic: ${e}`);
-            }
-            
             // Guardar la URL antes de hacer clic
             const urlAntesSubcategoria = page.url();
             console.log(`   🔗 URL antes del clic: ${urlAntesSubcategoria}`);
@@ -4685,17 +4663,6 @@ test('Crear evento desde favoritos', async ({ page }) => {
             const urlDespuesSubcategoria = page.url();
             console.log(`   🔗 URL después del clic: ${urlDespuesSubcategoria}`);
             console.log(`   📊 Cambio de URL: ${urlAntesSubcategoria !== urlDespuesSubcategoria ? 'SÍ' : 'NO'}`);
-            
-            // Tomar screenshot después del clic
-            try {
-              await page.screenshot({ 
-                path: `debug-subcategoria-${subcategoriaNombre.replace(/[^a-zA-Z0-9]/g, '-')}-despues-click-${Date.now()}.png`,
-                fullPage: true 
-              });
-              console.log(`   📸 Screenshot guardado: después de hacer clic en "${subcategoriaNombre}"`);
-            } catch (e) {
-              console.log(`   ⚠️ Error al tomar screenshot después del clic: ${e}`);
-            }
             
             // Verificar si estamos en una página de servicio
             const esPaginaServicio = urlDespuesSubcategoria.includes('/service/') || urlDespuesSubcategoria.includes('/services/');
