@@ -545,12 +545,12 @@ test('Validar estructura de la ruta de Familia (/c/servicios-especializados)', a
   );
 });
 
-test('Validar estructura de la ruta de Categoría (/c/alimentos-after-party)', async ({ page }) => {
+test('Validar estructura de la ruta de Categoría (/c/alimentos/after-party)', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
   const baseOrigin = new URL(BASE_URL).origin;
-  const categoriaUrl = `${baseOrigin}/c/alimentos-after-party`;
+  const categoriaUrl = `${baseOrigin}/c/alimentos/after-party`;
 
   await page.goto(categoriaUrl);
   await page.waitForLoadState('networkidle');
@@ -646,7 +646,7 @@ test('Validar estructura de la ruta de Categoría (/c/alimentos-after-party)', a
 // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
 // ============================================
 
-test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos-after-party)', async ({ page }) => {
+test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos/after-party)', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -679,7 +679,7 @@ test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos-after-par
   console.log('✅ Navegación exitosa');
   await safeWaitForTimeout(page, 1000);
   const urlActual = page.url();
-  expect(urlActual).toContain('/c/alimentos-after-party');
+  expect(urlActual).toContain('/c/alimentos/after-party');
   console.log(`✅ Navegación exitosa a: ${urlActual}`);
 
   // Validar que se muestra el contenido de After Party
@@ -688,12 +688,12 @@ test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos-after-par
   console.log('✅ Contenido de After Party visible');
 });
 
-test('Navegar desde Categoría a Sub-categoría (/c/alimentos-after-party -> servicios)', async ({ page }) => {
+test('Navegar desde Categoría a Sub-categoría (/c/alimentos/after-party -> servicios)', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
   const baseOrigin = new URL(BASE_URL).origin;
-  const categoriaUrl = `${baseOrigin}/c/alimentos-after-party`;
+  const categoriaUrl = `${baseOrigin}/c/alimentos/after-party`;
 
   await page.goto(categoriaUrl);
   await page.waitForLoadState('networkidle');
@@ -787,7 +787,7 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
       // Es un enlace, hacer click y esperar navegación
       try {
         await Promise.all([
-          page.waitForURL((url) => url.toString().includes('/c/alimentos-after-party'), { timeout: 15000 }),
+          page.waitForURL((url) => url.toString().includes('/c/alimentos/after-party'), { timeout: 15000 }),
           breadcrumbAfterParty.click({ timeout: 10000 })
         ]);
       } catch (error) {
@@ -806,7 +806,7 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
       
       // Esperar a que la navegación ocurra
       try {
-        await page.waitForURL((url) => url.toString().includes('/c/alimentos-after-party'), { timeout: 15000 });
+        await page.waitForURL((url) => url.toString().includes('/c/alimentos/after-party'), { timeout: 15000 });
         console.log('✅ Navegación exitosa después del click con JavaScript');
       } catch (error) {
         console.log('⚠️ La navegación no ocurrió inmediatamente, esperando...');
@@ -815,10 +815,10 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
         const urlDespues = page.url();
         console.log(`📍 URL después de esperar: ${urlDespues}`);
         
-        if (!urlDespues.includes('/c/alimentos-after-party')) {
+        if (!urlDespues.includes('/c/alimentos/after-party')) {
           // Intentar buscar el breadcrumb como enlace alternativo
           console.log('⚠️ Buscando breadcrumb alternativo...');
-          const breadcrumbLink = page.locator(`a[href*="/c/alimentos-after-party"]`).first();
+          const breadcrumbLink = page.locator(`a[href*="/c/alimentos/after-party"]`).first();
           const linkExists = await breadcrumbLink.count() > 0;
           if (linkExists) {
             console.log('✅ Encontrado breadcrumb alternativo como enlace');
@@ -828,7 +828,7 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
           } else {
             // Si no hay alternativa, intentar navegar directamente
             console.log('⚠️ No se encontró alternativa, navegando directamente...');
-            await page.goto(`${baseOrigin}/c/alimentos-after-party`);
+            await page.goto(`${baseOrigin}/c/alimentos/after-party`);
             await page.waitForLoadState('networkidle');
           }
         }
@@ -843,9 +843,9 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
     console.log(`📍 URL después del click: ${urlActual}`);
     
     // Si no navegó correctamente, intentar buscar el breadcrumb como enlace directo
-    if (!urlActual.includes('/c/alimentos-after-party')) {
+    if (!urlActual.includes('/c/alimentos/after-party')) {
       console.log('⚠️ La navegación no fue exitosa, buscando breadcrumb como enlace...');
-      const breadcrumbLink = page.locator(`a[href*="/c/alimentos-after-party"]`).first();
+      const breadcrumbLink = page.locator(`a[href*="/c/alimentos/after-party"]`).first();
       const linkExists = await breadcrumbLink.count() > 0;
       if (linkExists) {
         console.log('✅ Encontrado breadcrumb como enlace, haciendo click...');
@@ -855,13 +855,13 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
         await safeWaitForTimeout(page, 2000);
         const urlDespuesLink = page.url();
         console.log(`📍 URL después del click en enlace: ${urlDespuesLink}`);
-        expect(urlDespuesLink).toContain('/c/alimentos-after-party');
+        expect(urlDespuesLink).toContain('/c/alimentos/after-party');
       } else {
         // Si aún no funciona, fallar con un mensaje descriptivo
-        throw new Error(`No se pudo navegar al breadcrumb. URL actual: ${urlActual}, URL esperada: debe contener '/c/alimentos-after-party'`);
+        throw new Error(`No se pudo navegar al breadcrumb. URL actual: ${urlActual}, URL esperada: debe contener '/c/alimentos/after-party'`);
       }
     } else {
-      expect(urlActual).toContain('/c/alimentos-after-party');
+      expect(urlActual).toContain('/c/alimentos/after-party');
       console.log(`✅ Navegación exitosa a: ${urlActual}`);
     }
   } else {
@@ -874,7 +874,7 @@ test('Navegar usando breadcrumb desde Categoría a Familia', async ({ page }) =>
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
   const baseOrigin = new URL(BASE_URL).origin;
-  const categoriaUrl = `${baseOrigin}/c/alimentos-after-party`;
+  const categoriaUrl = `${baseOrigin}/c/alimentos/after-party`;
 
   await page.goto(categoriaUrl);
   await page.waitForLoadState('networkidle');

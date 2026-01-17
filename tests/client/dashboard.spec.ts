@@ -3839,13 +3839,13 @@ test.describe('Dashboard de cliente', () => {
           await page.waitForLoadState('networkidle');
           await page.waitForTimeout(2000); // Tiempo para que se carguen los estatus
           
-          // Esperar a que los badges de estatus se carguen
+          // Esperar a que los badges de estatus se carguen y que los eventos se reacomoden
           console.log(`⏳ Esperando a que se carguen los estatus de los eventos...`);
-          await page.waitForTimeout(2000); // Tiempo adicional para que se rendericen los badges
+          await page.waitForTimeout(5000); // Tiempo adicional para que se rendericen los badges y se reacomoden los eventos
           
           // Obtener eventos DESPUÉS de seleccionar el estatus
           await showStepMessage(page, `📊 OBTENIENDO EVENTOS DESPUÉS DE ORDENAR POR "${opcionTexto.toUpperCase()}"`);
-          await page.waitForTimeout(1000);
+          await page.waitForTimeout(3000); // Esperar más tiempo antes de obtener la lista para que los eventos se reacomoden completamente
           
           // Pasar el estatus seleccionado para que la función pueda asumir ese estatus si no se encuentra explícitamente
           const eventosDespues = await obtenerEventosConEstatus(opcionTexto);

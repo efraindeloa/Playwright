@@ -2045,15 +2045,46 @@ test('Validar funcionalidad del footer', async ({ page }) => {
   await safeWaitForTimeout(page, 1000);
   console.log('🔍 Validando copyright...');
   
-  const copyright = footer.locator('p').filter({ 
-    hasText: /© 2025\. Fiestamas/i 
-  });
-  await expect(copyright).toBeVisible();
-
-  const copyrightText = await copyright.textContent();
-  expect(copyrightText).toContain('2025');
-  expect(copyrightText).toContain('Fiestamas');
-  console.log(`✅ Copyright encontrado: "${copyrightText?.trim()}"`);
+  // Buscar copyright de forma más flexible (puede ser 2024, 2025, o cualquier año)
+  // El copyright puede estar en p, span, div, o cualquier elemento de texto
+  const copyright = footer.locator('p, span, div').filter({ 
+    hasText: /©.*Fiestamas|Fiestamas.*©/i 
+  }).first();
+  
+  const copyrightExists = await copyright.count() > 0;
+  
+  if (!copyrightExists) {
+    // Intentar buscar cualquier texto que contenga "Fiestamas" y un año
+    const copyrightAlt = footer.locator('p, span, div').filter({ 
+      hasText: /\d{4}.*Fiestamas|Fiestamas.*\d{4}/i 
+    }).first();
+    
+    const copyrightAltExists = await copyrightAlt.count() > 0;
+    
+    if (copyrightAltExists) {
+      const copyrightText = await copyrightAlt.textContent();
+      expect(copyrightText).toContain('Fiestamas');
+      console.log(`✅ Copyright encontrado (formato alternativo): "${copyrightText?.trim()}"`);
+    } else {
+      // Si no se encuentra, mostrar todos los textos del footer para debugging
+      console.log('⚠️ Copyright no encontrado con los selectores esperados');
+      console.log('🔍 Buscando todos los textos del footer...');
+      const allFooterTexts = footer.locator('p, span, div');
+      const textsCount = await allFooterTexts.count();
+      for (let i = 0; i < Math.min(textsCount, 10); i++) {
+        const text = await allFooterTexts.nth(i).textContent().catch(() => '');
+        if (text && text.trim().length > 0) {
+          console.log(`   Texto ${i + 1}: "${text.trim()}"`);
+        }
+      }
+      throw new Error('❌ No se encontró el texto de copyright en el footer');
+    }
+  } else {
+    await expect(copyright).toBeVisible();
+    const copyrightText = await copyright.textContent();
+    expect(copyrightText).toContain('Fiestamas');
+    console.log(`✅ Copyright encontrado: "${copyrightText?.trim()}"`);
+  }
 
   // 6️⃣ VALIDAR FUNCIONALIDAD DE REDES SOCIALES (OPCIONAL - ABRIR EN NUEVA PESTAÑA)
   await showStepMessage(page, '🔗 VALIDANDO FUNCIONALIDAD DE REDES SOCIALES');

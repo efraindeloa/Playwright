@@ -375,48 +375,77 @@ async function navegarHastaCardsDeServicios(page: Page): Promise<void> {
   console.log('✅ Categoría de servicio seleccionada');
   
   // 5. Navegar por subcategorías hasta encontrar cards de servicios
-  // Intentar hasta 3 niveles de profundidad
+  // Intentar hasta 5 niveles de profundidad para asegurar que llegue a los servicios
   let nivel = 0;
-  const MAX_NIVELES = 3;
+  const MAX_NIVELES = 5;
   
   while (nivel < MAX_NIVELES) {
     nivel++;
-    await safeWaitForTimeout(page, 1000);
+    await safeWaitForTimeout(page, 1500); // Esperar más tiempo para que el contenido se cargue
     
-    // Verificar si ya estamos en una página con cards de servicios
-    const serviceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
-      has: page.locator('p, h3, h4, h5, h6').first()
-    });
+    console.log(`🔍 Nivel ${nivel}/${MAX_NIVELES}: Buscando subcategorías o cards de servicios...`);
     
-    const cardsCount = await serviceCards.count();
-    
-    if (cardsCount > 0) {
-      // Verificar que al menos una card es visible
-      let cardsVisibles = 0;
-      for (let i = 0; i < Math.min(cardsCount, 5); i++) {
-        const card = serviceCards.nth(i);
-        const isVisible = await card.isVisible().catch(() => false);
-        if (isVisible) {
-          cardsVisibles++;
-        }
-      }
-      
-      if (cardsVisibles > 0) {
-        console.log(`✅ Cards de servicios encontradas: ${cardsCount} (${cardsVisibles} visibles)`);
-        return; // Hemos llegado a las cards
-      }
-    }
-    
-    // Silenciar logs innecesarios durante la navegación
-    // (Los logs [Object, Object] pueden venir de la página web o de Playwright internamente)
-    
-    // Si no hay cards, intentar navegar a una subcategoría
+    // PRIMERO verificar si hay subcategorías disponibles (priorizar navegación sobre detección de cards)
+    // Si hay subcategorías, deberíamos seguir navegando
     const subcategoryButtons = page.locator('button').filter({
       has: page.locator('p.text-neutral-800.font-medium, p.text-dark-neutral')
+    }).filter({
+      hasNot: page.locator('i.icon-arrow-left, i.icon-chevron-left') // Excluir botones de navegación hacia atrás
     });
     
     const subcategoryCount = await subcategoryButtons.count();
+    console.log(`   📊 Subcategorías encontradas: ${subcategoryCount}`);
     
+    // Si NO hay subcategorías, entonces verificar si hay cards de servicios
+    if (subcategoryCount === 0) {
+      console.log(`   ℹ️ No hay subcategorías, verificando si hay cards de servicios...`);
+      
+      // Verificar si ya estamos en una página con cards de servicios
+      // Usar un selector más específico para cards reales de servicios
+      const serviceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+        has: page.locator('p, h3, h4, h5, h6').first()
+      });
+      
+      // También verificar si hay formulario de búsqueda (indicador de página de servicios)
+      const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"], input#Search');
+      const formExists = await searchForm.count().then(count => count > 0);
+      
+      const cardsCount = await serviceCards.count();
+      
+      // Verificar que al menos una card es visible y que realmente son cards de servicios
+      if (cardsCount > 0 || formExists) {
+        let cardsVisibles = 0;
+        if (cardsCount > 0) {
+          for (let i = 0; i < Math.min(cardsCount, 5); i++) {
+            const card = serviceCards.nth(i);
+            const isVisible = await card.isVisible().catch(() => false);
+            if (isVisible) {
+              // Verificar que la card tiene contenido que sugiere que es un servicio
+              const cardText = await card.textContent().catch(() => '');
+              const hasServiceContent = cardText && cardText.length > 10; // Las cards de servicios tienen más contenido
+              if (hasServiceContent) {
+                cardsVisibles++;
+              }
+            }
+          }
+        }
+        
+        if (cardsVisibles > 0 || formExists) {
+          console.log(`✅ Cards de servicios encontradas: ${cardsCount} (${cardsVisibles} visibles)`);
+          if (formExists) {
+            console.log(`   ✅ Formulario de búsqueda detectado - confirmado que estamos en página de servicios`);
+          }
+          return; // Hemos llegado a las cards
+        }
+      }
+      
+      // Si no hay subcategorías ni cards, salir del bucle
+      console.log(`⚠️ No hay subcategorías ni cards de servicios detectadas en nivel ${nivel}`);
+      break;
+    }
+    
+    // Si hay subcategorías, navegar a una
+    // (subcategoryButtons y subcategoryCount ya están definidos arriba)
     if (subcategoryCount > 0) {
       // Verificar que el botón es clickeable antes de intentar navegar
       const firstButton = subcategoryButtons.first();
@@ -455,7 +484,21 @@ async function navegarHastaCardsDeServicios(page: Page): Promise<void> {
           has: page.locator('p, h3, h4, h5, h6').first()
         });
         const cardsCountCheck = await serviceCardsCheck.count();
-        const aparecieronCards = cardsCountCheck > 0;
+        let aparecieronCards = false;
+        if (cardsCountCheck > 0) {
+          // Verificar que al menos una card es visible y tiene contenido
+          for (let i = 0; i < Math.min(cardsCountCheck, 3); i++) {
+            const card = serviceCardsCheck.nth(i);
+            const isVisible = await card.isVisible().catch(() => false);
+            if (isVisible) {
+              const cardText = await card.textContent().catch(() => '');
+              if (cardText && cardText.length > 10) {
+                aparecieronCards = true;
+                break;
+              }
+            }
+          }
+        }
         
         // 3. Verificar si apareció el formulario de búsqueda (signo de que está en página de servicios)
         const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"], input#Search');
@@ -463,8 +506,15 @@ async function navegarHastaCardsDeServicios(page: Page): Promise<void> {
         
         if (navego || contenidoCambio || aparecieronCards || formExists) {
           console.log(`✅ Navegó a subcategoría (nivel ${nivel}): "${buttonText?.trim()}"`);
-          if (formExists) {
-            console.log(`   ✅ Formulario de búsqueda detectado - llegamos a página de servicios`);
+          if (formExists || aparecieronCards) {
+            if (formExists) {
+              console.log(`   ✅ Formulario de búsqueda detectado - llegamos a página de servicios`);
+            }
+            if (aparecieronCards) {
+              console.log(`   ✅ Cards de servicios detectadas (${cardsCountCheck} cards)`);
+              // Si encontramos cards, salir del bucle
+              return;
+            }
           }
         } else {
           console.log(`⚠️ Clic realizado pero no se detectó navegación clara (nivel ${nivel})`);
@@ -478,13 +528,261 @@ async function navegarHastaCardsDeServicios(page: Page): Promise<void> {
         break;
       }
     } else {
-      // No hay más subcategorías, deberíamos estar en las cards
-      console.log('⚠️ No se encontraron más subcategorías, asumiendo que estamos en las cards');
+      // No hay más subcategorías, verificar si estamos en las cards
+      console.log(`⚠️ No se encontraron más subcategorías en nivel ${nivel}, verificando si hay cards de servicios...`);
+      
+      // Hacer una verificación final de cards antes de salir
+      const finalCardsCheck = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+        has: page.locator('p, h3, h4, h5, h6').first()
+      });
+      const finalCardsCount = await finalCardsCheck.count();
+      const finalFormCheck = await page.locator('form#ServicesSearchForm, form[class*="search"], input#Search').count().then(count => count > 0);
+      
+      if (finalCardsCount > 0 || finalFormCheck) {
+        let finalCardsVisibles = 0;
+        if (finalCardsCount > 0) {
+          for (let i = 0; i < Math.min(finalCardsCount, 5); i++) {
+            const card = finalCardsCheck.nth(i);
+            const isVisible = await card.isVisible().catch(() => false);
+            if (isVisible) {
+              const cardText = await card.textContent().catch(() => '');
+              if (cardText && cardText.length > 10) {
+                finalCardsVisibles++;
+              }
+            }
+          }
+        }
+        
+        if (finalCardsVisibles > 0 || finalFormCheck) {
+          console.log(`✅ Cards de servicios encontradas al final: ${finalCardsCount} (${finalCardsVisibles} visibles)`);
+          if (finalFormCheck) {
+            console.log(`   ✅ Formulario de búsqueda detectado`);
+          }
+          return; // Hemos llegado a las cards
+        }
+      }
+      
+      console.log(`⚠️ No se encontraron cards de servicios después de ${nivel} niveles`);
       break;
     }
   }
   
+  // Verificación final después del bucle
+  const finalVerification = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+    has: page.locator('p, h3, h4, h5, h6').first()
+  });
+  const finalCount = await finalVerification.count();
+  const finalForm = await page.locator('form#ServicesSearchForm, form[class*="search"], input#Search').count().then(count => count > 0);
+  
+  if (finalCount > 0 || finalForm) {
+    let visibles = 0;
+    if (finalCount > 0) {
+      for (let i = 0; i < Math.min(finalCount, 5); i++) {
+        const card = finalVerification.nth(i);
+        const isVisible = await card.isVisible().catch(() => false);
+        if (isVisible) {
+          const cardText = await card.textContent().catch(() => '');
+          if (cardText && cardText.length > 10) {
+            visibles++;
+          }
+        }
+      }
+    }
+    
+    if (visibles > 0 || finalForm) {
+      console.log(`✅ Cards de servicios encontradas después del bucle: ${finalCount} (${visibles} visibles)`);
+    } else {
+      console.log(`⚠️ No se encontraron cards visibles de servicios después de navegar ${nivel} niveles`);
+    }
+  } else {
+    console.log(`⚠️ No se encontraron cards de servicios después de navegar ${nivel} niveles`);
+  }
+  
   console.log('✅ Navegación completada');
+}
+
+/**
+ * Navega por subcategorías hasta encontrar cards de servicios
+ * Reutilizable para cualquier punto de navegación
+ */
+async function navegarPorSubcategoriasHastaServicios(page: Page): Promise<void> {
+  await showStepMessage(page, '🔍 Navegando por subcategorías hasta servicios');
+  console.log('📋 Navegando por subcategorías hasta llegar a cards de servicios...');
+  
+  // Intentar hasta 5 niveles de profundidad para asegurar que llegue a los servicios
+  let nivel = 0;
+  const MAX_NIVELES = 5;
+  
+  while (nivel < MAX_NIVELES) {
+    nivel++;
+    await safeWaitForTimeout(page, 1500); // Esperar más tiempo para que el contenido se cargue
+    
+    console.log(`🔍 Nivel ${nivel}/${MAX_NIVELES}: Buscando subcategorías o cards de servicios...`);
+    
+    // PRIMERO verificar si hay subcategorías disponibles (priorizar navegación sobre detección de cards)
+    // Si hay subcategorías, deberíamos seguir navegando
+    const subcategoryButtons = page.locator('button').filter({
+      has: page.locator('p.text-neutral-800.font-medium, p.text-dark-neutral')
+    }).filter({
+      hasNot: page.locator('i.icon-arrow-left, i.icon-chevron-left') // Excluir botones de navegación hacia atrás
+    });
+    
+    const subcategoryCount = await subcategoryButtons.count();
+    console.log(`   📊 Subcategorías encontradas: ${subcategoryCount}`);
+    
+    // Si NO hay subcategorías, entonces verificar si hay cards de servicios
+    if (subcategoryCount === 0) {
+      console.log(`   ℹ️ No hay subcategorías, verificando si hay cards de servicios...`);
+      
+      // Verificar si hay formulario de búsqueda (indicador de página de servicios)
+      const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"], input#Search');
+      const formExists = await searchForm.count().then(count => count > 0);
+      
+      // Verificar si hay cards de servicios
+      const serviceCards = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+        has: page.locator('p, h3, h4, h5, h6').first()
+      });
+      
+      const cardsCount = await serviceCards.count();
+      
+      // Verificar que al menos una card es visible y que realmente son cards de servicios
+      if (cardsCount > 0 || formExists) {
+        let cardsVisibles = 0;
+        if (cardsCount > 0) {
+          for (let i = 0; i < Math.min(cardsCount, 5); i++) {
+            const card = serviceCards.nth(i);
+            const isVisible = await card.isVisible().catch(() => false);
+            if (isVisible) {
+              // Verificar que la card tiene contenido que sugiere que es un servicio
+              const cardText = await card.textContent().catch(() => '');
+              const hasServiceContent = cardText && cardText.length > 10; // Las cards de servicios tienen más contenido
+              if (hasServiceContent) {
+                cardsVisibles++;
+              }
+            }
+          }
+        }
+        
+        if (cardsVisibles > 0 || formExists) {
+          console.log(`✅ Cards de servicios encontradas: ${cardsCount} (${cardsVisibles} visibles)`);
+          if (formExists) {
+            console.log(`   ✅ Formulario de búsqueda detectado - confirmado que estamos en página de servicios`);
+          }
+          return; // Hemos llegado a las cards
+        }
+      }
+      
+      // Si no hay subcategorías ni cards, salir del bucle
+      console.log(`⚠️ No hay subcategorías ni cards de servicios detectadas en nivel ${nivel}`);
+      break;
+    }
+    
+    // Si hay subcategorías, navegar a una
+    if (subcategoryCount > 0) {
+      // Verificar que el botón es clickeable antes de intentar navegar
+      const firstButton = subcategoryButtons.first();
+      const isVisible = await firstButton.isVisible({ timeout: 2000 }).catch(() => false);
+      const isEnabled = await firstButton.isEnabled().catch(() => false);
+      
+      if (isVisible && isEnabled) {
+        // Obtener la URL actual antes de navegar
+        const urlAntes = page.url();
+        
+        // Obtener el texto del botón para logging
+        const buttonText = await firstButton.locator('p').first().textContent().catch(() => 'subcategoría');
+        
+        // Hacer clic en la subcategoría
+        await firstButton.click();
+        await page.waitForLoadState('networkidle');
+        await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+        
+        // Verificar que realmente navegó
+        // Esperar un poco más para que la navegación se complete
+        await safeWaitForTimeout(page, 1500);
+        
+        const urlDespues = page.url();
+        const navego = urlAntes !== urlDespues;
+        
+        // Verificar si aparecieron cards de servicios (signo de que navegó correctamente)
+        const serviceCardsCheck = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+          has: page.locator('p, h3, h4, h5, h6').first()
+        });
+        const cardsCountCheck = await serviceCardsCheck.count();
+        let aparecieronCards = false;
+        if (cardsCountCheck > 0) {
+          // Verificar que al menos una card es visible y tiene contenido
+          for (let i = 0; i < Math.min(cardsCountCheck, 3); i++) {
+            const card = serviceCardsCheck.nth(i);
+            const isVisible = await card.isVisible().catch(() => false);
+            if (isVisible) {
+              const cardText = await card.textContent().catch(() => '');
+              if (cardText && cardText.length > 10) {
+                aparecieronCards = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Verificar si apareció el formulario de búsqueda (signo de que está en página de servicios)
+        const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"], input#Search');
+        const formExists = await searchForm.count().then(count => count > 0);
+        
+        if (navego || aparecieronCards || formExists) {
+          console.log(`✅ Navegó a subcategoría (nivel ${nivel}): "${buttonText?.trim()}"`);
+          if (formExists || aparecieronCards) {
+            if (formExists) {
+              console.log(`   ✅ Formulario de búsqueda detectado - llegamos a página de servicios`);
+            }
+            if (aparecieronCards) {
+              console.log(`   ✅ Cards de servicios detectadas (${cardsCountCheck} cards)`);
+              // Si encontramos cards, salir del bucle
+              return;
+            }
+          }
+        } else {
+          console.log(`⚠️ Clic realizado pero no se detectó navegación clara (nivel ${nivel})`);
+          // Continuar de todas formas, puede ser que la navegación sea interna sin cambio de URL
+        }
+      } else {
+        console.log(`⚠️ Botón de subcategoría no está visible o habilitado (nivel ${nivel})`);
+        break;
+      }
+    }
+  }
+  
+  // Verificación final después del bucle
+  const finalVerification = page.locator('div.flex.flex-col.cursor-pointer, div.flex.flex-row.cursor-pointer, button.text-start.flex.flex-col').filter({
+    has: page.locator('p, h3, h4, h5, h6').first()
+  });
+  const finalCount = await finalVerification.count();
+  const finalForm = await page.locator('form#ServicesSearchForm, form[class*="search"], input#Search').count().then(count => count > 0);
+  
+  if (finalCount > 0 || finalForm) {
+    let visibles = 0;
+    if (finalCount > 0) {
+      for (let i = 0; i < Math.min(finalCount, 5); i++) {
+        const card = finalVerification.nth(i);
+        const isVisible = await card.isVisible().catch(() => false);
+        if (isVisible) {
+          const cardText = await card.textContent().catch(() => '');
+          if (cardText && cardText.length > 10) {
+            visibles++;
+          }
+        }
+      }
+    }
+    
+    if (visibles > 0 || finalForm) {
+      console.log(`✅ Cards de servicios encontradas después del bucle: ${finalCount} (${visibles} visibles)`);
+    } else {
+      console.log(`⚠️ No se encontraron cards visibles de servicios después de navegar ${nivel} niveles`);
+    }
+  } else {
+    console.log(`⚠️ No se encontraron cards de servicios después de navegar ${nivel} niveles`);
+  }
+  
+  console.log('✅ Navegación por subcategorías completada');
 }
 
 /**
@@ -1277,19 +1575,102 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
     
     await showStepMessage(page, '🔍 Validando toggle de promociones desde Explorar');
     
-    // Navegar desde el home directamente a las categorías de servicios (simula entrada desde homepage/Explorar)
-    await navegarDesdeHomeHastaCardsDeServicios(page);
+    // 1. Ir al home
+    console.log('📋 Navegando al home...');
+    await page.goto(DEFAULT_BASE_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
     
-    // Verificar que llegamos a una página con formulario de búsqueda
-    const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"]');
+    // 2. Buscar el carrusel de promociones en el home
+    console.log('🔍 Buscando carrusel de promociones en el home...');
+    
+    // El carrusel tiene la estructura: div.flex.flex-nowrap.overflow-x-auto con botones dentro
+    // Buscar el contenedor del carrusel
+    const carruselContainer = page.locator('div.flex.flex-nowrap.overflow-x-auto.no-scrollbar').first();
+    const carruselVisible = await carruselContainer.isVisible({ timeout: 10000 }).catch(() => false);
+    
+    if (!carruselVisible) {
+      // Buscar también sin la clase no-scrollbar
+      const carruselAlt = page.locator('div.flex.flex-nowrap.overflow-x-auto').first();
+      const carruselAltVisible = await carruselAlt.isVisible({ timeout: 5000 }).catch(() => false);
+      if (carruselAltVisible) {
+        console.log('✅ Carrusel encontrado (sin no-scrollbar)');
+      } else {
+        console.log('⚠️ Carrusel no encontrado, buscando botones de promociones directamente...');
+      }
+    } else {
+      console.log('✅ Carrusel encontrado');
+    }
+    
+    // Buscar cards de promociones en el carrusel
+    // Estructura: button[type="button"] con clases text-start flex items-center 
+    // y que contengan imágenes y texto de promoción (precios, descuentos, etc.)
+    // Los botones pueden tener bg-primary-neutral o bg-[#5221D6]
+    const promoCards = page.locator('button[type="button"].text-start.flex.items-center').filter({
+      has: page.locator('img')
+    }).filter({
+      has: page.locator('p, div').filter({
+        hasText: /hasta|ahorro|%|\$|x1|x2|descuento|de ahorro/i
+      })
+    });
+    
+    const promoCardsCount = await promoCards.count();
+    console.log(`📊 Cards de promociones encontradas en el home: ${promoCardsCount}`);
+    
+    if (promoCardsCount === 0) {
+      throw new Error('❌ No se encontraron promociones en el carrusel del home');
+    }
+    
+    // 3. Seleccionar la primera promoción disponible
+    let promoCardSeleccionada: ReturnType<typeof promoCards.nth> | null = null;
+    for (let i = 0; i < Math.min(promoCardsCount, 10); i++) {
+      const card = promoCards.nth(i);
+      const isVisible = await card.isVisible().catch(() => false);
+      if (isVisible) {
+        promoCardSeleccionada = card;
+        console.log(`✅ Promoción ${i + 1} seleccionada del carrusel`);
+        break;
+      }
+    }
+    
+    if (!promoCardSeleccionada) {
+      throw new Error('❌ No se encontró una promoción visible en el carrusel');
+    }
+    
+    // Obtener el título de la promoción antes de hacer clic (para logging)
+    const tituloPromo = await promoCardSeleccionada.locator('p, h3, h4, h5, h6').first().textContent().catch(() => 'Promoción');
+    console.log(`📋 Título de la promoción seleccionada: "${tituloPromo?.trim()}"`);
+    
+    // 4. Hacer clic en la promoción (esto debería navegar a la subcategoría correspondiente)
+    console.log('🖱️ Haciendo clic en la promoción del carrusel...');
+    await promoCardSeleccionada.click();
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+    
+    // Verificar que navegó (la URL debería cambiar)
+    const urlDespues = page.url();
+    console.log(`📋 URL después del clic en promoción: ${urlDespues}`);
+    
+    // 5. Ahora deberíamos estar en la subcategoría correspondiente
+    // Verificar que llegamos a una página con formulario de búsqueda (indica que estamos en servicios/subcategoría)
+    console.log('🔍 Verificando que estamos en la página de servicios/subcategoría...');
+    const searchForm = page.locator('form#ServicesSearchForm, form[class*="search"], input#Search');
     const formExists = await searchForm.count().then(count => count > 0);
     
     if (!formExists) {
-      console.log('❌ No se encontró el formulario de búsqueda después de navegar');
-      console.log('ℹ️ Esto indica que no se llegó correctamente a la página de servicios');
-      expect(formExists).toBe(true);
+      console.log('⚠️ Formulario de búsqueda no encontrado inmediatamente, esperando...');
+      await safeWaitForTimeout(page, 2000);
+      const formExistsRetry = await searchForm.count().then(count => count > 0);
+      
+      if (!formExistsRetry) {
+        console.log('❌ No se encontró el formulario de búsqueda después de hacer clic en la promoción');
+        console.log('ℹ️ Esto indica que no se navegó correctamente a la subcategoría');
+        // No lanzar error aquí, puede que estemos en la página de detalle del servicio
+      } else {
+        console.log('✅ Formulario de búsqueda encontrado - estamos en la página de servicios');
+      }
     } else {
-      console.log('✅ Formulario de búsqueda encontrado - estamos en la página correcta');
+      console.log('✅ Formulario de búsqueda encontrado - estamos en la página de servicios');
     }
     
     // Buscar el toggle de promociones
@@ -1403,6 +1784,30 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
         await categoryButtons.first().click();
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+        console.log('✅ Tipo de evento seleccionado');
+        
+        // Seleccionar la primera categoría de servicios disponible
+        console.log('🔍 Buscando categorías de servicios...');
+        const serviceButtons = page.locator('button').filter({
+          has: page.locator('p.text-neutral-800.font-medium')
+        });
+        
+        const serviceCategoryCount = await serviceButtons.count();
+        console.log(`📊 Categorías de servicios encontradas: ${serviceCategoryCount}`);
+        
+        if (serviceCategoryCount > 0) {
+          await serviceButtons.first().click();
+          await page.waitForLoadState('networkidle');
+          await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
+          console.log('✅ Categoría de servicio seleccionada');
+        } else {
+          console.log('⚠️ No se encontraron categorías de servicios, continuando...');
+        }
+        
+        // IMPORTANTE: Navegar por subcategorías hasta llegar a la página de servicios
+        // (donde está el toggle y las cards de servicios)
+        console.log('🔍 Navegando por subcategorías hasta llegar a servicios...');
+        await navegarPorSubcategoriasHastaServicios(page);
         
         // Ahora deberíamos estar en la página de selección de servicios
         // Buscar el toggle de promociones

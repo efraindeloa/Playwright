@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { login, showStepMessage } from '../utils';
+import { login, showStepMessage, safeWaitForTimeout } from '../utils';
 import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD } from '../config';
 
 // ============================================================================
@@ -781,104 +781,53 @@ test.describe('Dashboard de Promociones - Cliente', () => {
     }
     
     // Esperar a que aparezcan las sugerencias de Google Places
+    // Usar el mismo enfoque simple que funciona en cliente-eventos.spec.ts
     console.log('🔍 Esperando sugerencias de Google Places...');
-    console.log('⏳ Esperando 2 segundos para que Google Places cargue...');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2000); // Esperar a que aparezcan las sugerencias
     
-    // Intentar múltiples selectores para encontrar las sugerencias
+    // Intentar múltiples selectores para encontrar las sugerencias (usar el patrón que funciona en otras pruebas)
     let todasLasOpciones: any = null;
     let opcionesVisible = false;
     
-    // Estrategia 1: Buscar ul li.cursor-pointer (el que funciona en otras pruebas)
-    console.log('🔍 Estrategia 1: Buscando sugerencias con selector ul li.cursor-pointer...');
-    todasLasOpciones = page.locator('ul li.cursor-pointer');
-    
-    // Esperar a que aparezcan las opciones (intentar hasta 5 veces)
-    for (let intento = 1; intento <= 5; intento++) {
-      console.log(`   Intento ${intento}/5: Esperando 2 segundos...`);
-      await page.waitForTimeout(2000); // Esperar a que aparezcan las sugerencias
+    // Estrategia 1: Buscar ul con clases específicas (igual que cliente-eventos.spec.ts)
+    console.log('🔍 Estrategia 1: Buscando lista con selector ul.flex.flex-col.py-2...');
+    try {
+      const autocompleteList = page.locator('ul.flex.flex-col.py-2, ul[class*="flex"][class*="flex-col"]');
+      await autocompleteList.first().waitFor({ state: 'visible', timeout: 5000 });
       
-      const count = await todasLasOpciones.count();
-      console.log(`   Intento ${intento}/5: Encontrados ${count} elementos con ul li.cursor-pointer`);
+      const autocompleteOptions = autocompleteList.locator('li.cursor-pointer, li[class*="cursor-pointer"]');
+      await autocompleteOptions.first().waitFor({ state: 'visible', timeout: 3000 });
       
-      if (count > 0) {
-        const firstVisible = await todasLasOpciones.first().isVisible({ timeout: 1000 }).catch(() => false);
-        console.log(`   Intento ${intento}/5: Primer elemento visible: ${firstVisible}`);
-        opcionesVisible = firstVisible;
+      const optionsCount = await autocompleteOptions.count();
+      console.log(`📋 Opciones de ciudad encontradas: ${optionsCount}`);
+      
+      if (optionsCount > 0) {
+        todasLasOpciones = autocompleteOptions;
+        opcionesVisible = true;
+        console.log(`✅ Sugerencias encontradas con ul.flex.flex-col.py-2 (${optionsCount} opciones)`);
+      }
+    } catch (error) {
+      console.log(`⚠️ Estrategia 1 falló: ${error}`);
+      
+      // Fallback: usar selector alternativo (igual que cliente-eventos.spec.ts)
+      try {
+        console.log('🔍 Intentando selector alternativo: li.cursor-pointer.flex.items-center...');
+        const autocompleteOptionsAlt = page.locator('li.cursor-pointer.flex.items-center, li[class*="cursor-pointer"]');
+        await autocompleteOptionsAlt.first().waitFor({ state: 'visible', timeout: 3000 });
         
-        if (opcionesVisible) {
-          console.log(`✅ Sugerencias encontradas con ul li.cursor-pointer (intento ${intento}, ${count} opciones)`);
-          break;
+        const optionsCountAlt = await autocompleteOptionsAlt.count();
+        console.log(`📋 Opciones encontradas (selector alternativo): ${optionsCountAlt}`);
+        
+        if (optionsCountAlt > 0) {
+          todasLasOpciones = autocompleteOptionsAlt;
+          opcionesVisible = true;
+          console.log(`✅ Sugerencias encontradas con selector alternativo (${optionsCountAlt} opciones)`);
         }
-      } else {
-        console.log(`   Intento ${intento}/5: No se encontraron elementos`);
+      } catch (error2) {
+        console.log(`⚠️ Selector alternativo también falló: ${error2}`);
       }
     }
     
-    // Estrategia 2: Si no se encontraron, buscar dentro del formulario
-    if (!opcionesVisible) {
-      console.log('🔍 Buscando sugerencias dentro del formulario...');
-      const form = page.locator('form#PromotionsSearchForm').first();
-      todasLasOpciones = form.locator('ul li.cursor-pointer, ul li, div[role="option"]');
-      
-      for (let intento = 1; intento <= 3; intento++) {
-        await page.waitForTimeout(2000);
-        const count = await todasLasOpciones.count();
-        opcionesVisible = count > 0 && await todasLasOpciones.first().isVisible({ timeout: 1000 }).catch(() => false);
-        
-        if (opcionesVisible) {
-          console.log(`✅ Sugerencias encontradas dentro del formulario (${count} opciones)`);
-          break;
-        }
-      }
-    }
-    
-    // Estrategia 3: Buscar cualquier lista cerca del campo de ubicación
-    if (!opcionesVisible) {
-      console.log('🔍 Buscando sugerencias cerca del campo de ubicación...');
-      const locationContainer = locationInput.locator('..').locator('..'); // Subir dos niveles
-      todasLasOpciones = locationContainer.locator('ul li, div[role="option"], li.cursor-pointer');
-      
-      for (let intento = 1; intento <= 3; intento++) {
-        await page.waitForTimeout(2000);
-        const count = await todasLasOpciones.count();
-        opcionesVisible = count > 0 && await todasLasOpciones.first().isVisible({ timeout: 1000 }).catch(() => false);
-        
-        if (opcionesVisible) {
-          console.log(`✅ Sugerencias encontradas cerca del campo (${count} opciones)`);
-          break;
-        }
-      }
-    }
-    
-    // Estrategia 4: Buscar en toda la página cualquier lista con opciones
-    if (!opcionesVisible) {
-      console.log('🔍 Buscando sugerencias en toda la página...');
-      todasLasOpciones = page.locator('ul li, div[role="option"], li[class*="cursor"]');
-      
-      for (let intento = 1; intento <= 3; intento++) {
-        await page.waitForTimeout(2000);
-        const count = await todasLasOpciones.count();
-        console.log(`📊 Total de elementos encontrados: ${count}`);
-        
-        // Filtrar solo los que son visibles y están cerca del campo de ubicación
-        for (let i = 0; i < Math.min(count, 10); i++) {
-          const opcion = todasLasOpciones.nth(i);
-          const isVisible = await opcion.isVisible().catch(() => false);
-          const text = await opcion.textContent().catch(() => '');
-          console.log(`   Opción ${i + 1}: visible=${isVisible}, text="${text?.substring(0, 50)}"`);
-          
-          if (isVisible && text && (text.includes('Tepatitlán') || text.includes('Jalisco') || text.includes('Mexico'))) {
-            todasLasOpciones = page.locator('ul li, div[role="option"], li[class*="cursor"]').filter({ hasText: text.substring(0, 20) });
-            opcionesVisible = true;
-            console.log(`✅ Sugerencia relevante encontrada: "${text.substring(0, 50)}"`);
-            break;
-          }
-        }
-        
-        if (opcionesVisible) break;
-      }
-    }
     
     if (!opcionesVisible || !todasLasOpciones) {
       throw new Error('❌ No aparecieron opciones de ubicación de Google Places. La prueba no puede continuar sin seleccionar una ubicación válida.');
@@ -892,27 +841,17 @@ test.describe('Dashboard de Promociones - Cliente', () => {
       throw new Error('❌ No se encontraron opciones de ubicación para seleccionar.');
     }
     
-    // Seleccionar la primera opción
+    // Seleccionar la primera opción (igual que cliente-eventos.spec.ts)
     const primeraOpcion = todasLasOpciones.first();
     const textoOpcion = await primeraOpcion.textContent().catch(() => '');
-    console.log(`🖱️ Seleccionando primera opción: "${textoOpcion?.trim()}"`);
-    
-    // Hacer scroll hasta la opción si es necesario
-    await primeraOpcion.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
+    console.log(`📋 Seleccionando ciudad: "${textoOpcion?.trim()}"`);
     
     // Guardar el valor antes de hacer clic para verificar que cambió
     const valorAntes = await locationInput.inputValue().catch(() => '');
     
-    // Intentar hacer clic
-    try {
-      await primeraOpcion.click({ timeout: 3000 });
-    } catch (error) {
-      console.log(`⚠️ Error al hacer clic normal, intentando con force...`);
-      await primeraOpcion.click({ force: true, timeout: 3000 });
-    }
-    
-    await page.waitForTimeout(2000);
+    // Hacer clic en la primera opción (igual que cliente-eventos.spec.ts)
+    await primeraOpcion.click();
+    await safeWaitForTimeout(page, 1500);
     
     // Verificar que la ubicación cambió después de seleccionar
     const valorDespues = await locationInput.inputValue().catch(() => '');
@@ -921,24 +860,20 @@ test.describe('Dashboard de Promociones - Cliente', () => {
     
     if (valorDespues === valorAntes || valorDespues === 'Tepatitlan') {
       // Intentar hacer clic nuevamente o verificar si hay algún error
-      await page.waitForTimeout(1000);
+      console.log('⚠️ La ubicación no cambió después del primer clic, intentando de nuevo...');
+      await primeraOpcion.click({ force: true });
+      await safeWaitForTimeout(page, 2000);
       const valorFinal = await locationInput.inputValue().catch(() => '');
       if (valorFinal === 'Tepatitlan' || valorFinal === valorAntes) {
-        console.log('⚠️ La ubicación no cambió después del primer clic, intentando de nuevo...');
-        await primeraOpcion.click({ force: true });
-        await page.waitForTimeout(2000);
-        const valorFinal2 = await locationInput.inputValue().catch(() => '');
-        if (valorFinal2 === 'Tepatitlan' || valorFinal2 === valorAntes) {
-          console.log('⚠️ La ubicación aún no cambió, pero continuando con la prueba...');
-        } else {
-          console.log(`✅ Ubicación seleccionada correctamente: "${valorFinal2}"`);
-        }
+        console.log('⚠️ La ubicación aún no cambió, pero continuando con la prueba...');
       } else {
         console.log(`✅ Ubicación seleccionada correctamente: "${valorFinal}"`);
       }
     } else {
       console.log(`✅ Ubicación seleccionada correctamente: "${valorDespues}"`);
     }
+    
+    await page.waitForTimeout(1000);
     
     // Obtener barra de búsqueda
     let searchBar = page.locator('input#Search').first();
