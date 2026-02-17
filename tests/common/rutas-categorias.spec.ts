@@ -289,10 +289,10 @@ async function validarEstructuraSubcategoria(
 }
 
 // ============================================
-// GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+// PRUEBAS: Familia (estructura por ruta), Categoría, Navegación, Breadcrumb, Búsqueda, Rutas accesibles
 // ============================================
 
-test('Validar estructura de la ruta de Familia (/c/alimentos)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/alimentos – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -373,7 +373,7 @@ test('Validar estructura de la ruta de Familia (/c/alimentos)', async ({ page })
   console.log(`✅ Se encontraron ${countCategorias} categorías visibles`);
 });
 
-test('Validar estructura de la ruta de Familia (/c/decoracion)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/decoracion – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -393,7 +393,7 @@ test('Validar estructura de la ruta de Familia (/c/decoracion)', async ({ page }
   );
 });
 
-test('Validar estructura de la ruta de Familia (/c/entretenimiento)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/entretenimiento – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -427,7 +427,7 @@ test('Validar estructura de la ruta de Familia (/c/entretenimiento)', async ({ p
 //   Esta ruta no está disponible en staging.fiestamas.com
 // });
 
-test('Validar estructura de la ruta de Familia (/c/lugares)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/lugares – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -453,7 +453,7 @@ test('Validar estructura de la ruta de Familia (/c/lugares)', async ({ page }) =
 //   Esta ruta redirige a servicios directos, no muestra categorías intermedias
 // });
 
-test('Validar estructura de la ruta de Familia (/c/bebidas)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/bebidas – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -471,7 +471,7 @@ test('Validar estructura de la ruta de Familia (/c/bebidas)', async ({ page }) =
   );
 });
 
-test('Validar estructura de la ruta de Familia (/c/musica)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/musica – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -503,7 +503,7 @@ test('Validar estructura de la ruta de Familia (/c/musica)', async ({ page }) =>
 //   Esta ruta redirige a servicios directos, no muestra categorías intermedias
 // });
 
-test('Validar estructura de la ruta de Familia (/c/mesa-de-regalos)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/mesa-de-regalos – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -516,7 +516,7 @@ test('Validar estructura de la ruta de Familia (/c/mesa-de-regalos)', async ({ p
   );
 });
 
-test('Validar estructura de la ruta de Familia (/c/servicios-especializados)', async ({ page }) => {
+test('Rutas Categorías: Familia /c/servicios-especializados – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
   
   await validarEstructuraFamilia(
@@ -545,7 +545,7 @@ test('Validar estructura de la ruta de Familia (/c/servicios-especializados)', a
   );
 });
 
-test('Validar estructura de la ruta de Categoría (/c/alimentos/after-party)', async ({ page }) => {
+test('Rutas Categorías: Categoría /c/alimentos/after-party – Validar estructura', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -646,7 +646,7 @@ test('Validar estructura de la ruta de Categoría (/c/alimentos/after-party)', a
 // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
 // ============================================
 
-test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos/after-party)', async ({ page }) => {
+test('Rutas Categorías: Familia a Categoría – Navegar', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -688,7 +688,7 @@ test('Navegar desde Familia a Categoría (/c/alimentos -> /c/alimentos/after-par
   console.log('✅ Contenido de After Party visible');
 });
 
-test('Navegar desde Categoría a Sub-categoría (/c/alimentos/after-party -> servicios)', async ({ page }) => {
+test('Rutas Categorías: Categoría a Subcategoría – Navegar', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -731,7 +731,7 @@ test('Navegar desde Categoría a Sub-categoría (/c/alimentos/after-party -> ser
   console.log('✅ Navegación a subcategoría exitosa');
 });
 
-test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ page }) => {
+test('Rutas Categorías: Breadcrumb – Subcategoría a Categoría', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -869,7 +869,7 @@ test('Navegar usando breadcrumb desde Sub-categoría a Categoría', async ({ pag
   }
 });
 
-test('Navegar usando breadcrumb desde Categoría a Familia', async ({ page }) => {
+test('Rutas Categorías: Breadcrumb – Categoría a Familia', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -908,7 +908,7 @@ test('Navegar usando breadcrumb desde Categoría a Familia', async ({ page }) =>
   }
 });
 
-test('Validar funcionalidad de búsqueda en Sub-categoría (servicios de hamburguesas)', async ({ page }) => {
+test('Rutas Categorías: Búsqueda – Validar en subcategoría', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1214,7 +1214,7 @@ async function obtenerSubcategoriasDeCategoria(page: Page): Promise<Array<{ name
   return subcategorias;
 }
 
-test('Validar que todas las rutas de familias principales y sus subcategorías son accesibles', async ({ page }) => {
+test('Rutas Categorías: Rutas principales – Validar accesibilidad', async ({ page }) => {
   test.setTimeout(600000); // 10 minutos para validar familias, categorías y subcategorías
 
   // Iniciar sesión como cliente antes de empezar la validación

@@ -270,7 +270,11 @@ test.describe('Cotizaciones', () => {
     // Login y navegación se harán en cada test según sea necesario
   });
 
-  test('Validar que se muestran todos los elementos de una cotización', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Elementos, Interacción, Nota, Chat, Video, Notificación, Cancelar, Evento cancelado
+  // ============================================
+
+  test('Cotización Cliente: Página – Validar elementos', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos
 
     console.log('🚀 Iniciando validación de elementos completos de la página de cotización...');
@@ -933,7 +937,7 @@ test.describe('Cotizaciones', () => {
     console.log('🎉 PRUEBA COMPLETADA: Validar elementos completos de la página de cotización');
   });
 
-  test('Interactuar Con Elementos De Una Cotización No Cancelada', async ({ page }) => {
+  test('Cotización Cliente: Cotización no cancelada – Interactuar con elementos', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Validar otra cotización sin cancelar');
@@ -2122,7 +2126,7 @@ test.describe('Cotizaciones', () => {
   });
 
 
-  test('Agregar Una Nota', async ({ page }) => {
+  test('Cotización Cliente: Nota – Agregar', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Agregar una nota');
@@ -2382,7 +2386,7 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Prueba de agregar nota completada');
   });
 
-  test('Probar Funcionalidad Completa Del Chat', async ({ page }) => {
+  test('Cotización Cliente: Chat – Validar funcionalidad completa', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Probar funcionalidad completa del chat');
@@ -3256,7 +3260,7 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Prueba de funcionalidad completa del chat completada');
   });
 
-  test('Confirmar Formatos De Video No Soportados Por La Aplicación', async ({ page }) => {
+  test('Cotización Cliente: Video – Formatos no soportados', async ({ page }) => {
     test.setTimeout(300000); // 5 minutos (más tiempo porque probamos formatos problemáticos)
 
     console.log('🚀 INICIANDO PRUEBA: Confirmar formatos de video no soportados');
@@ -3560,7 +3564,7 @@ test.describe('Cotizaciones', () => {
     console.log(`\n${'='.repeat(80)}\n`);
   });
 
-  test('Mostrar Datos De La Cotización Que Coinciden Con La Notificación Seleccionada', async ({ page }) => {
+  test('Cotización Cliente: Notificación – Datos coinciden con cotización', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
 
     await showStepMessage(page, '🔍 VALIDANDO COINCIDENCIA DE DATOS');
@@ -3669,7 +3673,7 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Validación de coincidencia de datos completada');
   });
 
-  test('Cancelar Una Negociación', async ({ page }) => {
+  test('Cotización Cliente: Negociación – Cancelar', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
 
     console.log('🚀 INICIANDO PRUEBA: Cancelar una negociación');
@@ -4185,7 +4189,7 @@ test.describe('Cotizaciones', () => {
     console.log('✅ Prueba de cancelar negociación completada');
   });
 
-  test('Se deshabilita la interacción cuando un evento está cancelado', async ({ page }) => {
+  test('Cotización Cliente: Evento cancelado – Interacción deshabilitada', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
 
     await showStepMessage(page, '❌ VALIDANDO EVENTO CANCELADO');

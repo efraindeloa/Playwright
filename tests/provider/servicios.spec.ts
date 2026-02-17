@@ -100,8 +100,9 @@ test.beforeEach(async ({ page }) => {
   }
 });
 
+test.describe('Gestión de Servicios', () => {
 
-test('Crear servicio', async ({ page }) => {
+  test('Servicios Proveedor: Crear – Crear servicio', async ({ page }) => {
   test.setTimeout(600000); // 10 minutos
   // Ya está logueado por beforeEach
 
@@ -780,7 +781,7 @@ test('Crear servicio', async ({ page }) => {
 });
 
 
-test('Editar servicio', async ({ page }) => {
+  test('Servicios Proveedor: Editar – Editar servicio', async ({ page }) => {
   test.setTimeout(600000); // 10 minutos
   // Ya está logueado por beforeEach
 
@@ -1187,7 +1188,7 @@ test('Editar servicio', async ({ page }) => {
   console.log('✅ Regreso al administrador de servicios completado');
 });
 
-test('Eliminar servicio', async ({ page }) => {
+  test('Servicios Proveedor: Eliminar – Eliminar servicio', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
@@ -1247,7 +1248,7 @@ test('Eliminar servicio', async ({ page }) => {
 });
 
 
-test('Activar servicio', async ({ page }) => {
+  test('Servicios Proveedor: Activar – Activar servicio', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
@@ -1468,7 +1469,7 @@ test('Activar servicio', async ({ page }) => {
 });
 
 
-test('Desactivar servicio', async ({ page }) => {
+  test('Servicios Proveedor: Desactivar – Desactivar servicio', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
@@ -1643,7 +1644,7 @@ test('Desactivar servicio', async ({ page }) => {
 });
 
 
-test('Buscar servicios', async ({ page }) => {
+  test('Servicios Proveedor: Buscar – Buscar servicios', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR AL ADMINISTRADOR DE SERVICIOS ---
@@ -1726,7 +1727,7 @@ test('Buscar servicios', async ({ page }) => {
   console.log('✅ Búsqueda de servicios completada');
 });
 
-test('Filtrar servicios', async ({ page }) => {
+  test('Servicios Proveedor: Filtrar – Filtrar servicios', async ({ page }) => {
   // Ya está logueado por beforeEach
 
   // --- ADMINISTRAR SERVICIOS ---
@@ -1888,7 +1889,7 @@ test('Filtrar servicios', async ({ page }) => {
   console.log(`  ✅ Estado restaurado: ${afterClearCount === initialServiceCount ? 'Sí' : 'Parcial'}`);
 });
 
-test('Navegar a chats desde servicios', async ({ page }) => {
+  test('Servicios Proveedor: Navegación – Navegar a chats', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR A PÁGINA DE SERVICIOS ---
@@ -1941,7 +1942,7 @@ test('Navegar a chats desde servicios', async ({ page }) => {
   }
 });
 
-test('Navegar a perfil desde servicios', async ({ page }) => {
+  test('Servicios Proveedor: Navegación – Navegar a perfil', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR A PÁGINA DE SERVICIOS ---
@@ -2000,7 +2001,7 @@ test('Navegar a perfil desde servicios', async ({ page }) => {
   }
 });
 
-test('Navegar a home desde servicios', async ({ page }) => {
+  test('Servicios Proveedor: Navegación – Navegar a home', async ({ page }) => {
   test.setTimeout(60000); // 1 minuto
 
   // --- NAVEGAR A PÁGINA DE SERVICIOS ---
@@ -2063,4 +2064,5 @@ test('Navegar a home desde servicios', async ({ page }) => {
   } else {
     console.log('⚠️ No se encontró enlace a home en la página de servicios');
   }
+  });
 });

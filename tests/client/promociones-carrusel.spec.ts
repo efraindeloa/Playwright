@@ -215,10 +215,11 @@ test.describe('Carrusel de Promociones Contextual', () => {
     await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
   });
 
-  // ============================================================================
-  // TEST 1: Carrusel aparece en Dashboard
-  // ============================================================================
-  test('Carrusel aparece en Dashboard del cliente', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Dashboard, Categorías, Paginación, CTA, Card, Overlay, Textos, Viewports
+  // ============================================
+
+  test('Promociones Carrusel: Dashboard – Carrusel visible', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando carrusel en Dashboard');
     
     await page.goto(DASHBOARD_URL);
@@ -277,10 +278,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
     }
   });
 
-  // ============================================================================
-  // TEST 3: Carrusel aparece en navegación por Categorías (TODAS las categorías)
-  // ============================================================================
-  test('Carrusel aparece en navegación por Categorías y subcategorías', async ({ page }) => {
+  test('Promociones Carrusel: Categorías – Carrusel visible en navegación', async ({ page }) => {
     test.setTimeout(DEFAULT_TIMEOUT * 4); // Timeout ampliado para cubrir todas las categorías (12 minutos)
     
     await showStepMessage(page, '🔍 Verificando carrusel en navegación por TODAS las Categorías');
@@ -429,7 +427,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 10: Paginación - 10 promociones por grupo, máximo 3 grupos
   // ============================================================================
-  test('Paginación muestra 10 promociones por grupo hasta máximo 3 grupos', async ({ page }) => {
+  test('Promociones Carrusel: Paginación – 10 promociones por grupo (máx. 3 grupos)', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando paginación del carrusel');
     
     await page.goto(DASHBOARD_URL);
@@ -512,7 +510,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
    * - Con ≤30 promociones: NO debe aparecer el CTA
    * - Con >30 promociones: SÍ debe aparecer el CTA y debe navegar correctamente
    */
-  test('Validar comportamiento del CTA "Ver todas las promociones" en carrusel', async ({ page }) => {
+  test('Promociones Carrusel: CTA Ver todas – Validar comportamiento', async ({ page }) => {
     await showStepMessage(page, '🔍 VALIDANDO COMPORTAMIENTO DEL CTA "VER TODAS LAS PROMOCIONES"');
     
     // Interceptar llamadas API para contar promociones totales
@@ -835,7 +833,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 12: CTA navega a "Todas las promociones"
   // ============================================================================
-  test('CTA "Ver todas las promociones" navega a la pantalla correcta', async ({ page }) => {
+  test('Promociones Carrusel: CTA Ver todas – Navegar a pantalla correcta', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando navegación del CTA');
     
     await page.goto(DASHBOARD_URL);
@@ -871,7 +869,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 13: Estado vacío - Carrusel se oculta si no hay promociones activas
   // ============================================================================
-  test('Carrusel se oculta si no hay promociones activas en todo Fiestamas', async ({ page }) => {
+  test('Promociones Carrusel: Sin promociones – Carrusel oculto', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando estado vacío del carrusel');
     
     await page.goto(DASHBOARD_URL);
@@ -904,7 +902,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 14: Estructura de la card de promoción - Elementos obligatorios
   // ============================================================================
-  test('Card de promoción contiene todos los elementos obligatorios', async ({ page }) => {
+  test('Promociones Carrusel: Card – Validar elementos obligatorios', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando estructura de la card de promoción');
     
     await page.goto(DASHBOARD_URL);
@@ -989,7 +987,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 15: Card de promoción es completamente clicable
   // ============================================================================
-  test('Card de promoción es completamente clicable y navega al servicio', async ({ page }) => {
+  test('Promociones Carrusel: Card – Clicable y navega al servicio', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando que la card es clicable');
     
     await page.goto(DASHBOARD_URL);
@@ -1032,7 +1030,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 16: Overlay de contraste en imagen
   // ============================================================================
-  test('Overlay de contraste garantiza legibilidad del título sobre la imagen', async ({ page }) => {
+  test('Promociones Carrusel: Overlay – Legibilidad del título sobre imagen', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando overlay de contraste');
     
     await page.goto(DASHBOARD_URL);
@@ -1088,7 +1086,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 17: Truncamiento de textos largos
   // ============================================================================
-  test('Textos largos se truncen correctamente sin romper el layout', async ({ page }) => {
+  test('Promociones Carrusel: Textos largos – Truncado correcto sin romper layout', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando truncamiento de textos');
     
     await page.goto(DASHBOARD_URL);
@@ -1130,7 +1128,7 @@ test.describe('Carrusel de Promociones Contextual', () => {
   // ============================================================================
   // TEST 18: Diseño mobile-first
   // ============================================================================
-  test('Carrusel se adapta correctamente a diferentes viewports (mobile-first)', async ({ page }) => {
+  test('Promociones Carrusel: Viewports – Adaptación (mobile-first)', async ({ page }) => {
     await showStepMessage(page, '🔍 Verificando diseño mobile-first');
     
     // Probar en viewport móvil

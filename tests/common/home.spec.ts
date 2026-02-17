@@ -3,10 +3,10 @@ import { DEFAULT_BASE_URL } from '../config';
 import { showStepMessage, safeWaitForTimeout } from '../utils';
 
 // ============================================
-// GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+// PRUEBAS: Elementos técnicos, Navbar, Hero banner, Categorías, Tipos de eventos, Estímulos, Footer
 // ============================================
 
-test('Validar elementos técnicos únicos de la página de inicio', async ({ page }) => {
+test('Home: Página – Validar elementos técnicos', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -189,7 +189,7 @@ test('Validar elementos técnicos únicos de la página de inicio', async ({ pag
 // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
 // ============================================
 
-test('Validar funcionalidad del navbar superior', async ({ page }) => {
+test('Home: Navbar – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1032,7 +1032,7 @@ test('Validar funcionalidad del navbar superior', async ({ page }) => {
   console.log('✅ Validación de funcionalidad del navbar completada exitosamente');
 });
 
-test('Validar funcionalidad del hero banner', async ({ page }) => {
+test('Home: Hero banner – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(60000);
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1388,7 +1388,7 @@ test('Validar funcionalidad del hero banner', async ({ page }) => {
   console.log('✅ Validación de funcionalidad del hero banner completada exitosamente');
 });
 
-test('Validar funcionalidad de la sección de categorías', async ({ page }) => {
+test('Home: Categorías – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(180000); // 3 minutos para validar todas las categorías
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1626,7 +1626,7 @@ test('Validar funcionalidad de la sección de categorías', async ({ page }) => 
   console.log('✅ Validación de funcionalidad de categorías completada exitosamente');
 });
 
-test('Validar funcionalidad de los botones de tipos de eventos', async ({ page }) => {
+test('Home: Tipos de eventos – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(180000); // 3 minutos para validar todos los eventos
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1780,7 +1780,7 @@ test('Validar funcionalidad de los botones de tipos de eventos', async ({ page }
   console.log('✅ Validación de funcionalidad de eventos completada exitosamente');
 });
 
-test('Validar funcionalidad de los botones de estímulos', async ({ page }) => {
+test('Home: Estímulos – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(120000); // 2 minutos para validar todos los estímulos
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;
@@ -1891,7 +1891,7 @@ test('Validar funcionalidad de los botones de estímulos', async ({ page }) => {
   console.log('✅ Validación de funcionalidad de estímulos completada exitosamente');
 });
 
-test('Validar funcionalidad del footer', async ({ page }) => {
+test('Home: Footer – Validar funcionalidad', async ({ page }) => {
   test.setTimeout(120000); // 2 minutos para validar todos los enlaces del footer
 
   const BASE_URL = process.env.HOME_BASE_URL ?? DEFAULT_BASE_URL;

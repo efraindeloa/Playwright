@@ -68,7 +68,11 @@ test.describe('Estadísticas de proveedor', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('Navegar a página de visualizaciones desde dashboard', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Visualizaciones (navegar, elementos, filtro, regreso), Solicitudes (navegar, elementos, filtro, regreso)
+  // ============================================
+
+  test('Estadísticas Proveedor: Visualizaciones – Navegar desde dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -245,7 +249,7 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('Validar elementos de la página de visualizaciones', async ({ page }) => {
+  test('Estadísticas Proveedor: Visualizaciones – Validar elementos', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -449,7 +453,7 @@ test.describe('Estadísticas de proveedor', () => {
     console.log(`  ✅ Botón de regreso: Visible`);
   });
 
-  test('Interactuar con botón de filtro en visualizaciones', async ({ page }) => {
+  test('Estadísticas Proveedor: Visualizaciones – Filtro', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -481,7 +485,7 @@ test.describe('Estadísticas de proveedor', () => {
     await expect(botonFiltro).toBeEnabled();
   });
 
-  test('Navegar de regreso desde visualizaciones al dashboard', async ({ page }) => {
+  test('Estadísticas Proveedor: Visualizaciones – Regreso al dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -513,7 +517,7 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('Navegar a página de solicitudes desde dashboard', async ({ page }) => {
+  test('Estadísticas Proveedor: Solicitudes – Navegar desde dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -686,7 +690,7 @@ test.describe('Estadísticas de proveedor', () => {
     }
   });
 
-  test('Validar elementos de la página de solicitudes', async ({ page }) => {
+  test('Estadísticas Proveedor: Solicitudes – Validar elementos', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -898,7 +902,7 @@ test.describe('Estadísticas de proveedor', () => {
     console.log(`  ✅ Botón de regreso: Visible`);
   });
 
-  test('Interactuar con botón de filtro en solicitudes', async ({ page }) => {
+  test('Estadísticas Proveedor: Solicitudes – Filtro', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     
@@ -925,7 +929,7 @@ test.describe('Estadísticas de proveedor', () => {
     await expect(botonFiltro).toBeEnabled();
   });
 
-  test('Navegar de regreso desde solicitudes al dashboard', async ({ page }) => {
+  test('Estadísticas Proveedor: Solicitudes – Regreso al dashboard', async ({ page }) => {
     // Verificar si el proveedor tiene servicios
     const tieneServicios = await verificarSiTieneServicios(page);
     

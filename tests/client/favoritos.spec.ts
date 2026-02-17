@@ -1153,7 +1153,7 @@ test.describe('Favoritos del cliente', () => {
   test.beforeEach(async ({ page, browser }, testInfo) => {
     // La prueba "Desmarcar servicio como favorito desde la página de favoritos" 
     // no necesita obtener servicios del proveedor
-    const esPruebaDesmarcarDesdeFavoritos = testInfo.title.includes('Desmarcar servicio como favorito desde la página de favoritos');
+    const esPruebaDesmarcarDesdeFavoritos = testInfo.title.includes('Favoritos Cliente: Página favoritos – Desmarcar servicio');
     
     // Obtener servicios del proveedor solo la primera vez y solo si la prueba los necesita
     if (!serviciosObtenidos && !esPruebaDesmarcarDesdeFavoritos) {
@@ -1180,7 +1180,11 @@ test.describe('Favoritos del cliente', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('Marcar servicio como favorito', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Marcar favorito, Desmarcar (desde servicio), Desmarcar (desde página favoritos)
+  // ============================================
+
+  test('Favoritos Cliente: Servicio – Marcar como favorito', async ({ page }) => {
     // Asegurarse de estar deslogueado del proveedor y logueado como cliente
     await showStepMessage(page, '🔄 ASEGURANDO SESIÓN COMO CLIENTE');
     
@@ -1358,7 +1362,7 @@ test.describe('Favoritos del cliente', () => {
     }
   });
 
-  test('Desmarcar servicio como favorito', async ({ page }) => {
+  test('Favoritos Cliente: Servicio – Desmarcar como favorito', async ({ page }) => {
     // Seleccionar el primer servicio disponible
     const servicio = serviciosDelProveedor[0];
     expect(servicio).toBeDefined();
@@ -1438,7 +1442,189 @@ test.describe('Favoritos del cliente', () => {
     console.log('ℹ️ Verificación completada. El servicio debería estar desmarcado como favorito.');
   });
 
-  test('Desmarcar servicio como favorito desde la página de favoritos', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Marcar favorito, Desmarcar (desde servicio), Desmarcar (desde página favoritos)
+  // ============================================
+
+  test('Favoritos Cliente: Servicio – Volver a marcar como favorito', async ({ page }) => {
+    // Asegurarse de estar deslogueado del proveedor y logueado como cliente
+    await showStepMessage(page, '🔄 ASEGURANDO SESIÓN COMO CLIENTE');
+    
+    // Limpiar cookies y storage para asegurar que no haya sesión activa del proveedor
+    await page.context().clearCookies();
+    
+    // Navegar a una página válida antes de limpiar storage
+    try {
+      await page.goto(DEFAULT_BASE_URL);
+      await page.waitForLoadState('domcontentloaded');
+      await page.evaluate(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
+    } catch (e) {
+      console.log('⚠️ Error al limpiar storage, continuando...');
+    }
+    
+    // Verificar que estamos logueados como cliente (si no, hacer login)
+    const isLoggedIn = await page.locator('button:has(i.icon-user), a:has(i.icon-user)').isVisible({ timeout: 3000 }).catch(() => false);
+    
+    if (!isLoggedIn) {
+      console.log('📋 No hay sesión activa, iniciando sesión como cliente...');
+      await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+    } else {
+      console.log('✅ Ya hay una sesión activa, verificando que sea del cliente...');
+      // Verificar que la sesión es del cliente y no del proveedor
+      // Si estamos en una página del proveedor, hacer logout y login como cliente
+      const currentUrl = page.url();
+      if (currentUrl.includes('/provider/')) {
+        console.log('⚠️ Detectada sesión de proveedor, cerrando sesión...');
+        // Buscar botón de logout o menú de usuario
+        try {
+          const userMenu = page.locator('button:has(i.icon-user), a:has(i.icon-user)').first();
+          await userMenu.click();
+          await safeWaitForTimeout(page, 1000);
+          
+          const logoutButton = page.locator('button:has-text("Cerrar sesión"), button:has-text("Logout"), a:has-text("Cerrar sesión")').first();
+          const logoutVisible = await logoutButton.isVisible({ timeout: 3000 }).catch(() => false);
+          if (logoutVisible) {
+            await logoutButton.click();
+            await page.waitForLoadState('networkidle');
+            await safeWaitForTimeout(page, 2000);
+          }
+        } catch (e) {
+          console.log('⚠️ No se pudo hacer logout explícito, limpiando cookies...');
+          await page.context().clearCookies();
+          await page.goto(DEFAULT_BASE_URL);
+          await page.waitForLoadState('networkidle');
+        }
+        
+        // Hacer login como cliente
+        await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+        await page.waitForLoadState('networkidle');
+        await safeWaitForTimeout(page, 2000);
+      }
+    }
+    
+    // Buscar un servicio que NO esté marcado como favorito
+    await showStepMessage(page, '🔍 BUSCANDO SERVICIO SIN MARCAR COMO FAVORITO');
+    let servicioNoFavorito: ServicioInfo | null = null;
+    
+    // Limitar la búsqueda a los primeros 10 servicios para evitar tiempos de ejecución muy largos
+    // pero manteniendo la navegación completa como lo haría un humano
+    const maxServiciosAVerificar = Math.min(10, serviciosDelProveedor.length);
+    console.log(`📊 Verificando hasta ${maxServiciosAVerificar} servicios para encontrar uno no marcado como favorito...`);
+    console.log(`ℹ️ La prueba navegará por categorías como lo haría un usuario real (sin atajos)`);
+    
+    // Iterar por los servicios del proveedor para encontrar uno que no esté marcado como favorito
+    for (let i = 0; i < maxServiciosAVerificar; i++) {
+      const servicio = serviciosDelProveedor[i];
+      console.log(`\n🔍 Verificando servicio ${i + 1}/${maxServiciosAVerificar}: "${servicio.nombre}"`);
+      
+      // Navegar al servicio usando la navegación completa por categorías (como lo haría un humano)
+      const navegoCorrectamente = await navegarAServicioPorRuta(page, servicio);
+      if (!navegoCorrectamente) {
+        console.log(`   ⚠️ No se pudo navegar al servicio "${servicio.nombre}", intentando siguiente...`);
+        continue;
+      }
+      
+      // Esperar a que la página cargue
+      await page.waitForLoadState('networkidle');
+      await safeWaitForTimeout(page, 2000);
+      
+      // Verificar que estamos en la página del servicio
+      const urlActual = page.url();
+      if (!urlActual.includes('/service/') && !urlActual.includes('/services/')) {
+        console.log(`   ⚠️ No se detectó navegación a página de servicio (URL: ${urlActual}), intentando siguiente...`);
+        continue;
+      }
+      
+      // Esperar a que existan iconos de corazón (render dinámico)
+      await page.waitForSelector('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]', { timeout: 5000 }).catch(() => {});
+
+      // Buscar el botón de favoritos de forma robusta
+      const candidatos = page.locator('button').filter({
+        has: page.locator('i.icon.icon-heart, i.icon-heart, i[class*="icon-heart"]')
+      }).filter({
+        hasNot: page.locator('i[class*="share"]')
+      });
+
+      const totalCandidatos = await candidatos.count();
+      let botonFavoritos: ReturnType<typeof page.locator> | null = null;
+      for (let idx = 0; idx < totalCandidatos; idx++) {
+        const btn = candidatos.nth(idx);
+        const visible = await btn.isVisible({ timeout: 1000 }).catch(() => false);
+        if (visible) {
+          botonFavoritos = btn;
+          break;
+        }
+      }
+
+      if (!botonFavoritos) {
+        console.log(`   ⚠️ No se encontró el botón de favoritos para "${servicio.nombre}", intentando siguiente...`);
+        continue;
+      }
+
+      // Verificar el estado actual del favorito (solo sólido indica marcado)
+      const iconElement = botonFavoritos.locator('i.icon-heart-solid, i[class*="heart-solid"]').first();
+      const estaMarcado = await iconElement.count().then(c => c > 0);
+      
+      console.log(`   📊 Estado del favorito: ${estaMarcado ? '✅ MARCADO' : '❌ NO MARCADO'}`);
+      
+      if (!estaMarcado) {
+        // ¡Encontramos un servicio que no está marcado como favorito!
+        servicioNoFavorito = servicio;
+        console.log(`\n✅ Servicio encontrado que NO está marcado como favorito: "${servicio.nombre}"`);
+        break;
+      } else {
+        console.log(`   ℹ️ El servicio "${servicio.nombre}" ya está marcado como favorito, buscando otro...`);
+      }
+    }
+    
+    // Verificar que encontramos un servicio
+    if (!servicioNoFavorito) {
+      throw new Error('❌ No se encontró ningún servicio del proveedor fiestamasqaprv@gmail.com que no esté marcado como favorito');
+    }
+    
+    const servicio = servicioNoFavorito;
+    expect(servicio).toBeDefined();
+    expect(servicio.nombre).toBeTruthy();
+    
+    console.log(`\n📋 Usando servicio: "${servicio.nombre}"`);
+
+    // Marcar como favorito usando la función reutilizable
+    const exito = await marcarServicioComoFavorito(page);
+    expect(exito).toBe(true);
+
+    // Verificar en la página de favoritos
+    await showStepMessage(page, '🔍 VERIFICANDO EN PÁGINA DE FAVORITOS');
+    await safeWaitForTimeout(page, 2000);
+
+    await page.goto(FAVORITES_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, WAIT_FOR_PAGE_LOAD);
+
+    const urlActual = page.url();
+    expect(urlActual).toContain('favorites');
+    console.log('✅ Navegó a la página de favoritos');
+
+    // Buscar el servicio en favoritos
+    const serviciosEnFavoritos = page.locator('button, div').filter({
+      has: page.locator('img[src*="imagedelivery"], img[alt]')
+    });
+
+    const cantidadServicios = await serviciosEnFavoritos.count();
+    console.log(`📊 Servicios encontrados en favoritos: ${cantidadServicios}`);
+
+    if (cantidadServicios > 0) {
+      console.log('✅ El servicio aparece en la lista de favoritos');
+    } else {
+      console.log('⚠️ No se encontraron servicios en favoritos (puede que necesite tiempo para cargar)');
+    }
+  });
+
+  test('Favoritos Cliente: Página favoritos – Desmarcar servicio', async ({ page }) => {
     // Esta prueba no necesita obtener servicios del proveedor
     // Solo necesita desmarcar cualquier servicio que esté marcado como favorito
     

@@ -24,7 +24,11 @@ test.describe('Perfil de cliente', () => {
     await page.waitForTimeout(2000);
   });
 
-  test('Se muestran todos los elementos de la página de perfil', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Elementos, Datos personales, Foto (actualizar/eliminar), Contraseña
+  // ============================================
+
+  test('Perfil Cliente: Página – Validar elementos', async ({ page }) => {
     await showStepMessage(page, '👤 VALIDANDO ELEMENTOS DEL PERFIL');
     await page.waitForTimeout(1000);
     
@@ -237,7 +241,7 @@ test.describe('Perfil de cliente', () => {
     console.log('✅ Validación de elementos del perfil completada exitosamente');
   });
 
-  test('Se pueden editar los datos personales', async ({ page }) => {
+  test('Perfil Cliente: Datos personales – Editar', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '👤 EDITANDO DATOS PERSONALES');
@@ -356,7 +360,7 @@ test.describe('Perfil de cliente', () => {
     console.log('✅ Edición de datos personales completada');
   });
 
-  test('Se actualiza la foto de perfil', async ({ page }) => {
+  test('Perfil Cliente: Foto de perfil – Actualizar', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '📸 GESTIONANDO FOTO DE PERFIL');
@@ -484,7 +488,7 @@ test.describe('Perfil de cliente', () => {
     console.log('✅ Gestión de foto de perfil completada');
   });
 
-  test('Se puede eliminar la foto de perfil', async ({ page }) => {
+  test('Perfil Cliente: Foto de perfil – Eliminar', async ({ page }) => {
     test.setTimeout(150000); // 2.5 minutos
 
     await showStepMessage(page, '🗑️ ELIMINANDO FOTO DE PERFIL');
@@ -628,7 +632,7 @@ test.describe('Perfil de cliente', () => {
     console.log('✅ Eliminación de foto de perfil completada');
   });
 
-  test('Se puede cambiar la contraseña', async ({ page }) => {
+  test('Perfil Cliente: Contraseña – Cambiar', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '🔒 CAMBIANDO CONTRASEÑA');

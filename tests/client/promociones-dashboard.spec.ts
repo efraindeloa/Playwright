@@ -71,10 +71,11 @@ test.describe('Dashboard de Promociones - Cliente', () => {
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
   });
 
-  // ============================================================================
-  // TEST 1: Carga básica de la vista
-  // ============================================================================
-  test('Carga básica de la vista "Todas las promociones"', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Vista, Cards, Catálogo, Ordenamiento, Ubicación, Búsqueda, Paginación, Grid, Estado vacío, Beneficio neto, Favoritos, Navegación
+  // ============================================
+
+  test('Promociones Dashboard: Vista – Carga básica', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Buscando enlace "Ver todas las promociones"');
@@ -158,7 +159,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 2: Validar estructura completa de las cards de promociones
   // ============================================================================
-  test('Validar estructura completa de las cards de promociones', async ({ page }) => {
+  test('Promociones Dashboard: Cards – Validar estructura', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -362,7 +363,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 3: Catálogo mostrado - Todas las promociones disponibles
   // ============================================================================
-  test('Catálogo muestra todas las promociones disponibles', async ({ page }) => {
+  test('Promociones Dashboard: Catálogo – Mostrar promociones disponibles', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // Navegar al dashboard de promociones
@@ -409,7 +410,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 4: Ordenamiento por beneficio neto porcentual
   // ============================================================================
-  test('Ordenamiento por beneficio neto porcentual descendente', async ({ page }) => {
+  test('Promociones Dashboard: Ordenamiento – Beneficio neto descendente', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -493,7 +494,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 5: Promociones sin beneficio neto calculable
   // ============================================================================
-  test('Promociones sin beneficio neto aparecen después de las que sí tienen', async ({ page }) => {
+  test('Promociones Dashboard: Ordenamiento – Sin beneficio neto al final', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -552,7 +553,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 6: Filtrado por ubicación
   // ============================================================================
-  test('Solo se muestran promociones que cubren la ubicación del usuario', async ({ page }) => {
+  test('Promociones Dashboard: Ubicación – Filtrar por cobertura', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -587,7 +588,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 7: Búsqueda por texto
   // ============================================================================
-  test('Búsqueda filtra promociones por texto manteniendo orden de relevancia', async ({ page }) => {
+  test('Promociones Dashboard: Búsqueda – Filtrar por texto', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -968,7 +969,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 8: Paginación
   // ============================================================================
-  test('Paginación no altera el orden de las promociones', async ({ page }) => {
+  test('Promociones Dashboard: Paginación – No alterar orden', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -1043,7 +1044,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 9: Mobile-first - Grid responsivo
   // ============================================================================
-  test('Grid responsivo - Mobile-first', async ({ page }) => {
+  test('Promociones Dashboard: Grid – Responsivo (mobile-first)', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     // Probar en viewport móvil
@@ -1109,7 +1110,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 10: Mensajes de estado vacío
   // ============================================================================
-  test('Mensajes de estado vacío se muestran correctamente', async ({ page }) => {
+  test('Promociones Dashboard: Estado vacío – Mensajes correctos', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -1194,7 +1195,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 11: Cálculo de beneficio neto - Diferentes tipos de ofertas
   // ============================================================================
-  test('Validar cálculo de beneficio neto para diferentes tipos de ofertas', async ({ page }) => {
+  test('Promociones Dashboard: Beneficio neto – Validar cálculo', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -1261,7 +1262,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 12: Marcar promoción como favorita y verificar en favoritos
   // ============================================================================
-  test('Marcar promoción como favorita y verificar en favoritos', async ({ page }) => {
+  test('Promociones Dashboard: Favoritos – Marcar y verificar', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);
@@ -1425,7 +1426,7 @@ test.describe('Dashboard de Promociones - Cliente', () => {
   // ============================================================================
   // TEST 13: Clic en promoción navega al servicio correspondiente
   // ============================================================================
-  test('Clic en promoción navega al servicio y verifica nombre y descripción', async ({ page }) => {
+  test('Promociones Dashboard: Clic en promoción – Navegar y verificar servicio', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await page.goto(PROMOTIONS_DASHBOARD_URL);

@@ -1064,10 +1064,11 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
     await page.waitForTimeout(WAIT_FOR_PAGE_LOAD);
   });
 
-  // ============================================================================
-  // TEST 1: Card sin promoción no debe mostrar rating
-  // ============================================================================
-  test('Card sin promoción no muestra rating', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Card (sin/con promoción), Detalle (sin/con), Imagen galería, Toggle, Finalizadas
+  // ============================================
+
+  test('Promociones Servicios: Card sin promoción – No mostrar rating', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando cards sin promoción');
@@ -1200,7 +1201,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 2: Card con promoción muestra badge y no muestra rating
   // ============================================================================
-  test('Card con promoción muestra badge de oferta corta y no muestra rating', async ({ page }) => {
+  test('Promociones Servicios: Card con promoción – Badge oferta corta y sin rating', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando cards con promoción');
@@ -1275,7 +1276,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 3: Pantalla de detalle sin promoción no muestra rating ni sección de promoción
   // ============================================================================
-  test('Pantalla de detalle sin promoción no muestra rating ni sección de promoción', async ({ page }) => {
+  test('Promociones Servicios: Detalle sin promoción – No rating ni sección', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando detalle de servicio sin promoción');
@@ -1359,7 +1360,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 4: Pantalla de detalle con promoción muestra sección de promoción correctamente
   // ============================================================================
-  test('Pantalla de detalle con promoción muestra sección de promoción con título, descripción y vigencia', async ({ page }) => {
+  test('Promociones Servicios: Detalle con promoción – Sección título, descripción y vigencia', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando detalle de servicio con promoción');
@@ -1477,7 +1478,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 5: Imagen de promoción aparece como primera en la galería
   // ============================================================================
-  test('Imagen de promoción aparece como primera imagen en la galería del detalle', async ({ page }) => {
+  test('Promociones Servicios: Detalle – Imagen promoción primera en galería', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando imagen de promoción en galería');
@@ -1570,7 +1571,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 6: Toggle de promociones - comportamiento desde homepage/Explorar
   // ============================================================================
-  test('Toggle de promociones aparece activado por defecto desde homepage/Explorar', async ({ page }) => {
+  test('Promociones Servicios: Toggle – Activo por defecto desde Explorar', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando toggle de promociones desde Explorar');
@@ -1750,7 +1751,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
   // ============================================================================
   // TEST 7: Toggle de promociones - comportamiento desde flujo de creación de evento
   // ============================================================================
-  test('Toggle de promociones aparece desactivado por defecto desde flujo de creación de evento', async ({ page }) => {
+  test('Promociones Servicios: Toggle – Desactivado desde creación de evento', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando toggle de promociones desde flujo de evento');
@@ -1854,10 +1855,7 @@ test.describe('Promociones en Cards y Detalle de Servicio', () => {
     }
   });
 
-  // ============================================================================
-  // TEST 8: Promociones finalizadas no se muestran en cards ni detalle
-  // ============================================================================
-  test('Promociones finalizadas no se muestran en cards ni detalle', async ({ page }) => {
+  test('Promociones Servicios: Finalizadas – No mostrar en cards ni detalle', async ({ page }) => {
     test.setTimeout(EXTENDED_TIMEOUT);
     
     await showStepMessage(page, '🔍 Validando que promociones finalizadas no se muestran');

@@ -30,7 +30,11 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('Navegar a página de chats', async ({ page }) => {
+  // ============================================
+  // PRUEBAS: Navegación, Elementos, Buscar, Filtrar, Seleccionar, Regreso, Enviar imágenes/documentos
+  // ============================================
+
+  test('Chats Proveedor: Página – Navegar', async ({ page }) => {
     // --- NAVEGAR A DASHBOARD ---
     await showStepMessage(page, '🏠 NAVEGANDO AL DASHBOARD');
     await page.waitForTimeout(1000);
@@ -72,7 +76,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     console.log('✅ Navegación a página de chats exitosa');
   });
 
-  test('Validar elementos de la página de chats', async ({ page }) => {
+  test('Chats Proveedor: Página – Validar elementos', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -135,7 +139,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('Buscar conversaciones', async ({ page }) => {
+  test('Chats Proveedor: Conversaciones – Buscar', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -196,7 +200,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('Filtrar conversaciones', async ({ page }) => {
+  test('Chats Proveedor: Conversaciones – Filtrar', async ({ page }) => {
     // Aumentar tiempo de espera porque esta prueba recorre varias variantes de filtros
     test.setTimeout(180000); // 3 minutos
 
@@ -589,7 +593,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     await aplicarYValidarFiltros('Solo fechas');
   });
 
-  test('Seleccionar conversación y navegar a negociación', async ({ page }) => {
+  test('Chats Proveedor: Conversación – Seleccionar y navegar a negociación', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -650,7 +654,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('Navegar de regreso desde chats al dashboard', async ({ page }) => {
+  test('Chats Proveedor: Regreso – Navegar al dashboard', async ({ page }) => {
     // --- NAVEGAR A CHATS ---
     await showStepMessage(page, '💬 NAVEGANDO A PÁGINA DE CHATS');
     await page.waitForTimeout(1000);
@@ -694,7 +698,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('Enviar archivos de imagen de diferentes formatos en chat', async ({ page }) => {
+  test('Chats Proveedor: Chat – Enviar imágenes', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos para probar todos los formatos
     
     // --- NAVEGAR A CHATS Y SELECCIONAR CONVERSACIÓN ---
@@ -1155,7 +1159,7 @@ test.describe('Gestión de Chats (Fiestachat)', () => {
     }
   });
 
-  test('Enviar archivos de documento de diferentes formatos en chat', async ({ page }) => {
+  test('Chats Proveedor: Chat – Enviar documentos', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos para probar todos los formatos
     
     // --- NAVEGAR A CHATS Y SELECCIONAR CONVERSACIÓN ---

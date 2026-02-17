@@ -40,10 +40,10 @@ test.describe('Dashboard de proveedor', () => {
   });
 
   // ============================================
-  // GRUPO 1: PRUEBAS QUE SOLO VERIFICAN EXISTENCIA DE ELEMENTOS
+  // PRUEBAS: Secciones, Listado eventos, Accesos rápidos, Barra superior, Tarjetas, Filtros, Calendario, Crear evento
   // ============================================
 
-  test('Mostrar las secciones principales del dashboard', async ({ page }) => {
+  test('Dashboard Proveedor: Secciones – Validar principales', async ({ page }) => {
     await showStepMessage(page, '📋 VALIDANDO SECCIONES PRINCIPALES DEL DASHBOARD');
     await page.waitForTimeout(1000);
     
@@ -119,7 +119,7 @@ test.describe('Dashboard de proveedor', () => {
     await expect(primerChat).toBeVisible();
   });
 
-  test('Controles adicionales del listado de eventos están visibles', async ({ page }) => {
+  test('Dashboard Proveedor: Listado eventos – Controles visibles', async ({ page }) => {
     await showStepMessage(page, '📐 AJUSTANDO VIEWPORT');
     console.log('🔍 Validando controles adicionales del listado de eventos...');
     await page.waitForTimeout(1000);
@@ -181,7 +181,7 @@ test.describe('Dashboard de proveedor', () => {
   // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
   // ============================================
 
-  test('Accesos rápidos navegan a las secciones correspondientes', async ({ page }) => {
+  test('Dashboard Proveedor: Accesos rápidos – Navegar a secciones', async ({ page }) => {
     await showStepMessage(page, '🔘 NAVEGANDO A SERVICIOS');
     console.log('🚀 Navegando a servicios desde accesos rápidos...');
     await page.waitForTimeout(1000);
@@ -200,7 +200,7 @@ test.describe('Dashboard de proveedor', () => {
     await page.goto(DASHBOARD_URL);
   });
 
-  test('Barra superior navega a chats y perfil', async ({ page }) => {
+  test('Dashboard Proveedor: Barra superior – Navegar a chats y perfil', async ({ page }) => {
     await showStepMessage(page, '💬 NAVEGANDO A CHATS');
     console.log('🚀 Navegando a chats desde la barra superior...');
     await page.waitForTimeout(1000);
@@ -224,7 +224,7 @@ test.describe('Dashboard de proveedor', () => {
     await page.goto(DASHBOARD_URL);
   });
 
-  test('Tarjetas de estadísticas redirigen a sus secciones', async ({ page }) => {
+  test('Dashboard Proveedor: Tarjetas estadísticas – Redirigir a secciones', async ({ page }) => {
     // Solo validar las tarjetas si el proveedor tiene servicios
     await showStepMessage(page, '🔍 VERIFICANDO SI EL PROVEEDOR TIENE SERVICIOS');
     await page.waitForTimeout(1000);
@@ -248,7 +248,7 @@ test.describe('Dashboard de proveedor', () => {
     await validarTarjetaEstadistica(page, /Contrataciones/i, '/provider/stats/hirings', STATS_HIRINGS_URL);
   });
 
-  test('Filtros de eventos permiten cambiar la vista', async ({ page }) => {
+  test('Dashboard Proveedor: Filtros – Cambiar vista', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '🔍 VALIDANDO FILTROS DE EVENTOS');
     console.log('🚀 Validando funcionalidad de filtros de eventos...');
@@ -285,7 +285,7 @@ test.describe('Dashboard de proveedor', () => {
     await expect(page.getByRole('button', { name: /Nuevo Evento/i })).toBeVisible();
   });
 
-  test('Botón Fecha ordena los eventos', async ({ page }) => {
+  test('Dashboard Proveedor: Botón Fecha – Ordenar eventos', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '📆 VALIDANDO BOTÓN FECHA');
     await page.waitForTimeout(1000);
@@ -366,7 +366,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de ordenamiento completada: El botón alterna correctamente entre orden ascendente y descendente');
   });
 
-  test('Botón Ver eventos pasados muestra eventos pasados', async ({ page }) => {
+  test('Dashboard Proveedor: Eventos pasados – Mostrar', async ({ page }) => {
     test.setTimeout(60000); // Aumentar timeout a 60 segundos
     await showStepMessage(page, '📅 BUSCANDO BOTÓN VER EVENTOS PASADOS');
     await page.waitForTimeout(1000);
@@ -430,7 +430,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de "Ver eventos pasados" completada exitosamente');
   });
 
-  test('Calendario filtra eventos al seleccionar un día con eventos', async ({ page }) => {
+  test('Dashboard Proveedor: Calendario – Filtrar por día con eventos', async ({ page }) => {
     test.setTimeout(90000); // Aumentar timeout a 90 segundos (prueba larga con muchas esperas)
     await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
     await page.waitForTimeout(1000);
@@ -735,7 +735,7 @@ test.describe('Dashboard de proveedor', () => {
     console.log('✅ Prueba de calendario completada exitosamente');
   });
 
-  test('Calendario muestra estado vacío al seleccionar un día sin eventos', async ({ page }) => {
+  test('Dashboard Proveedor: Calendario – Estado vacío sin eventos', async ({ page }) => {
     test.setTimeout(120000); // Aumentar timeout a 120 segundos (2 minutos)
     await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
     await page.waitForTimeout(1000);
@@ -1168,7 +1168,7 @@ test.describe('Dashboard de proveedor', () => {
   // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
   // ============================================
 
-  test('Se crea un nuevo evento desde el dashboard', async ({ page }) => {
+  test('Dashboard Proveedor: Evento – Crear desde dashboard', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos (la creación de evento puede tardar)
     await showStepMessage(page, '🔘 BUSCANDO BOTÓN NUEVO EVENTO');
     await page.waitForTimeout(1000);
