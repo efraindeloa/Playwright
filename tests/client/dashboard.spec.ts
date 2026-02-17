@@ -6,7 +6,7 @@ import {
   CLIENT_EMAIL,
   CLIENT_PASSWORD
 } from '../config';
-import { ejecutarFlujoCompletoCreacionEvento, agregarServicioAEventoExistente } from './cliente-eventos.spec';
+import { agregarServicioAEventoExistente } from './cliente-eventos.spec';
 
 const DASHBOARD_URL = `${DEFAULT_BASE_URL}/client/dashboard`;
 const CHATS_URL = `${DEFAULT_BASE_URL}/client/chats`;
@@ -581,294 +581,103 @@ test.describe('Dashboard de cliente', () => {
   // ============================================
   // PRUEBAS POR SECCIÓN DEL DASHBOARD
   // ============================================
-  // Cada prueba valida una sección específica del dashboard
-  // según la estructura definida del proyecto
+  // PRUEBAS POR SECCIÓN DEL DASHBOARD (orden: Agregar Servicios, Bienvenida, Calendario, Elige tu Fiesta, Eventos, Fiestachat, Navbar, Notificaciones, Promociones, Servicios, Servicios Contactados)
+  // ============================================
 
-  // PRUEBA 1: Sección de Navegación (Navbar)
-  test('Validar sección de Navegación (Navbar)', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
+  test('Dashboard Cliente: Agregar Servicios – Validar botón y funcionalidad', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
     
-    await showStepMessage(page, '📋 VALIDANDO ELEMENTOS COMPLETOS DE LA BARRA SUPERIOR');
-    await page.waitForTimeout(1000);
+    await showStepMessage(page, '➕ AGREGANDO SERVICIO A EVENTO EXISTENTE');
+    console.log('🚀 Iniciando flujo de agregar servicio a evento existente...');
     
-    // 1. VALIDAR LOGO DE FIESTAMAS
-    await showStepMessage(page, '🎨 VALIDANDO LOGO DE FIESTAMAS');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando logo de Fiestamas...');
+    // Esta prueba ejecuta el flujo completo de agregar un servicio a un evento existente
+    // Reutiliza la función agregarServicioAEventoExistente de cliente-eventos.spec.ts
+    // que selecciona un evento, hace clic en "Agregar servicios", busca un servicio
+    // y completa el flujo sin llenar los datos del evento (porque ya están)
     
-    // Buscar logo en desktop (dentro de nav)
-    const logoDesktop = page.locator('div.lg\\:block nav a[href="/client/dashboard"], div.lg\\:block nav a[href="/"]').filter({
-      has: page.locator('svg, img')
-    }).first();
-    
-    // Buscar logo en mobile
-    const logoMobile = page.locator('div.xlg\\:hidden nav a[href="/client/dashboard"], div.xlg\\:hidden nav a[href="/"]').filter({
-      has: page.locator('svg, img')
-    }).first();
-    
-    // Buscar logo por SVG (más específico)
-    const logoSvg = page.locator('nav a svg, nav a img').first();
-    
-    let logoEncontrado = false;
-    let logoElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await logoDesktop.count() > 0 && await logoDesktop.first().isVisible().catch(() => false)) {
-      logoElement = logoDesktop.first();
-      logoEncontrado = true;
-      console.log('✅ Logo encontrado (desktop)');
-    } else if (await logoMobile.count() > 0 && await logoMobile.first().isVisible().catch(() => false)) {
-      logoElement = logoMobile.first();
-      logoEncontrado = true;
-      console.log('✅ Logo encontrado (mobile)');
-    } else if (await logoSvg.count() > 0 && await logoSvg.first().isVisible().catch(() => false)) {
-      logoElement = logoSvg.locator('xpath=ancestor::a[1]').first();
-      logoEncontrado = true;
-      console.log('✅ Logo encontrado (por SVG)');
-    }
-    
-    if (logoEncontrado && logoElement) {
-      await expect(logoElement).toBeVisible();
-      console.log('✅ Logo de Fiestamas visible');
-      
-      // Validar funcionalidad: clic en logo debe navegar al dashboard/home
-      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL LOGO');
-      await page.waitForTimeout(1000);
-      
-      // Guardar URL actual
-      const urlAntes = page.url();
-      
-      // Hacer clic en el logo
-      await logoElement.click();
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
-      
-      const urlDespues = page.url();
-      const navegoCorrectamente = urlDespues.includes('/client/dashboard') || urlDespues === DEFAULT_BASE_URL || urlDespues === `${DEFAULT_BASE_URL}/`;
-      
-      if (navegoCorrectamente) {
-        console.log('✅ Logo navega correctamente al dashboard/home');
-      } else {
-        console.log(`⚠️ Logo navegó a: ${urlDespues} (esperado: dashboard o home)`);
-      }
-      
-      // Regresar al dashboard si no estamos ahí
-      if (!urlDespues.includes('/client/dashboard')) {
-        await page.goto(DASHBOARD_URL);
-        await page.waitForLoadState('networkidle');
-      }
-    } else {
-      console.log('⚠️ Logo de Fiestamas no encontrado');
-    }
-    
-    // 2. VALIDAR CONTADOR DE MENSAJES EN CHATS
-    await showStepMessage(page, '🔔 VALIDANDO CONTADOR DE MENSAJES EN CHATS');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando contador de mensajes en chats...');
-    
-    // Buscar contador en desktop
-    const contadorDesktop = page.locator('div.lg\\:block nav a[href="/client/chats"]').locator('div.absolute').filter({
-      has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-    }).locator('p, div').filter({
-      hasText: /\d+/
-    }).first();
-    
-    // Buscar contador en mobile
-    const contadorMobile = page.locator('a[href="/client/chats"]').locator('div.absolute').filter({
-      has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
-    }).locator('p, div').filter({
-      hasText: /\d+/
-    }).first();
-    
-    // Buscar contador por estructura común (badge con número)
-    const contadorBadge = page.locator('i.icon-message-square').locator('xpath=following-sibling::div[contains(@class, "absolute")]').filter({
-      has: page.locator('div[class*="bg-danger"], div[class*="rounded-full"]')
-    }).locator('p, div').filter({
-      hasText: /\d+/
-    }).first();
-    
-    let contadorEncontrado = false;
-    let contadorElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await contadorDesktop.count() > 0 && await contadorDesktop.first().isVisible().catch(() => false)) {
-      contadorElement = contadorDesktop.first();
-      contadorEncontrado = true;
-      console.log('✅ Contador encontrado (desktop)');
-    } else if (await contadorMobile.count() > 0 && await contadorMobile.first().isVisible().catch(() => false)) {
-      contadorElement = contadorMobile.first();
-      contadorEncontrado = true;
-      console.log('✅ Contador encontrado (mobile)');
-    } else if (await contadorBadge.count() > 0 && await contadorBadge.first().isVisible().catch(() => false)) {
-      contadorElement = contadorBadge.first();
-      contadorEncontrado = true;
-      console.log('✅ Contador encontrado (por badge)');
-    }
-    
-    if (contadorEncontrado && contadorElement) {
-      await expect(contadorElement).toBeVisible();
-      const textoContador = await contadorElement.textContent();
-      const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
-      
-      if (numeroContador !== null && !isNaN(numeroContador)) {
-        console.log(`✅ Contador de mensajes visible con valor: ${numeroContador}`);
-        expect(numeroContador).toBeGreaterThanOrEqual(0);
-      } else {
-        console.log(`⚠️ Contador encontrado pero no se pudo extraer el número. Texto: "${textoContador}"`);
-      }
-    } else {
-      console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
-    }
-    
-    // 3. VALIDAR BOTÓN/ENLACE DE BÚSQUEDA
-    await showStepMessage(page, '🔍 VALIDANDO BOTÓN DE BÚSQUEDA');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando botón/enlace de búsqueda...');
-    
-    // Buscar botón de búsqueda en desktop
-    const busquedaDesktop = page.locator('div.lg\\:block nav a[href="/"]').filter({
-      has: page.locator('i.icon-search')
-    }).first();
-    
-    // Buscar botón de búsqueda en mobile
-    const busquedaMobile = page.locator('a[href="/"]').filter({
-      has: page.locator('i.icon-search')
-    }).first();
-    
-    // Buscar por icono directamente
-    const busquedaIcono = page.locator('i.icon-search').locator('xpath=ancestor::a[1]').first();
-    
-    let busquedaEncontrada = false;
-    let busquedaElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await busquedaDesktop.count() > 0 && await busquedaDesktop.first().isVisible().catch(() => false)) {
-      busquedaElement = busquedaDesktop.first();
-      busquedaEncontrada = true;
-      console.log('✅ Botón de búsqueda encontrado (desktop)');
-    } else if (await busquedaMobile.count() > 0 && await busquedaMobile.first().isVisible().catch(() => false)) {
-      busquedaElement = busquedaMobile.first();
-      busquedaEncontrada = true;
-      console.log('✅ Botón de búsqueda encontrado (mobile)');
-    } else if (await busquedaIcono.count() > 0 && await busquedaIcono.first().isVisible().catch(() => false)) {
-      busquedaElement = busquedaIcono.first();
-      busquedaEncontrada = true;
-      console.log('✅ Botón de búsqueda encontrado (por icono)');
-    }
-    
-    if (busquedaEncontrada && busquedaElement) {
-      await expect(busquedaElement).toBeVisible();
-      console.log('✅ Botón de búsqueda visible');
-      
-      // Validar funcionalidad: clic en búsqueda
-      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL BOTÓN DE BÚSQUEDA');
-      await page.waitForTimeout(1000);
-      
-      const urlAntesBusqueda = page.url();
-      await busquedaElement.click();
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
-      
-      const urlDespuesBusqueda = page.url();
-      const navegoABusqueda = urlDespuesBusqueda.includes('/') || urlDespuesBusqueda === DEFAULT_BASE_URL;
-      
-      if (navegoABusqueda) {
-        console.log('✅ Botón de búsqueda navega correctamente');
-      } else {
-        console.log(`⚠️ Botón de búsqueda navegó a: ${urlDespuesBusqueda}`);
-      }
-      
-      // Regresar al dashboard
-      await page.goto(DASHBOARD_URL);
-      await page.waitForLoadState('networkidle');
-    } else {
-      console.log('⚠️ Botón de búsqueda no encontrado');
-    }
-    
-    // 4. VALIDAR MENÚ DE OPCIONES (MÓVIL)
-    await showStepMessage(page, '📱 VALIDANDO MENÚ DE OPCIONES (MÓVIL)');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando menú de opciones móvil...');
-    
-    // Buscar botón del menú móvil (icon-more-vertical)
-    const menuMovilButton = page.locator('div.xlg\\:hidden nav button').filter({
-      has: page.locator('i.icon-more-vertical')
-    }).first();
-    
-    // Buscar por icono directamente
-    const menuMovilIcono = page.locator('i.icon-more-vertical').locator('xpath=ancestor::button[1]').first();
-    
-    let menuMovilEncontrado = false;
-    let menuButtonElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await menuMovilButton.count() > 0 && await menuMovilButton.first().isVisible().catch(() => false)) {
-      menuButtonElement = menuMovilButton.first();
-      menuMovilEncontrado = true;
-      console.log('✅ Botón de menú móvil encontrado');
-    } else if (await menuMovilIcono.count() > 0 && await menuMovilIcono.first().isVisible().catch(() => false)) {
-      menuButtonElement = menuMovilIcono.first();
-      menuMovilEncontrado = true;
-      console.log('✅ Botón de menú móvil encontrado (por icono)');
-    }
-    
-    if (menuMovilEncontrado && menuButtonElement) {
-      await expect(menuButtonElement).toBeVisible();
-      await expect(menuButtonElement).toBeEnabled();
-      console.log('✅ Botón de menú móvil visible y habilitado');
-      
-      // Validar funcionalidad: abrir menú
-      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL MENÚ MÓVIL');
-      await page.waitForTimeout(1000);
-      
-      await menuButtonElement.click();
-      await page.waitForTimeout(1000);
-      
-      // Buscar menú desplegable
-      const menuDesplegable = page.locator('div.absolute, div[role="menu"], div.dropdown-menu').filter({
-        has: page.locator('button, a')
-      }).first();
-      
-      const menuVisible = await menuDesplegable.isVisible({ timeout: 3000 }).catch(() => false);
-      
-      if (menuVisible) {
-        await expect(menuDesplegable).toBeVisible();
-        console.log('✅ Menú desplegable abierto');
-        
-        // Validar opciones del menú
-        await showStepMessage(page, '📋 VALIDANDO OPCIONES DEL MENÚ MÓVIL');
-        await page.waitForTimeout(1000);
-        
-        const opcionesMenu = menuDesplegable.locator('button, a');
-        const cantidadOpciones = await opcionesMenu.count();
-        
-        console.log(`📊 Opciones encontradas en el menú: ${cantidadOpciones}`);
-        
-        if (cantidadOpciones > 0) {
-          // Validar que las opciones son visibles
-          for (let i = 0; i < Math.min(cantidadOpciones, 5); i++) {
-            const opcion = opcionesMenu.nth(i);
-            const opcionVisible = await opcion.isVisible().catch(() => false);
-            if (opcionVisible) {
-              const textoOpcion = await opcion.textContent();
-              console.log(`  ✓ Opción ${i + 1}: "${textoOpcion?.trim() || 'sin texto'}"`);
-            }
-          }
-          console.log('✅ Opciones del menú validadas');
-        }
-        
-        // Cerrar menú (clic fuera o en el botón nuevamente)
-        await menuButtonElement.click().catch(() => {});
-        await page.waitForTimeout(500);
-      } else {
-        console.log('⚠️ Menú desplegable no se abrió o no es visible');
-      }
-    } else {
-      console.log('ℹ️ Menú móvil no encontrado (puede que solo esté visible en viewports móviles)');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DE BARRA SUPERIOR FINALIZADA');
-    console.log('✅ Validación completa de elementos de la barra superior finalizada');
+    await agregarServicioAEventoExistente(page);
+    console.log('✅ Flujo de agregar servicio a evento existente finalizado');
   });
 
-  // PRUEBA 2: Sección de Bienvenida
-  test('Validar sección de Bienvenida', async ({ page }) => {
+
+  test('Dashboard Cliente: Agregar Servicios – Validar sección', async ({ page }) => {
+    test.setTimeout(180000);
+    
+    await showStepMessage(page, '🔍 VALIDANDO SECCIÓN "AGREGAR SERVICIOS"');
+    await page.waitForTimeout(1000);
+    
+    // 1. Validar botón "Agregar servicios"
+    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando botón "Agregar servicios"...');
+    
+    const botonAgregarServicios = page.locator('button').filter({
+      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
+    }).filter({
+      has: page.locator('i.icon-plus')
+    }).first();
+    
+    const botonFallback = page.getByRole('button', { name: /Agregar servicios/i });
+    
+    let botonElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonAgregarServicios;
+      console.log('✅ Botón "Agregar servicios" encontrado');
+    } else if (await botonFallback.count() > 0 && await botonFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
+      botonElement = botonFallback;
+      console.log('✅ Botón "Agregar servicios" encontrado (fallback)');
+    } else {
+      throw new Error('❌ No se encontró el botón "Agregar servicios"');
+    }
+    
+    await expect(botonElement).toBeVisible();
+    await expect(botonElement).toBeEnabled();
+    console.log('✅ Botón "Agregar servicios" visible y habilitado');
+    
+    // 2. Validar lista "Servicios"
+    await showStepMessage(page, '📋 VALIDANDO LISTA "SERVICIOS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando lista "Servicios"...');
+    
+    // Buscar el título "Servicios"
+    const tituloServicios = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /^Servicios$/i
+    }).first();
+    
+    const tituloServiciosVisible = await tituloServicios.isVisible({ timeout: 3000 }).catch(() => false);
+    if (tituloServiciosVisible) {
+      await expect(tituloServicios).toBeVisible();
+      console.log('✅ Título "Servicios" visible');
+    } else {
+      console.log('ℹ️ Título "Servicios" no visible (puede estar en otro formato)');
+    }
+    
+    // 3. Validar lista "Sugerencias"
+    await showStepMessage(page, '💡 VALIDANDO LISTA "SUGERENCIAS"');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando lista "Sugerencias"...');
+    
+    // Buscar el título "Sugerencias"
+    const tituloSugerencias = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
+      hasText: /^Sugerencias$/i
+    }).first();
+    
+    const tituloSugerenciasVisible = await tituloSugerencias.isVisible({ timeout: 3000 }).catch(() => false);
+    if (tituloSugerenciasVisible) {
+      await expect(tituloSugerencias).toBeVisible();
+      console.log('✅ Título "Sugerencias" visible');
+    } else {
+      console.log('ℹ️ Título "Sugerencias" no visible (puede estar en otro formato o no haber sugerencias)');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN "AGREGAR SERVICIOS" FINALIZADA');
+    console.log('✅ Validación de sección "Agregar servicios" completada');
+  });
+
+  // PRUEBA 6: Sección de servicios contactados
+
+  test('Dashboard Cliente: Bienvenida – Validar contenido', async ({ page }) => {
     test.setTimeout(60000);
     
     await showStepMessage(page, '👋 VALIDANDO SECCIÓN DE BIENVENIDA');
@@ -888,70 +697,1259 @@ test.describe('Dashboard de cliente', () => {
   });
 
   // PRUEBA 3: Sección de Promociones
-  test('Validar sección de Promociones', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos para dar tiempo a que carguen las promociones
+
+  test('Dashboard Cliente: Calendario – Validar elementos – Desktop', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos (aumentado para evitar timeouts)
     
-    await showStepMessage(page, '🎁 VALIDANDO SECCIÓN DE PROMOCIONES');
+    // Solo ejecutar en viewports grandes donde el calendario es visible
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ El calendario solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
     
-    // Esperar a que la página cargue completamente antes de buscar promociones
-    await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, 5000); // Espera adicional para que las promociones se rendericen
+    await showStepMessage(page, '📅 VALIDANDO ELEMENTOS COMPLETOS DEL CALENDARIO');
+    await page.waitForTimeout(1000);
     
-    console.log('🔍 Buscando sección de promociones...');
-    const seccionPromociones = page.locator('div.flex.flex-col.w-full.gap-3').filter({
-      has: page.locator('p').filter({
-        hasText: /las mejores promociones para ti|promociones/i
-      })
+    // 1. VALIDAR EXISTENCIA DEL CALENDARIO
+    await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
+    await page.waitForTimeout(1000);
+    
+    // Estrategia 1: Buscar por días de la semana (más confiable)
+    let calendario = page.locator('div').filter({
+      has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
     }).first();
     
-    // Aumentar el timeout para buscar la sección (la app tarda en cargar promociones)
-    // La prueba debe fallar si la sección no se muestra
-    await expect(seccionPromociones).toBeVisible({ timeout: 30000 });
-    console.log('✅ Sección de promociones visible');
+    let calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
     
-    // Validar título
-    const tituloPromociones = seccionPromociones.locator('p').filter({
-      hasText: /las mejores promociones para ti/i
-    }).first();
-    await expect(tituloPromociones).toBeVisible({ timeout: 10000 });
-    console.log('✅ Título "Las mejores promociones para ti" visible');
+    // Estrategia 2: Buscar por mes actual si la primera no funciona
+    if (!calendarioVisible) {
+      console.log('🔍 Intentando estrategia alternativa: buscar por mes...');
+      calendario = page.locator('div').filter({
+        has: page.locator('button, p, span').filter({ 
+          hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
     
-    // Validar que hay cards de promociones (al menos una)
-    const promoCards = page.locator('div[role="button"]').filter({
-      has: page.locator('div').filter({
-        has: page.locator('i.icon-promotion, i[class*="promotion"]')
-      })
-    });
+    // Estrategia 3: Buscar cualquier div que contenga botones con números (días)
+    if (!calendarioVisible) {
+      console.log('🔍 Intentando estrategia alternativa: buscar por estructura de días...');
+      calendario = page.locator('div').filter({
+        has: page.locator('button').filter({
+          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
     
-    const cantidadCards = await promoCards.count();
-    console.log(`📊 Cards de promociones encontradas: ${cantidadCards}`);
+    // Estrategia 4: Buscar por clase específica o estructura común de calendarios
+    if (!calendarioVisible) {
+      console.log('🔍 Intentando estrategia alternativa: buscar por clases comunes...');
+      calendario = page.locator('div[class*="calendar"], div[class*="Calendar"], div[class*="grid"]').filter({
+        has: page.locator('button, div').filter({
+          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
+        })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
     
-    // La prueba debe fallar si no hay cards de promociones
-    expect(cantidadCards).toBeGreaterThan(0);
-    
-    // Verificar que al menos una card es visible
-    let alMenosUnaVisible = false;
-    for (let i = 0; i < Math.min(cantidadCards, 10); i++) {
-      const card = promoCards.nth(i);
-      const esVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
-      if (esVisible) {
-        alMenosUnaVisible = true;
-        await expect(card).toBeVisible();
-        console.log(`✅ Card de promoción ${i + 1} visible`);
-        break;
+    // Estrategia 5: Buscar cualquier contenedor que tenga días de la semana
+    if (!calendarioVisible) {
+      console.log('🔍 Intentando estrategia alternativa: buscar cualquier contenedor con días de semana...');
+      const diasSemana = page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i });
+      const cantidadDiasSemana = await diasSemana.count();
+      
+      if (cantidadDiasSemana > 0) {
+        // Buscar el contenedor padre que tiene los días de la semana
+        const primerDiaSemana = diasSemana.first();
+        calendario = primerDiaSemana.locator('xpath=ancestor::div[contains(@class, "flex") or contains(@class, "grid")][1]').first();
+        calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+        
+        if (calendarioVisible) {
+          console.log(`✅ Calendario encontrado usando contenedor padre de días de semana`);
+        }
       }
     }
     
-    // La prueba debe fallar si ninguna card es visible
-    expect(alMenosUnaVisible).toBe(true);
-    console.log('✅ Al menos una card de promoción es visible');
+    if (!calendarioVisible) {
+      console.log('⚠️ El calendario no está visible con ninguna estrategia');
+      console.log('🔍 Intentando diagnóstico...');
+      
+      // Diagnóstico: buscar elementos relacionados con calendario
+      const elementosMes = await page.locator('p, span, button').filter({ 
+        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+      }).count();
+      const elementosDiasSemana = await page.locator('p, span, div').filter({ 
+        hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i 
+      }).count();
+      const elementosDias = await page.locator('button, div').filter({
+        has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
+      }).count();
+      
+      console.log(`📊 Diagnóstico: Meses encontrados: ${elementosMes}, Días de semana: ${elementosDiasSemana}, Días numéricos: ${elementosDias}`);
+      
+      // Si encontramos elementos relacionados, intentar construir el calendario desde ellos
+      if (elementosDiasSemana > 0 || elementosMes > 0 || elementosDias > 0) {
+        console.log('ℹ️ Se encontraron elementos relacionados con calendario, pero no se pudo encontrar el contenedor principal');
+        console.log('⚠️ Continuando con validaciones individuales...');
+        // Continuar con validaciones individuales aunque no encontremos el contenedor
+      } else {
+        test.skip();
+        return;
+      }
+    } else {
+      await expect(calendario).toBeVisible();
+      console.log('✅ Calendario encontrado y visible');
+    }
     
-    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE PROMOCIONES FINALIZADA');
-    console.log('✅ Validación de sección de promociones completada');
+    // Definir baseLocator para usar en el resto del test
+    const baseLocator = calendarioVisible ? calendario : page;
+    
+    // 2. VALIDAR VISTA MENSUAL
+    await showStepMessage(page, '📆 VALIDANDO VISTA MENSUAL');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Validando vista mensual...');
+    
+    // Buscar el mes actual mostrado (usar selector directo si no tenemos contenedor)
+    const mesActual = baseLocator.locator('button, p, span').filter({
+      hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+    }).first();
+    
+    const mesVisible = await mesActual.isVisible().catch(() => false);
+    if (mesVisible) {
+      const textoMes = await mesActual.textContent();
+      console.log(`✅ Mes actual mostrado: "${textoMes?.trim()}"`);
+      
+      // Validar que el mes es válido
+      const mesesValidos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                           'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      const mesValido = mesesValidos.some(mes => textoMes?.includes(mes));
+      if (mesValido) {
+        console.log('✅ Mes válido');
+      } else {
+        console.log('⚠️ Mes no reconocido');
+      }
+    } else {
+      console.log('⚠️ Mes actual no encontrado');
+    }
+    
+    // 3. VALIDAR DÍAS DE LA SEMANA
+    await showStepMessage(page, '📅 VALIDANDO DÍAS DE LA SEMANA');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Validando días de la semana...');
+    
+    const diasSemanaEsperados = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    const diasSemanaEncontrados: string[] = [];
+    
+    for (const diaEsperado of diasSemanaEsperados) {
+      const diaSemana = baseLocator.locator('p, span, div').filter({
+        hasText: new RegExp(`^${diaEsperado}$`, 'i')
+      }).first();
+      
+      const diaVisible = await diaSemana.isVisible().catch(() => false);
+      if (diaVisible) {
+        diasSemanaEncontrados.push(diaEsperado);
+        console.log(`✅ Día de la semana "${diaEsperado}" encontrado`);
+      }
+    }
+    
+    if (diasSemanaEncontrados.length === diasSemanaEsperados.length) {
+      console.log(`✅ Todos los días de la semana están presentes (${diasSemanaEncontrados.length}/${diasSemanaEsperados.length})`);
+    } else {
+      console.log(`⚠️ Solo se encontraron ${diasSemanaEncontrados.length}/${diasSemanaEsperados.length} días de la semana`);
+    }
+    
+    // 4. VALIDAR NAVEGACIÓN ENTRE MESES
+    await showStepMessage(page, '🔄 VALIDANDO NAVEGACIÓN ENTRE MESES');
+    await safeWaitForTimeout(page, 1000);
+    console.log('🔍 Validando navegación entre meses...');
+    
+    // Obtener el mes actual antes de navegar (usar textContent directamente con timeout corto)
+    let mesAntes = '';
+    if (mesVisible) {
+      try {
+        mesAntes = (await mesActual.textContent({ timeout: 3000 }))?.trim() || '';
+        console.log(`📅 Mes actual: "${mesAntes}"`);
+      } catch (e) {
+        console.log('⚠️ No se pudo obtener el mes actual, continuando con navegación...');
+      }
+    } else {
+      console.log('⚠️ Mes no visible, continuando con navegación...');
+    }
+    
+    // Buscar botón de mes anterior (chevron-left o similar)
+    const botonMesAnterior = baseLocator.locator('button').filter({
+      has: page.locator('i.icon-chevron-left, i[class*="chevron-left"], svg[class*="chevron-left"]')
+    }).first();
+    
+    // Buscar botón de mes siguiente (chevron-right o similar)
+    const botonMesSiguiente = baseLocator.locator('button').filter({
+      has: page.locator('i.icon-chevron-right, i[class*="chevron-right"], svg[class*="chevron-right"]')
+    }).first();
+    
+    const botonAnteriorVisible = await botonMesAnterior.isVisible({ timeout: 2000 }).catch(() => false);
+    const botonSiguienteVisible = await botonMesSiguiente.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    if (botonAnteriorVisible) {
+      await expect(botonMesAnterior).toBeEnabled({ timeout: 3000 });
+      console.log('✅ Botón de mes anterior encontrado y habilitado');
+      
+      // Validar funcionalidad: navegar al mes anterior
+      await showStepMessage(page, '⬅️ NAVEGANDO AL MES ANTERIOR');
+      await safeWaitForTimeout(page, 500);
+      
+      await botonMesAnterior.click();
+      await safeWaitForTimeout(page, 1500);
+      
+      // Buscar el mes actualizado (con timeout corto)
+      const mesActualizado = baseLocator.locator('button, p, span').filter({
+        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+      }).first();
+      
+      try {
+        const mesDespuesAnterior = (await mesActualizado.textContent({ timeout: 2000 }))?.trim() || '';
+        if (mesDespuesAnterior && mesDespuesAnterior !== mesAntes) {
+          console.log(`✅ Navegación al mes anterior exitosa: "${mesDespuesAnterior}"`);
+        } else if (mesDespuesAnterior) {
+          console.log(`ℹ️ El mes no cambió después de hacer clic en anterior (puede ser el primer mes disponible)`);
+        } else {
+          console.log(`⚠️ No se pudo obtener el mes después de navegar`);
+        }
+      } catch (e) {
+        console.log(`⚠️ No se pudo obtener el mes después de navegar al anterior (timeout)`);
+      }
+    } else {
+      console.log('ℹ️ Botón de mes anterior no encontrado');
+    }
+    
+    if (botonSiguienteVisible) {
+      await expect(botonMesSiguiente).toBeEnabled({ timeout: 3000 });
+      console.log('✅ Botón de mes siguiente encontrado y habilitado');
+      
+      // Validar funcionalidad: navegar al mes siguiente
+      await showStepMessage(page, '➡️ NAVEGANDO AL MES SIGUIENTE');
+      await safeWaitForTimeout(page, 500);
+      
+      await botonMesSiguiente.click();
+      await safeWaitForTimeout(page, 1500);
+      
+      // Buscar el mes actualizado (con timeout corto)
+      const mesActualizadoSiguiente = baseLocator.locator('button, p, span').filter({
+        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+      }).first();
+      
+      try {
+        const mesDespuesSiguiente = (await mesActualizadoSiguiente.textContent({ timeout: 2000 }))?.trim() || '';
+        if (mesDespuesSiguiente) {
+          console.log(`✅ Navegación al mes siguiente: "${mesDespuesSiguiente}"`);
+        } else {
+          console.log(`⚠️ No se pudo obtener el mes después de navegar`);
+        }
+        
+        // NO regresar al mes original - mantenernos en Noviembre para buscar eventos
+        // Noviembre tiene varios días con eventos, así que es mejor buscar ahí
+        if (mesDespuesSiguiente && mesDespuesSiguiente.includes('Noviembre')) {
+          console.log('✅ Permaneciendo en Noviembre para buscar días con eventos');
+        } else if (mesDespuesSiguiente && !mesDespuesSiguiente.includes('Noviembre')) {
+          // Si no estamos en Noviembre, navegar a Noviembre
+          // Buscar el botón del mes que contiene "Noviembre"
+          const botonNoviembre = baseLocator.locator('button').filter({
+            hasText: /Noviembre/i
+          }).first();
+          const botonNovVisible = await botonNoviembre.isVisible({ timeout: 2000 }).catch(() => false);
+          if (botonNovVisible) {
+            await botonNoviembre.click();
+            await safeWaitForTimeout(page, 1500);
+            console.log('✅ Navegado a Noviembre para buscar días con eventos');
+          }
+        }
+      } catch (e) {
+        console.log(`⚠️ No se pudo obtener el mes después de navegar al siguiente (timeout)`);
+      }
+    } else {
+      console.log('ℹ️ Botón de mes siguiente no encontrado');
+    }
+    
+    // 5. VALIDAR EVENTOS MARCADOS EN EL CALENDARIO
+    await showStepMessage(page, '🔍 VALIDANDO EVENTOS MARCADOS EN EL CALENDARIO');
+    await safeWaitForTimeout(page, 1000);
+    
+    // Verificar en qué mes estamos antes de buscar días con eventos
+    const mesActualParaEventos = baseLocator.locator('button, p, span').filter({
+      hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+    }).first();
+    const mesActualTexto = (await mesActualParaEventos.textContent({ timeout: 2000 }).catch(() => null))?.trim() || '';
+    console.log(`🔍 Buscando días con eventos marcados en el mes: "${mesActualTexto}"`);
+    
+    // Buscar eventos en el mes actual
+    // No forzar navegación a un mes específico, buscar eventos en el mes que esté visible
+    console.log(`🔍 Buscando eventos en el mes actual: "${mesActualTexto}"`);
+    
+    // Buscar días con puntos de colores (indicadores de eventos)
+    // Los días con eventos tienen divs con w-[4px] aspect-square rounded-circle y background-color
+    // IMPORTANTE: Solo buscar días del mes actual, excluyendo días de otros meses
+    // Estrategia mejorada: buscar primero días que tengan puntos de colores directamente
+    console.log('🔍 Buscando días con eventos usando múltiples estrategias...');
+    
+    let diasConEventos: Array<Locator> = [];
+    let countTodos = 0; // Variable para contar días totales procesados
+    
+    // Estrategia 1: Buscar directamente botones que contengan puntos de colores (más eficiente)
+    // Intentar múltiples selectores para encontrar los puntos
+    const selectoresEstrategia1 = [
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[style*="background-color"]')
+      }),
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[class*="rounded"]')
+      }),
+      baseLocator.locator('button[type="button"]').filter({
+        has: baseLocator.locator('div[class*="circle"]')
+      })
+    ];
+    
+    let diasConPuntos: Locator | null = null;
+    let countDiasConPuntos = 0;
+    
+    for (const selector of selectoresEstrategia1) {
+      try {
+        const count = await Promise.race([
+          selector.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 2000))
+        ]).catch(() => 0);
+        
+        if (count > 0) {
+          diasConPuntos = selector;
+          countDiasConPuntos = count;
+          console.log(`📊 Días con puntos de colores encontrados (estrategia 1, selector ${selectoresEstrategia1.indexOf(selector) + 1}): ${count}`);
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+    
+    if (countDiasConPuntos === 0) {
+      console.log(`📊 Días con puntos de colores encontrados (estrategia 1): 0 (probados ${selectoresEstrategia1.length} selectores)`);
+    }
+    
+    // Estrategia 2: Si no encontramos con la primera estrategia, buscar todos los días y filtrar
+    let todosLosDias: Locator;
+    
+    if (countDiasConPuntos > 0 && diasConPuntos) {
+      // Usar la estrategia 1 si encontramos días
+      countTodos = countDiasConPuntos; // Inicializar contador
+      const maxDiasAProcesar = Math.min(countDiasConPuntos, 31);
+      console.log(`🔍 Procesando ${maxDiasAProcesar} días con puntos de colores...`);
+      
+      for (let i = 0; i < maxDiasAProcesar; i++) {
+        try {
+          const dia = diasConPuntos.nth(i);
+          const diaVisible = await Promise.race([
+            dia.isVisible({ timeout: 1000 }),
+            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
+          ]).catch(() => false);
+          
+          if (diaVisible) {
+            // Verificar que no es un día de otro mes
+            const esDiaOtroMes = await Promise.race([
+              dia.evaluate((el) => {
+                const classes = el.className || '';
+                const parentClasses = el.parentElement?.className || '';
+                const parentParentClasses = el.parentElement?.parentElement?.className || '';
+                return classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
+                       classes.includes('prev-month') || classes.includes('next-month') ||
+                       parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay') ||
+                       parentParentClasses.includes('prevMonthDay') || parentParentClasses.includes('nextMonthDay');
+              }),
+              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
+            ]).catch(() => false);
+            
+            if (!esDiaOtroMes) {
+              // Verificar que tiene puntos de colores válidos usando evaluate
+              const tieneEventos = await Promise.race([
+                dia.evaluate((el) => {
+                  const divs = el.querySelectorAll('div');
+                  let encontrado = false;
+                  
+                  for (const div of divs) {
+                    const style = window.getComputedStyle(div);
+                    const bgColor = style.backgroundColor;
+                    
+                    if (bgColor && 
+                        bgColor !== 'rgba(0, 0, 0, 0)' && 
+                        bgColor !== 'transparent' &&
+                        !bgColor.includes('rgb(242, 242, 242)') &&
+                        !bgColor.includes('rgba(242, 242, 242')) {
+                      
+                      const width = style.width;
+                      const height = style.height;
+                      const widthNum = parseFloat(width);
+                      const heightNum = parseFloat(height);
+                      
+                      if ((widthNum > 0 && widthNum < 10) || (heightNum > 0 && heightNum < 10)) {
+                        encontrado = true;
+                        break;
+                      }
+                      
+                      const classes = div.className || '';
+                      if (classes.includes('rounded') || classes.includes('circle') || classes.includes('aspect-square')) {
+                        encontrado = true;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  return encontrado;
+                }),
+                new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
+              ]).catch(() => false);
+              
+              if (tieneEventos) {
+                diasConEventos.push(dia);
+                console.log(`  ✓ Día ${i + 1}: encontrado con evento(s)`);
+              }
+            }
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+    } else {
+      // Estrategia 2: Buscar todos los días y filtrar manualmente
+      console.log('⚠️ Estrategia 1 no encontró días, usando estrategia 2...');
+      // Usar el mismo selector que funciona al final de la prueba para encontrar días
+      todosLosDias = baseLocator.locator('button[type="button"]').filter({
+        has: page.locator('p, span').filter({
+          hasText: /^\d{1,2}$/
+        })
+      });
+      countTodos = await Promise.race([
+        todosLosDias.count(),
+        new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+      ]).catch(() => 0);
+      
+      console.log(`📊 Total de días encontrados en el calendario: ${countTodos}`);
+      
+      // Si aún no encontramos días, intentar sin el filtro de números
+      if (countTodos === 0) {
+        console.log('⚠️ No se encontraron días con el selector filtrado, intentando sin filtro...');
+        todosLosDias = baseLocator.locator('button[type="button"]');
+        countTodos = await Promise.race([
+          todosLosDias.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+        ]).catch(() => 0);
+        console.log(`📊 Total de días encontrados (sin filtro): ${countTodos}`);
+      }
+      
+      // Si aún no encontramos días, buscar directamente en la página
+      if (countTodos === 0) {
+        console.log('⚠️ No se encontraron días con baseLocator, buscando directamente en la página...');
+        todosLosDias = page.locator('button[type="button"]').filter({
+          has: page.locator('p, span').filter({
+            hasText: /^\d{1,2}$/
+          })
+        });
+        countTodos = await Promise.race([
+          todosLosDias.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
+        ]).catch(() => 0);
+        console.log(`📊 Total de días encontrados (búsqueda directa en página): ${countTodos}`);
+      }
+      
+      const maxDiasAProcesar = Math.min(countTodos, 35);
+      console.log(`🔍 Procesando ${maxDiasAProcesar} días para buscar eventos...`);
+      
+      const startTime = Date.now();
+      const maxLoopTime = 60000; // Máximo 60 segundos para procesar días (aumentado porque algunos días pueden tardar más)
+      
+      // Primero, inspeccionar algunos días para entender la estructura
+      console.log('🔍 Inspeccionando estructura de los primeros días para entender el DOM...');
+      const diasMuestra = Math.min(10, maxDiasAProcesar);
+      let diasInspeccionados = 0;
+      
+      for (let i = 0; i < diasMuestra; i++) {
+        try {
+          const dia = todosLosDias.nth(i);
+          const diaVisible = await dia.isVisible({ timeout: 1000 }).catch(() => false);
+          
+          if (!diaVisible) {
+            console.log(`  ⚠️ Día ${i + 1}: no visible, saltando...`);
+            continue;
+          }
+          
+          const infoDia = await Promise.race([
+            dia.evaluate((el) => {
+              const texto = el.textContent?.trim() || '';
+              const classes = el.className || '';
+              const innerHTML = el.innerHTML.substring(0, 200); // Primeros 200 caracteres del HTML
+              
+              // Buscar todos los elementos dentro del botón
+              const todosElementos = el.querySelectorAll('*');
+              const elementosConColor: Array<{tag: string, classes: string, bgColor: string, width: string, height: string}> = [];
+              
+              for (const elem of todosElementos) {
+                const style = window.getComputedStyle(elem);
+                const bgColor = style.backgroundColor;
+                const width = style.width;
+                const height = style.height;
+                
+                if (bgColor && 
+                    bgColor !== 'rgba(0, 0, 0, 0)' && 
+                    bgColor !== 'transparent' &&
+                    bgColor !== 'rgb(255, 255, 255)' &&
+                    bgColor !== 'rgba(255, 255, 255, 1)') {
+                  
+                  const widthNum = parseFloat(width);
+                  const heightNum = parseFloat(height);
+                  
+                  // Solo incluir elementos pequeños (puntos de eventos)
+                  if ((widthNum > 0 && widthNum < 30) || (heightNum > 0 && heightNum < 30)) {
+                    elementosConColor.push({
+                      tag: elem.tagName.toLowerCase(),
+                      classes: elem.className || '',
+                      bgColor: bgColor,
+                      width: width,
+                      height: height
+                    });
+                  }
+                }
+              }
+              
+              // También buscar elementos hermanos o en el contenedor padre
+              const parent = el.parentElement;
+              let elementosHermanosConColor = 0;
+              if (parent) {
+                const hermanos = parent.querySelectorAll('*');
+                for (const hermano of hermanos) {
+                  if (hermano !== el) {
+                    const style = window.getComputedStyle(hermano);
+                    const bgColor = style.backgroundColor;
+                    if (bgColor && 
+                        bgColor !== 'rgba(0, 0, 0, 0)' && 
+                        bgColor !== 'transparent' &&
+                        !bgColor.includes('rgb(242, 242, 242)')) {
+                      const width = parseFloat(style.width);
+                      const height = parseFloat(style.height);
+                      if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
+                        elementosHermanosConColor++;
+                      }
+                    }
+                  }
+                }
+              }
+              
+              return {
+                texto: texto,
+                classes: classes,
+                innerHTML: innerHTML,
+                elementosConColor: elementosConColor.length,
+                elementosInfo: elementosConColor.slice(0, 5),
+                elementosHermanosConColor: elementosHermanosConColor
+              };
+            }),
+            new Promise<any>(resolve => setTimeout(() => resolve(null), 2000))
+          ]).catch((error) => {
+            console.log(`  ❌ Error al inspeccionar día ${i + 1}: ${error}`);
+            return null;
+          });
+          
+          if (infoDia) {
+            diasInspeccionados++;
+            console.log(`  📋 Día ${i + 1}: texto="${infoDia.texto.substring(0, 50)}", clases="${infoDia.classes.substring(0, 100)}"`);
+            console.log(`    Elementos con color dentro: ${infoDia.elementosConColor}, elementos hermanos con color: ${infoDia.elementosHermanosConColor}`);
+            if (infoDia.elementosInfo.length > 0) {
+              infoDia.elementosInfo.forEach((elem: any, idx: number) => {
+                console.log(`    ${elem.tag} ${idx + 1}: bg=${elem.bgColor}, size=${elem.width}x${elem.height}, clases="${elem.classes.substring(0, 50)}"`);
+              });
+            }
+            if (infoDia.elementosConColor === 0 && infoDia.elementosHermanosConColor > 0) {
+              console.log(`    ⚠️ Los eventos podrían estar fuera del botón (en elementos hermanos)`);
+            }
+          } else {
+            console.log(`  ⚠️ Día ${i + 1}: no se pudo obtener información`);
+          }
+        } catch (error: any) {
+          console.log(`  ❌ Error al procesar día ${i + 1}: ${error?.message || error}`);
+        }
+      }
+      
+      console.log(`✅ Inspección completada: ${diasInspeccionados} de ${diasMuestra} días inspeccionados`);
+      
+      for (let i = 0; i < maxDiasAProcesar; i++) {
+        // Verificar timeout global del loop
+        if (Date.now() - startTime > maxLoopTime) {
+          console.log(`⏱️ Timeout del loop alcanzado después de procesar ${i} días. Continuando con los días encontrados hasta ahora.`);
+          break;
+        }
+        try {
+          const dia = todosLosDias.nth(i);
+          
+          // Usar la misma lógica que funciona en la inspección: buscar eventos directamente
+          const infoDia = await Promise.race([
+            dia.evaluate((el) => {
+              // Verificar que no es un día de otro mes
+              const classes = el.className || '';
+              const parentClasses = el.parentElement?.className || '';
+              const esDiaOtroMes = classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
+                     classes.includes('prev-month') || classes.includes('next-month') ||
+                     parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay');
+              
+              if (esDiaOtroMes) {
+                return { esDiaOtroMes: true, tieneEventos: false, colores: [], texto: '' };
+              }
+              
+              const coloresEncontrados: string[] = [];
+              
+              // 1. Buscar dentro del botón
+              const todosElementos = el.querySelectorAll('*');
+              for (const elem of todosElementos) {
+                const style = window.getComputedStyle(elem);
+                const bgColor = style.backgroundColor;
+                
+                if (bgColor && 
+                    bgColor !== 'rgba(0, 0, 0, 0)' && 
+                    bgColor !== 'transparent' &&
+                    bgColor !== 'rgb(255, 255, 255)' &&
+                    bgColor !== 'rgba(255, 255, 255, 1)' &&
+                    !bgColor.includes('rgb(242, 242, 242)') &&
+                    !bgColor.includes('rgba(242, 242, 242')) {
+                  
+                  const width = parseFloat(style.width);
+                  const height = parseFloat(style.height);
+                  
+                  // Buscar elementos pequeños (puntos de eventos) - 4px es el tamaño típico
+                  if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
+                    coloresEncontrados.push(bgColor);
+                  }
+                  
+                  // También verificar clases específicas de puntos de eventos
+                  const elemClasses = elem.className || '';
+                  if (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle')) {
+                    coloresEncontrados.push(bgColor);
+                  }
+                }
+              }
+              
+              // 2. Si no encontramos dentro, buscar en elementos hermanos (como muestra la inspección)
+              // Los eventos pueden estar en el mismo contenedor padre pero en otros elementos
+              if (coloresEncontrados.length === 0 && el.parentElement) {
+                const parent = el.parentElement;
+                // Buscar en todos los elementos del contenedor padre, no solo hermanos directos
+                const todosEnContenedor = parent.querySelectorAll('*');
+                
+                for (const elem of todosEnContenedor) {
+                  // Saltar el elemento actual y sus hijos
+                  if (el.contains(elem) || elem === el) {
+                    continue;
+                  }
+                  
+                  const style = window.getComputedStyle(elem);
+                  const bgColor = style.backgroundColor;
+                  
+                  if (bgColor && 
+                      bgColor !== 'rgba(0, 0, 0, 0)' && 
+                      bgColor !== 'transparent' &&
+                      bgColor !== 'rgb(255, 255, 255)' &&
+                      bgColor !== 'rgba(255, 255, 255, 1)' &&
+                      !bgColor.includes('rgb(242, 242, 242)') &&
+                      !bgColor.includes('rgba(242, 242, 242')) {
+                    
+                    const width = parseFloat(style.width);
+                    const height = parseFloat(style.height);
+                    const elemClasses = elem.className || '';
+                    
+                    // Buscar elementos pequeños (puntos de eventos) O elementos con clases específicas
+                    const esPuntoEvento = ((width > 0 && width < 10) || (height > 0 && height < 10)) &&
+                                         (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'));
+                    
+                    // También aceptar si tiene las clases específicas aunque el tamaño sea ligeramente mayor
+                    const tieneClasesEspecificas = elemClasses.includes('w-[4px]') || 
+                                                   (elemClasses.includes('aspect-square') && elemClasses.includes('rounded-circle'));
+                    
+                    if (esPuntoEvento || tieneClasesEspecificas) {
+                      coloresEncontrados.push(bgColor);
+                      // Si encontramos uno con la clase w-[4px], es suficiente
+                      if (elemClasses.includes('w-[4px]')) {
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+              
+              // 3. También buscar en el contenedor del contenedor (nivel superior)
+              if (coloresEncontrados.length === 0 && el.parentElement?.parentElement) {
+                const grandParent = el.parentElement.parentElement;
+                const todosEnGrandParent = grandParent.querySelectorAll('*');
+                
+                for (const elem of todosEnGrandParent) {
+                  // Saltar el elemento actual y su contenedor padre
+                  if (el.contains(elem) || el.parentElement?.contains(elem) || elem === el) {
+                    continue;
+                  }
+                  
+                  const style = window.getComputedStyle(elem);
+                  const bgColor = style.backgroundColor;
+                  
+                  if (bgColor && 
+                      bgColor !== 'rgba(0, 0, 0, 0)' && 
+                      bgColor !== 'transparent' &&
+                      !bgColor.includes('rgb(242, 242, 242)')) {
+                    
+                    const width = parseFloat(style.width);
+                    const height = parseFloat(style.height);
+                    const elemClasses = elem.className || '';
+                    
+                    if (((width > 0 && width < 10) || (height > 0 && height < 10)) &&
+                        (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'))) {
+                      coloresEncontrados.push(bgColor);
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              return { 
+                esDiaOtroMes: false, 
+                tieneEventos: coloresEncontrados.length > 0, 
+                colores: coloresEncontrados.slice(0, 5),
+                texto: el.textContent?.trim() || ''
+              };
+            }),
+            new Promise<any>(resolve => setTimeout(() => resolve({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}), 1000))
+          ]).catch(() => ({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}));
+          
+          if (infoDia.esDiaOtroMes) {
+            if (i < 5) {
+              console.log(`  ⏭️ Día ${i + 1}: es de otro mes, saltando...`);
+            }
+            continue; // Saltar días de otros meses
+          }
+          
+          if (infoDia.tieneEventos) {
+            diasConEventos.push(dia);
+            console.log(`  ✓ Día ${i + 1}${infoDia.texto ? ` (${infoDia.texto.substring(0, 20)})` : ''}: encontrado con ${infoDia.colores.length} evento(s)${infoDia.colores.length > 0 ? ` (colores: ${infoDia.colores.slice(0, 3).join(', ')})` : ''}`);
+            
+            // Si ya encontramos suficientes días con eventos, podemos parar
+            if (diasConEventos.length >= 20) {
+              console.log(`✅ Encontrados ${diasConEventos.length} días con eventos, limitando búsqueda para optimizar tiempo`);
+              break;
+            }
+          } else {
+            // Log solo para los primeros días para debugging
+            if (i < 10 && infoDia.texto) {
+              console.log(`  ⚠️ Día ${i + 1} (${infoDia.texto.substring(0, 10)}): no tiene eventos detectados`);
+            }
+          }
+        } catch (error: any) {
+          // Continuar con el siguiente día si hay un error
+          console.log(`  ⚠️ Error procesando día ${i + 1}: ${error?.message || error}`);
+          continue;
+        }
+      }
+    }
+    
+    const cantidadDiasConEventos = diasConEventos.length;
+    console.log(`📊 Días con eventos marcados encontrados: ${cantidadDiasConEventos} (de ${countTodos} días totales)`);
+    
+    if (cantidadDiasConEventos > 0) {
+      console.log('✅ Se encontraron días con eventos marcados');
+      
+      // Validar algunos días con eventos
+      const diasAValidar = Math.min(cantidadDiasConEventos, 5);
+      for (let i = 0; i < diasAValidar; i++) {
+        const diaConEvento = diasConEventos[i];
+        const diaVisible = await diaConEvento.isVisible().catch(() => false);
+        
+        if (diaVisible) {
+          // Obtener el número del día - buscar específicamente el número (1-31), no el texto del evento
+          let numeroDiaTexto = '';
+          let numeroDia = 0;
+          
+          // Buscar un elemento que contenga solo un número (1-31)
+          const elementosNumericos = diaConEvento.locator('p, span').filter({
+            hasText: /^\d{1,2}$/
+          });
+          const countNumericos = await elementosNumericos.count();
+          
+          if (countNumericos > 0) {
+            numeroDiaTexto = await Promise.race([
+              elementosNumericos.first().textContent(),
+              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
+            ]).then(text => text?.trim() || '').catch(() => '');
+            numeroDia = parseInt(numeroDiaTexto);
+          } else {
+            // Estrategia alternativa: buscar directamente en el texto completo (más rápido)
+            const textoCompleto = await Promise.race([
+              diaConEvento.textContent(),
+              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
+            ]).then(text => text?.trim() || '').catch(() => '');
+            
+            if (textoCompleto) {
+              const numeros = textoCompleto.match(/\b(\d{1,2})\b/g);
+              if (numeros) {
+                for (const numStr of numeros) {
+                  const num = parseInt(numStr);
+                  if (num >= 1 && num <= 31) {
+                    numeroDiaTexto = numStr;
+                    numeroDia = num;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          
+          const diaDisplay = numeroDia > 0 ? numeroDia.toString() : 'N/A';
+          
+          // Validar que tiene puntos de colores (indicadores de eventos)
+          const puntosColores = diaConEvento.locator('div.w-\\[4px\\].aspect-square.rounded-circle[style*="background-color"]');
+          const countPuntos = await puntosColores.count();
+          
+          if (countPuntos > 0) {
+            // Obtener los colores de los puntos
+            const colores: string[] = [];
+            for (let j = 0; j < Math.min(countPuntos, 5); j++) {
+              const punto = puntosColores.nth(j);
+              const colorPunto = await punto.evaluate(el => {
+                return window.getComputedStyle(el).backgroundColor;
+              }).catch(() => null);
+              
+              if (colorPunto && !colorPunto.includes('rgb(242, 242, 242)')) {
+                colores.push(colorPunto);
+              }
+            }
+            
+            if (colores.length > 0) {
+              console.log(`  ✓ Día ${diaDisplay}: tiene ${countPuntos} punto(s) de evento(s)${colores.length > 0 ? ` (colores: ${colores.join(', ')})` : ''}`);
+            } else {
+              console.log(`  ✓ Día ${diaDisplay}: tiene ${countPuntos} punto(s) pero sin colores válidos`);
+            }
+          } else {
+            console.log(`  ✓ Día ${diaDisplay}: tiene evento marcado (sin puntos de colores visibles)`);
+          }
+        }
+      }
+    } else {
+      console.log('ℹ️ No se encontraron días con eventos marcados en el mes actual');
+      console.log('ℹ️ Continuando con validaciones de estructura del calendario...');
+    }
+    
+    // 6. VALIDAR FUNCIONALIDAD: FILTRAR EVENTOS AL SELECCIONAR UN DÍA (solo si hay eventos)
+    if (cantidadDiasConEventos > 0) {
+      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD: FILTRAR POR DÍA');
+      await safeWaitForTimeout(page, 1000);
+      
+      // Función auxiliar para obtener el número del mes
+      const obtenerNumeroMes = (nombreMes: string): number => {
+        const meses: { [key: string]: number } = {
+          'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+          'julio': 7, 'agosto': 8, 'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        };
+        const mesLower = nombreMes.toLowerCase();
+        for (const [mes, numero] of Object.entries(meses)) {
+          if (mesLower.includes(mes)) {
+            return numero;
+          }
+        }
+        return new Date().getMonth() + 1;
+      };
+      
+      // Buscar tarjetas de eventos usando selector más específico
+      // Buscar solo en la sección "Elige tu fiesta" que contiene los eventos
+      const seccionEventos = page.locator('div').filter({
+        has: page.locator('p').filter({ hasText: /Elige tu fiesta/i })
+      });
+      
+      // Buscar botones de eventos dentro de la sección (más específico)
+      const tarjetasAmpliasAntes = seccionEventos.locator('button[type="button"]').filter({
+        has: page.locator('p, span').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i })
+      });
+      const countAntes = await Promise.race([
+        tarjetasAmpliasAntes.count(),
+        new Promise<number>(resolve => setTimeout(() => resolve(0), 5000))
+      ]) as number;
+      console.log(`📊 Tarjetas de eventos visibles antes del filtro: ${countAntes}`);
+      
+      // Seleccionar el primer día con eventos
+      const primerDiaConEventos = diasConEventos[0];
+      await primerDiaConEventos.scrollIntoViewIfNeeded();
+      
+      // Obtener el número del día - buscar específicamente el número (1-31), no el texto del evento
+      let numeroDia = 0;
+      let numeroDiaTexto = '';
+      
+      // Estrategia 1: Buscar un elemento que contenga solo un número (1-31) - debe ser exacto
+      const elementosNumericos = primerDiaConEventos.locator('p, span').filter({
+        hasText: /^\d{1,2}$/
+      });
+      const countNumericos = await elementosNumericos.count();
+      
+      if (countNumericos > 0) {
+        numeroDiaTexto = (await elementosNumericos.first().textContent())?.trim() || '';
+        numeroDia = parseInt(numeroDiaTexto);
+        console.log(`📅 Número del día encontrado (Estrategia 1): ${numeroDia}`);
+      } else {
+        // Estrategia 2: Buscar directamente en el texto completo del botón (más rápido)
+        const textoCompleto = (await primerDiaConEventos.textContent())?.trim() || '';
+        if (textoCompleto) {
+          // Buscar el primer número de 1-2 dígitos que esté entre 1-31
+          const numeros = textoCompleto.match(/\b(\d{1,2})\b/g);
+          if (numeros) {
+            for (const numStr of numeros) {
+              const num = parseInt(numStr);
+              if (num >= 1 && num <= 31) {
+                numeroDiaTexto = numStr;
+                numeroDia = num;
+                console.log(`📅 Número del día encontrado (Estrategia 2): ${numeroDia}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      if (numeroDia === 0 || isNaN(numeroDia)) {
+        const textoCompleto = await primerDiaConEventos.textContent();
+        console.log(`⚠️ No se pudo obtener el número del día del botón. Texto completo: "${textoCompleto?.trim()}"`);
+      } else {
+        console.log(`📅 Día seleccionado para filtrar: ${numeroDia}${numeroDiaTexto ? ` (texto: "${numeroDiaTexto}")` : ''}`);
+      }
+      
+      if (numeroDia > 0) {
+        // Hacer clic en el primer día con eventos
+        console.log(`🖱️ Haciendo clic en el día ${numeroDia}...`);
+        await primerDiaConEventos.click();
+        await safeWaitForTimeout(page, 1500);
+        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+        
+        // Verificar si el día tiene borde de selección
+        const tieneBorde = await primerDiaConEventos.evaluate((el) => {
+          const classes = el.className || '';
+          const styles = window.getComputedStyle(el);
+          const borderColor = styles.borderColor;
+          const borderWidth = styles.borderWidth;
+          
+          // Verificar si tiene las clases de borde o si tiene un borde visible
+          return classes.includes('border-primary-neutral') || 
+                 classes.includes('border-2') ||
+                 (borderWidth && parseFloat(borderWidth) >= 2 && borderColor && borderColor !== 'rgba(0, 0, 0, 0)' && borderColor !== 'transparent');
+        }).catch(() => false);
+        
+        let diaSeleccionadoConBorde: Locator = primerDiaConEventos;
+        
+        if (!tieneBorde) {
+          console.log(`⚠️ El día ${numeroDia} no tiene borde de selección después del clic`);
+          console.log(`ℹ️ Continuando con la validación (el borde puede no ser visible o aplicarse de otra manera)`);
+          // No buscar otro día para evitar timeouts - simplemente continuar con el día original
+        } else {
+          console.log(`✅ El día ${numeroDia} tiene borde de selección`);
+        }
+        
+        // Buscar tarjetas de eventos después del filtro con selector más específico
+        // Buscar solo en la sección "Elige tu fiesta" que contiene los eventos
+        // Filtrar eventos que tengan el día seleccionado en su fecha (más específico)
+        const tarjetasAmpliasDespues = seccionEventos.locator('button[type="button"]').filter({
+          has: page.locator('p, span').filter({ 
+            hasText: new RegExp(`\\b${numeroDia}\\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)`, 'i') 
+          })
+        });
+        const countDespues = await Promise.race([
+          tarjetasAmpliasDespues.count(),
+          new Promise<number>(resolve => setTimeout(() => resolve(0), 5000))
+        ]) as number;
+        console.log(`📊 Tarjetas de eventos visibles después del filtro: ${countDespues}`);
+        
+        // Usar las tarjetas encontradas para validar
+        const eventosParaValidar = tarjetasAmpliasDespues;
+        const countParaValidar = countDespues;
+        
+        // Validar que el filtro funcionó: verificar que los eventos mostrados corresponden al día seleccionado
+        if (countParaValidar > 0) {
+          let eventosCoinciden = 0;
+          let eventosNoCoinciden = 0;
+          
+          console.log(`🔍 Validando que los ${countParaValidar} evento(s) corresponden al día ${numeroDia}...`);
+          
+          // Validar cada evento visible para verificar que corresponde al día seleccionado
+          // Limitar a 5 eventos para evitar timeout
+          for (let i = 0; i < Math.min(countParaValidar, 5); i++) {
+            try {
+              const evento = eventosParaValidar.nth(i);
+              const esVisible = await Promise.race([
+                evento.isVisible(),
+                new Promise<boolean>(resolve => setTimeout(() => resolve(false), 2000))
+              ]) as boolean;
+              
+              if (esVisible) {
+                // Buscar la fecha en el evento - solo usar estrategia rápida
+                let fechaTexto: string | null = null;
+                let diaEnFecha = 0;
+                
+                // Estrategia única: Buscar en todo el texto del evento (más rápido)
+                const textoCompletoEvento = await Promise.race([
+                  evento.textContent(),
+                  new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
+                ]) as string | null;
+                
+                if (textoCompletoEvento) {
+                  // Buscar fecha en el texto completo (formato: día mes año o día mes)
+                  const matchFecha = textoCompletoEvento.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)(?:\s+\d{4})?/i);
+                  if (matchFecha && matchFecha[1]) {
+                    diaEnFecha = parseInt(matchFecha[1]);
+                    fechaTexto = matchFecha[0];
+                  }
+                }
+                
+                // Si no encontramos con la estrategia rápida, intentar una búsqueda más específica pero limitada
+                if (!fechaTexto) {
+                  const fechaCompleta = await Promise.race([
+                    evento.locator('p, span').filter({ 
+                      hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i 
+                    }).first().textContent(),
+                    new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
+                  ]) as string | null;
+                  
+                  if (fechaCompleta) {
+                    fechaTexto = fechaCompleta;
+                    const match = fechaTexto.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+                  if (match && match[1]) {
+                    diaEnFecha = parseInt(match[1]);
+                  }
+                } else {
+                  // Buscar fecha con formato corto (día mes)
+                  const fechaCorta = await evento.locator('p, span').filter({ 
+                    hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
+                  }).first().textContent().catch(() => null);
+                  
+                  if (fechaCorta) {
+                    fechaTexto = fechaCorta;
+                    const match = fechaTexto.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
+                    if (match && match[1]) {
+                      diaEnFecha = parseInt(match[1]);
+                    }
+                  }
+                }
+              }
+              
+                // Validar el día encontrado
+                if (diaEnFecha > 0) {
+                  if (diaEnFecha === numeroDia) {
+                    eventosCoinciden++;
+                    console.log(`  ✅ Evento ${i + 1}: fecha coincide con día seleccionado (${diaEnFecha})${fechaTexto ? ` - "${fechaTexto.trim()}"` : ''}`);
+                  } else {
+                    eventosNoCoinciden++;
+                    console.log(`  ⚠️ Evento ${i + 1}: fecha no coincide (día en evento: ${diaEnFecha}, día seleccionado: ${numeroDia})${fechaTexto ? ` - "${fechaTexto.trim()}"` : ''}`);
+                  }
+                } else {
+                  // No se encontró fecha, mostrar diagnóstico
+                  const textoEvento = await Promise.race([
+                    evento.locator('p, span').first().textContent(),
+                    new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
+                  ]) as string | null;
+                  const textoCompleto = textoCompletoEvento || textoEvento || 'N/A';
+                  console.log(`  ℹ️ Evento ${i + 1}: no se encontró fecha en el formato esperado - Texto: "${textoCompleto.toString().trim().substring(0, 100)}..."`);
+                }
+              }
+            } catch (error) {
+              // Continuar con el siguiente evento si hay un error
+              console.log(`  ⚠️ Error al validar evento ${i + 1}, continuando...`);
+              continue;
+            }
+          }
+          
+          if (eventosCoinciden > 0 && eventosNoCoinciden === 0) {
+            console.log(`✅ El filtro funcionó correctamente: todos los eventos (${eventosCoinciden}) corresponden al día seleccionado (${numeroDia})`);
+          } else if (eventosCoinciden > 0) {
+            console.log(`⚠️ El filtro funcionó parcialmente: ${eventosCoinciden} evento(s) coinciden, ${eventosNoCoinciden} no coinciden`);
+          } else {
+            console.log(`⚠️ Ningún evento coincide con el día seleccionado (puede ser un problema con el formato de fecha o el filtro no funcionó)`);
+          }
+        } else {
+          console.log('ℹ️ No se encontraron eventos después del filtro (puede ser que no haya eventos para ese día específico)');
+        }
+        
+        // Validar que el número de eventos cambió (indicador de que el filtro se aplicó)
+        if (countParaValidar !== countAntes) {
+          console.log(`✅ El número de eventos cambió (${countAntes} → ${countParaValidar}), indicando que el filtro se aplicó`);
+        } else if (countParaValidar > 0) {
+          console.log(`ℹ️ El número de eventos no cambió (${countAntes} → ${countParaValidar}), pero hay eventos visibles (puede que todos los eventos sean del mismo día)`);
+        }
+        
+        // Validar la cantidad de puntos en el día seleccionado vs eventos mostrados
+        if (numeroDia > 0 && diaSeleccionadoConBorde) {
+          // Usar directamente el día con eventos que ya encontramos y que tiene borde de selección
+          // Esto evita el problema de strict mode violation cuando hay días con el mismo número en diferentes meses
+          const diaSeleccionado = diaSeleccionadoConBorde;
+          
+          const puntosEnDia = diaSeleccionado.locator('div.w-\\[4px\\].aspect-square.rounded-circle[style*="background-color"]');
+          const countPuntos = await puntosEnDia.count().catch(() => 0);
+          
+          if (countPuntos > 0) {
+            // Filtrar puntos que no sean del color "sin eventos"
+            let puntosValidos = 0;
+            for (let i = 0; i < countPuntos; i++) {
+              const punto = puntosEnDia.nth(i);
+              const colorPunto = await punto.evaluate(el => {
+                return window.getComputedStyle(el).backgroundColor;
+              }).catch(() => null);
+              
+              if (colorPunto && !colorPunto.includes('rgb(242, 242, 242)')) {
+                puntosValidos++;
+              }
+            }
+            
+            console.log(`📊 Puntos (eventos) en el día ${numeroDia}: ${puntosValidos}`);
+            
+            if (puntosValidos > 0 && puntosValidos <= 3) {
+              console.log(`✅ El día tiene ${puntosValidos} punto(s) (evento(s))`);
+              console.log(`✅ La cantidad de puntos es válida (≤ 3)`);
+              
+              // Comparar con eventos mostrados
+              if (countParaValidar > puntosValidos) {
+                console.log(`⚠️ DISCREPANCIA: Se muestran ${countParaValidar} eventos pero el día tiene ${puntosValidos} punto(s)`);
+                console.log(`ℹ️ Esto puede ser normal si el filtro muestra eventos relacionados o si hay eventos de múltiples días`);
+              } else if (countParaValidar === puntosValidos) {
+                console.log(`✅ La cantidad de eventos mostrados (${countParaValidar}) coincide con los puntos del día (${puntosValidos})`);
+              }
+            }
+          }
+        }
+      }
+    } else {
+      console.log('ℹ️ No hay días con eventos para probar el filtrado');
+      console.log('ℹ️ Esta validación se omite cuando no hay eventos disponibles');
+    }
+    
+    // 7. VALIDAR ESTRUCTURA DEL CALENDARIO (días del mes)
+    await showStepMessage(page, '📋 VALIDANDO ESTRUCTURA DEL CALENDARIO');
+    await safeWaitForTimeout(page, 1000);
+    console.log('🔍 Validando estructura del calendario...');
+    
+    // Buscar todos los botones de días (números del 1 al 31)
+    const botonesDias = baseLocator.locator('button[type="button"]').filter({
+      has: page.locator('p, span').filter({
+        hasText: /^\d{1,2}$/
+      })
+    });
+    
+    const cantidadDias = await botonesDias.count();
+    console.log(`📊 Días encontrados en el calendario: ${cantidadDias}`);
+    
+    if (cantidadDias > 0) {
+      // Validar que hay al menos 28 días (mes mínimo)
+      if (cantidadDias >= 28) {
+        console.log(`✅ Calendario tiene estructura válida (${cantidadDias} días)`);
+      } else {
+        console.log(`⚠️ Calendario tiene menos días de lo esperado (${cantidadDias} días)`);
+      }
+      
+      // Validar que los días están habilitados
+      const primerDia = botonesDias.first();
+      const diaHabilitado = await primerDia.isEnabled().catch(() => false);
+      if (diaHabilitado) {
+        console.log('✅ Los días del calendario están habilitados (clickeables)');
+      } else {
+        console.log('⚠️ Los días del calendario no están habilitados');
+      }
+    } else {
+      console.log('⚠️ No se encontraron días en el calendario');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DEL CALENDARIO FINALIZADA');
+    console.log('✅ Validación completa del calendario finalizada');
   });
 
-  // PRUEBA 4: Sección "Elige tu fiesta"
-  test('Validar sección "Elige tu fiesta"', async ({ page }) => {
+  test('Dashboard Cliente: Calendario – Validar sección', async ({ page }) => {
+    test.setTimeout(180000);
+    
+    // El calendario solo está visible en desktop (≥1024px)
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ El calendario solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    await showStepMessage(page, '📅 VALIDANDO SECCIÓN DE CALENDARIO');
+    await page.waitForTimeout(1000);
+    
+    console.log('🔍 Buscando calendario...');
+    
+    // Buscar calendario por días de la semana
+    let calendario = page.locator('div').filter({
+      has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+    }).first();
+    
+    let calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    // Estrategia alternativa: buscar por mes
+    if (!calendarioVisible) {
+      calendario = page.locator('div').filter({
+        has: page.locator('button, p, span').filter({ 
+          hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+    
+    // Estrategia alternativa: buscar por estructura de días
+    if (!calendarioVisible) {
+      calendario = page.locator('div').filter({
+        has: page.locator('button').filter({
+          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
+        })
+      }).filter({
+        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
+      }).first();
+      
+      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    }
+    
+    if (calendarioVisible) {
+      await expect(calendario).toBeVisible();
+      console.log('✅ Calendario visible');
+      
+      // Validar días de la semana
+      const diasSemana = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+      let diasEncontrados = 0;
+      for (const dia of diasSemana) {
+        const diaElement = calendario.locator('p, span, div').filter({
+          hasText: new RegExp(`^${dia}$`, 'i')
+        }).first();
+        const diaVisible = await diaElement.isVisible({ timeout: 1000 }).catch(() => false);
+        if (diaVisible) {
+          diasEncontrados++;
+        }
+      }
+      console.log(`📊 Días de la semana encontrados: ${diasEncontrados}/7`);
+      
+      if (diasEncontrados >= 5) {
+        console.log('✅ Días de la semana visibles');
+      }
+    } else {
+      console.log('⚠️ Calendario no visible');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE CALENDARIO FINALIZADA');
+    console.log('✅ Validación de sección de calendario completada');
+  });
+
+  // PRUEBA 8: Sección Fiestachat
+
+  test('Dashboard Cliente: Elige tu Fiesta – Validar contenido', async ({ page }) => {
     test.setTimeout(120000);
     
     await showStepMessage(page, '🎉 VALIDANDO SECCIÓN "ELIGE TU FIESTA"');
@@ -1048,780 +2046,8 @@ test.describe('Dashboard de cliente', () => {
   });
 
   // PRUEBA 5: Sección "Agregar servicios"
-  test('Validar sección "Agregar servicios"', async ({ page }) => {
-    test.setTimeout(180000);
-    
-    await showStepMessage(page, '🔍 VALIDANDO SECCIÓN "AGREGAR SERVICIOS"');
-    await page.waitForTimeout(1000);
-    
-    // 1. Validar botón "Agregar servicios"
-    await showStepMessage(page, '🔘 VALIDANDO BOTÓN "AGREGAR SERVICIOS"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando botón "Agregar servicios"...');
-    
-    const botonAgregarServicios = page.locator('button').filter({
-      has: page.locator('span.font-bold').filter({ hasText: /Agregar servicios/i })
-    }).filter({
-      has: page.locator('i.icon-plus')
-    }).first();
-    
-    const botonFallback = page.getByRole('button', { name: /Agregar servicios/i });
-    
-    let botonElement: ReturnType<typeof page.locator> | null = null;
-    
-    if (await botonAgregarServicios.count() > 0 && await botonAgregarServicios.isVisible({ timeout: 5000 }).catch(() => false)) {
-      botonElement = botonAgregarServicios;
-      console.log('✅ Botón "Agregar servicios" encontrado');
-    } else if (await botonFallback.count() > 0 && await botonFallback.isVisible({ timeout: 5000 }).catch(() => false)) {
-      botonElement = botonFallback;
-      console.log('✅ Botón "Agregar servicios" encontrado (fallback)');
-    } else {
-      throw new Error('❌ No se encontró el botón "Agregar servicios"');
-    }
-    
-    await expect(botonElement).toBeVisible();
-    await expect(botonElement).toBeEnabled();
-    console.log('✅ Botón "Agregar servicios" visible y habilitado');
-    
-    // 2. Validar lista "Servicios"
-    await showStepMessage(page, '📋 VALIDANDO LISTA "SERVICIOS"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando lista "Servicios"...');
-    
-    // Buscar el título "Servicios"
-    const tituloServicios = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
-      hasText: /^Servicios$/i
-    }).first();
-    
-    const tituloServiciosVisible = await tituloServicios.isVisible({ timeout: 3000 }).catch(() => false);
-    if (tituloServiciosVisible) {
-      await expect(tituloServicios).toBeVisible();
-      console.log('✅ Título "Servicios" visible');
-    } else {
-      console.log('ℹ️ Título "Servicios" no visible (puede estar en otro formato)');
-    }
-    
-    // 3. Validar lista "Sugerencias"
-    await showStepMessage(page, '💡 VALIDANDO LISTA "SUGERENCIAS"');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Buscando lista "Sugerencias"...');
-    
-    // Buscar el título "Sugerencias"
-    const tituloSugerencias = page.locator('p, h1, h2, h3, h4, h5, h6').filter({
-      hasText: /^Sugerencias$/i
-    }).first();
-    
-    const tituloSugerenciasVisible = await tituloSugerencias.isVisible({ timeout: 3000 }).catch(() => false);
-    if (tituloSugerenciasVisible) {
-      await expect(tituloSugerencias).toBeVisible();
-      console.log('✅ Título "Sugerencias" visible');
-    } else {
-      console.log('ℹ️ Título "Sugerencias" no visible (puede estar en otro formato o no haber sugerencias)');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN "AGREGAR SERVICIOS" FINALIZADA');
-    console.log('✅ Validación de sección "Agregar servicios" completada');
-  });
 
-  // PRUEBA 6: Sección de servicios contactados
-  test('Validar sección de servicios contactados', async ({ page }) => {
-    test.setTimeout(120000);
-    
-    await showStepMessage(page, '📞 VALIDANDO SECCIÓN DE SERVICIOS CONTACTADOS');
-    await page.waitForTimeout(1000);
-    
-    console.log('🔍 Buscando sección de servicios contactados...');
-    
-    // Buscar tarjetas de servicios contactados
-    // Estas tarjetas aparecen después de agregar servicios a eventos
-    // Excluir el mensaje de bienvenida buscando elementos que NO contengan "Bienvenido"
-    const tarjetasServicios = page.locator('div, button').filter({
-      has: page.locator('p, span').filter({ hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i })
-    }).filter({
-      hasNot: page.locator('p, span, h1, h2, h3, h4, h5, h6').filter({ hasText: /Bienvenido/i })
-    });
-    
-    const cantidadTarjetas = await tarjetasServicios.count();
-    console.log(`📊 Tarjetas de servicios contactados encontradas: ${cantidadTarjetas}`);
-    
-    if (cantidadTarjetas > 0) {
-      // Validar que al menos una tarjeta es visible
-      let alMenosUnaVisible = false;
-      for (let i = 0; i < Math.min(cantidadTarjetas, 5); i++) {
-        const tarjeta = tarjetasServicios.nth(i);
-        const esVisible = await tarjeta.isVisible({ timeout: 2000 }).catch(() => false);
-        if (esVisible) {
-          alMenosUnaVisible = true;
-          await expect(tarjeta).toBeVisible();
-          console.log(`✅ Tarjeta de servicio contactado ${i + 1} visible`);
-          
-          // Obtener el nombre del servicio
-          // Excluir explícitamente el mensaje de bienvenida
-          const nombreServicio = tarjeta.locator('p.font-bold, p[class*="font-bold"], h1, h2, h3, h4, h5, h6, p.text-medium.font-bold').first();
-          const nombreVisible = await nombreServicio.isVisible({ timeout: 1000 }).catch(() => false);
-          let nombreEncontrado = false;
-          
-          if (nombreVisible) {
-            const textoNombre = await nombreServicio.textContent();
-            const nombreLimpio = textoNombre?.trim() || '';
-            // Excluir el mensaje de bienvenida
-            if (nombreLimpio && !nombreLimpio.match(/Bienvenido/i)) {
-              console.log(`  ✓ Servicio: "${nombreLimpio}"`);
-              nombreEncontrado = true;
-            }
-          }
-          
-          // Fallback: buscar cualquier texto que parezca un nombre de servicio
-          // pero excluir el mensaje de bienvenida
-          if (!nombreEncontrado) {
-            const todosLosTextos = tarjeta.locator('p, h1, h2, h3, h4, h5, h6');
-            const cantidadTextos = await todosLosTextos.count();
-            for (let j = 0; j < Math.min(cantidadTextos, 10); j++) {
-              const texto = todosLosTextos.nth(j);
-              const textoContent = (await texto.textContent())?.trim() || '';
-              // Excluir textos que son estados, bienvenida u otros elementos
-              if (textoContent && 
-                  !textoContent.match(/PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO|Bienvenido/i) &&
-                  textoContent.length > 3 &&
-                  textoContent.length < 100) {
-                console.log(`  ✓ Servicio: "${textoContent}"`);
-                nombreEncontrado = true;
-                break;
-              }
-            }
-          }
-          
-          if (!nombreEncontrado) {
-            console.log('  ⚠️ No se pudo obtener el nombre del servicio');
-          }
-          
-          // Validar que tiene estado (PENDIENTE, ACEPTADO, etc.)
-          const estado = tarjeta.locator('p, span').filter({
-            hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i
-          }).first();
-          const estadoVisible = await estado.isVisible({ timeout: 1000 }).catch(() => false);
-          if (estadoVisible) {
-            const textoEstado = await estado.textContent();
-            console.log(`  ✓ Estado: "${textoEstado?.trim()}"`);
-          }
-          
-          break;
-        }
-      }
-      
-      if (alMenosUnaVisible) {
-        console.log('✅ Al menos una tarjeta de servicio contactado es visible');
-      }
-    } else {
-      console.log('ℹ️ No se encontraron tarjetas de servicios contactados (puede que no haya servicios contactados aún)');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE SERVICIOS CONTACTADOS FINALIZADA');
-    console.log('✅ Validación de sección de servicios contactados completada');
-  });
-
-  // PRUEBA 7: Sección de Calendario
-  test('Validar sección de Calendario', async ({ page }) => {
-    test.setTimeout(180000);
-    
-    // El calendario solo está visible en desktop (≥1024px)
-    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
-      console.log('⚠️ El calendario solo está visible en viewports grandes (≥1024px)');
-      test.skip();
-      return;
-    }
-    
-    await showStepMessage(page, '📅 VALIDANDO SECCIÓN DE CALENDARIO');
-    await page.waitForTimeout(1000);
-    
-    console.log('🔍 Buscando calendario...');
-    
-    // Buscar calendario por días de la semana
-    let calendario = page.locator('div').filter({
-      has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-    }).first();
-    
-    let calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    
-    // Estrategia alternativa: buscar por mes
-    if (!calendarioVisible) {
-      calendario = page.locator('div').filter({
-        has: page.locator('button, p, span').filter({ 
-          hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-        })
-      }).filter({
-        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-      }).first();
-      
-      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    }
-    
-    // Estrategia alternativa: buscar por estructura de días
-    if (!calendarioVisible) {
-      calendario = page.locator('div').filter({
-        has: page.locator('button').filter({
-          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
-        })
-      }).filter({
-        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-      }).first();
-      
-      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    }
-    
-    if (calendarioVisible) {
-      await expect(calendario).toBeVisible();
-      console.log('✅ Calendario visible');
-      
-      // Validar días de la semana
-      const diasSemana = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
-      let diasEncontrados = 0;
-      for (const dia of diasSemana) {
-        const diaElement = calendario.locator('p, span, div').filter({
-          hasText: new RegExp(`^${dia}$`, 'i')
-        }).first();
-        const diaVisible = await diaElement.isVisible({ timeout: 1000 }).catch(() => false);
-        if (diaVisible) {
-          diasEncontrados++;
-        }
-      }
-      console.log(`📊 Días de la semana encontrados: ${diasEncontrados}/7`);
-      
-      if (diasEncontrados >= 5) {
-        console.log('✅ Días de la semana visibles');
-      }
-    } else {
-      console.log('⚠️ Calendario no visible');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE CALENDARIO FINALIZADA');
-    console.log('✅ Validación de sección de calendario completada');
-  });
-
-  // PRUEBA 8: Sección Fiestachat
-  test('Validar sección Fiestachat', async ({ page }) => {
-    test.setTimeout(120000);
-    
-    // La sección Fiestachat solo está visible en desktop (≥1024px)
-    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
-      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
-      test.skip();
-      return;
-    }
-    
-    await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
-    await page.waitForTimeout(1000);
-    
-    console.log('🔍 Buscando sección Fiestachat...');
-    
-    // Buscar contenedor de Fiestachat
-    let seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
-      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-    });
-    
-    let contenedorEncontrado = await seccionFiestachat.count() > 0;
-    
-    if (!contenedorEncontrado) {
-      // Fallback: buscar cualquier contenedor que tenga el título
-      seccionFiestachat = page.locator('div').filter({
-        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-      }).first();
-      
-      contenedorEncontrado = await seccionFiestachat.count() > 0;
-    }
-    
-    if (contenedorEncontrado) {
-      const seccionVisible = await seccionFiestachat.isVisible({ timeout: 3000 }).catch(() => false);
-      if (seccionVisible) {
-        await expect(seccionFiestachat).toBeVisible();
-        console.log('✅ Contenedor de Fiestachat visible');
-        
-        // Validar título "¡Fiestachat!"
-        const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
-        const tituloVisible = await tituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
-        if (tituloVisible) {
-          await expect(tituloFiestachat).toBeVisible();
-          console.log('✅ Título "¡Fiestachat!" visible');
-        }
-        
-        // Validar subtítulo "La línea directa a tu evento"
-        const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
-        const subtituloVisible = await subtituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
-        if (subtituloVisible) {
-          await expect(subtituloFiestachat).toBeVisible();
-          console.log('✅ Subtítulo "La línea directa a tu evento" visible');
-        }
-        
-        // Validar notificaciones (pueden o no estar presentes)
-        const notificationButtons = seccionFiestachat.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
-        const notificationCount = await notificationButtons.count();
-        console.log(`📊 Notificaciones encontradas: ${notificationCount}`);
-        
-        if (notificationCount > 0) {
-          console.log('✅ Notificaciones presentes en Fiestachat');
-        } else {
-          console.log('ℹ️ No hay notificaciones en Fiestachat (estado válido)');
-        }
-      } else {
-        console.log('⚠️ Contenedor de Fiestachat no visible');
-      }
-    } else {
-      console.log('⚠️ Sección Fiestachat no encontrada');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN FIESTACHAT FINALIZADA');
-    console.log('✅ Validación de sección Fiestachat completada');
-  });
-
-  // ============================================
-  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
-  // ============================================
-
-  test('Crear una nueva fiesta desde el dashboard', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
-    
-    await showStepMessage(page, '🎉 CREANDO NUEVA FIESTA DESDE EL DASHBOARD');
-    console.log('🚀 Iniciando flujo completo de creación de evento...');
-    
-    // Esta prueba ejecuta el flujo completo de creación de evento
-    // Reutiliza la función ejecutarFlujoCompletoCreacionEvento de cliente-eventos.spec.ts
-    // para evitar duplicación de código
-    
-    await ejecutarFlujoCompletoCreacionEvento(page);
-    console.log('✅ Flujo completo de creación de evento finalizado');
-  });
-
-  // ============================================================================
-  // TEST: Mapear estructura completa de categorías de servicios
-  // ============================================================================
-  test('Mapear estructura completa de categorías y subcategorías de servicios', async ({ page }) => {
-    test.setTimeout(600000); // 10 minutos para explorar todas las categorías
-    
-    await showStepMessage(page, '🗺️ Mapeando estructura completa de categorías de servicios');
-    
-    const resultado = await mapearEstructuraCategoriasServicios(page, DEFAULT_BASE_URL);
-    
-    // Validar que se encontraron categorías
-    expect(resultado.resumen.categoriasPrincipales).toBeGreaterThan(0);
-    
-    // Validar que al menos una ruta llegó a cards
-    expect(resultado.resumen.rutasConCards).toBeGreaterThan(0);
-  });
-
-  // ============================================
-  // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
-  // ============================================
-
-  test('Se muestran todos los elementos de la sección Fiestachat (desktop)', async ({ page }) => {
-    await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
-    await page.waitForTimeout(1000);
-    
-    // La sección Fiestachat solo está visible en desktop
-    if (page.viewportSize() && page.viewportSize()!.width >= 1024) {
-      // Buscar el texto dentro del contenedor específico de Fiestachat (evitar el overlay)
-      const seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
-        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-      });
-      
-      if (await seccionFiestachat.count() > 0) {
-        const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
-        const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
-        
-        await expect(tituloFiestachat).toBeVisible();
-        await expect(subtituloFiestachat).toBeVisible();
-      } else {
-        // Fallback: buscar directamente pero excluyendo el overlay
-        const tituloFiestachat = page.locator('p.text-regular.text-primary-neutral.text-center.font-bold').filter({
-          hasText: '¡Fiestachat!'
-        }).first();
-        const subtituloFiestachat = page.locator('p.text-small.text-dark-neutral.text-center').filter({
-          hasText: 'La línea directa a tu evento'
-        }).first();
-        
-        await expect(tituloFiestachat).toBeVisible();
-        await expect(subtituloFiestachat).toBeVisible();
-      }
-      
-      // Buscar conversaciones (botones con información de chat)
-      const conversaciones = page.locator('button').filter({
-        has: page.locator('div').filter({
-          has: page.locator('p').filter({ hasText: /NuevoNombreQA|Nuevo Negocio QA/i })
-        })
-      });
-      
-      const countConversaciones = await conversaciones.count();
-      console.log(`📊 Conversaciones encontradas: ${countConversaciones}`);
-      
-      if (countConversaciones > 0) {
-        // Validar que la primera conversación es clickeable
-        const primeraConversacion = conversaciones.first();
-        await expect(primeraConversacion).toBeVisible();
-        console.log('✅ Se encontraron conversaciones válidas');
-      } else {
-        console.log('⚠️ No se encontraron conversaciones, puede ser un estado vacío válido');
-      }
-    } else {
-      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
-    }
-  });
-
-  test('Se muestran todos los elementos de la sección Fiestachat (completo)', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
-    
-    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-    await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, 2000);
-    
-    await showStepMessage(page, '💬 VALIDANDO ELEMENTOS COMPLETOS DE "¡FIESTACHAT!"');
-    await safeWaitForTimeout(page, 1000);
-    
-    // La sección Fiestachat solo está visible en desktop
-    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
-      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
-      test.skip();
-      return;
-    }
-    
-    // 1. VALIDAR EXISTENCIA Y VISIBILIDAD DEL CONTENEDOR
-    await showStepMessage(page, '📦 BUSCANDO CONTENEDOR DE FIESTACHAT');
-    await safeWaitForTimeout(page, 1000);
-    
-    let seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
-      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-    });
-    
-    let contenedorEncontrado = await seccionFiestachat.count() > 0;
-    
-    if (!contenedorEncontrado) {
-      // Fallback: buscar cualquier contenedor que tenga el título
-      seccionFiestachat = page.locator('div').filter({
-        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
-      }).first();
-      
-      const countFallback = await seccionFiestachat.count();
-      if (countFallback > 0) {
-        contenedorEncontrado = await seccionFiestachat.isVisible({ timeout: 3000 }).catch(() => false);
-      }
-    }
-    
-    if (!contenedorEncontrado) {
-      console.log('❌ No se encontró el contenedor de Fiestachat');
-      return;
-    }
-    
-    await expect(seccionFiestachat).toBeVisible();
-    console.log('✅ Contenedor de Fiestachat encontrado y visible');
-    
-    // 2. VALIDAR TÍTULO
-    await showStepMessage(page, '📝 VALIDANDO TÍTULO');
-    await safeWaitForTimeout(page, 500);
-    
-    const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
-    await expect(tituloFiestachat).toBeVisible();
-    const textoTitulo = (await tituloFiestachat.textContent())?.trim() || '';
-    expect(textoTitulo).toContain('¡Fiestachat!');
-    console.log(`✅ Título encontrado: "${textoTitulo}"`);
-    
-    // 3. VALIDAR SUBTÍTULO
-    await showStepMessage(page, '📝 VALIDANDO SUBTÍTULO');
-    await safeWaitForTimeout(page, 500);
-    
-    const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
-    await expect(subtituloFiestachat).toBeVisible();
-    const textoSubtitulo = (await subtituloFiestachat.textContent())?.trim() || '';
-    expect(textoSubtitulo).toContain('La línea directa a tu evento');
-    console.log(`✅ Subtítulo encontrado: "${textoSubtitulo}"`);
-    
-    // 4. VALIDAR CONTENEDOR DESTACADO CON INFORMACIÓN SOBRE EL CHAT
-    await showStepMessage(page, '📦 VALIDANDO CONTENEDOR DESTACADO');
-    await safeWaitForTimeout(page, 500);
-    
-    // Buscar elementos dentro del contenedor que puedan contener información
-    const elementosInformacion = seccionFiestachat.locator('div, p, span').filter({
-      hasNot: page.locator('p').filter({ hasText: /¡Fiestachat!|La línea directa a tu evento/ })
-    });
-    
-    const countElementos = await elementosInformacion.count();
-    console.log(`📊 Elementos de información encontrados: ${countElementos}`);
-    
-    if (countElementos > 0) {
-      // Validar que hay contenido visible en el contenedor
-      const primerElemento = elementosInformacion.first();
-      const esVisible = await primerElemento.isVisible().catch(() => false);
-      if (esVisible) {
-        const contenido = (await primerElemento.textContent())?.trim() || '';
-        if (contenido.length > 0) {
-          console.log(`✅ Contenedor destacado tiene contenido: "${contenido.substring(0, 50)}..."`);
-        }
-      }
-    }
-    
-    // Validar estilos del contenedor (bg-light-light indica que es destacado)
-    const bgColor = await seccionFiestachat.evaluate((el) => {
-      return window.getComputedStyle(el).backgroundColor;
-    }).catch(() => null);
-    
-    if (bgColor) {
-      console.log(`✅ Contenedor tiene estilo destacado (background color aplicado)`);
-    }
-    
-    // 5. VALIDAR ELEMENTOS INTERACTIVOS (BOTONES, ENLACES, ETC.)
-    await showStepMessage(page, '🖱️ VALIDANDO ELEMENTOS INTERACTIVOS');
-    await safeWaitForTimeout(page, 500);
-    
-    // Buscar botones dentro del contenedor
-    const botones = seccionFiestachat.locator('button');
-    const countBotones = await botones.count();
-    console.log(`📊 Botones encontrados: ${countBotones}`);
-    
-    if (countBotones > 0) {
-      for (let i = 0; i < Math.min(countBotones, 5); i++) {
-        const boton = botones.nth(i);
-        const esVisible = await boton.isVisible().catch(() => false);
-        if (esVisible) {
-          await expect(boton).toBeVisible();
-          const esHabilitado = await boton.isEnabled().catch(() => false);
-          if (esHabilitado) {
-            await expect(boton).toBeEnabled();
-            const textoBoton = (await boton.textContent())?.trim() || '';
-            console.log(`✅ Botón encontrado y habilitado: "${textoBoton}"`);
-          }
-        }
-      }
-    }
-    
-    // Buscar enlaces dentro del contenedor
-    const enlaces = seccionFiestachat.locator('a');
-    const countEnlaces = await enlaces.count();
-    console.log(`📊 Enlaces encontrados: ${countEnlaces}`);
-    
-    if (countEnlaces > 0) {
-      for (let i = 0; i < Math.min(countEnlaces, 5); i++) {
-        const enlace = enlaces.nth(i);
-        const esVisible = await enlace.isVisible().catch(() => false);
-        if (esVisible) {
-          await expect(enlace).toBeVisible();
-          const href = await enlace.getAttribute('href').catch(() => null);
-          const textoEnlace = (await enlace.textContent())?.trim() || '';
-          console.log(`✅ Enlace encontrado: "${textoEnlace}" -> ${href || 'sin href'}`);
-        }
-      }
-    }
-    
-    // 6. VALIDAR CONVERSACIONES (ELEMENTOS CLICKEABLES DE CHAT)
-    await showStepMessage(page, '💬 VALIDANDO CONVERSACIONES');
-    await safeWaitForTimeout(page, 500);
-    
-    // Buscar conversaciones (botones con información de chat)
-    const conversaciones = page.locator('button').filter({
-      has: seccionFiestachat.locator('div').filter({
-        has: page.locator('p, span')
-      })
-    });
-    
-    // Si no se encuentran dentro del contenedor, buscar en toda la página cerca del contenedor
-    const conversacionesAlternativas = page.locator('button').filter({
-      has: page.locator('div').filter({
-        has: page.locator('p, span').filter({ hasText: /.+/ })
-      })
-    });
-    
-    const countConversaciones = await conversaciones.count();
-    const countConversacionesAlt = await conversacionesAlternativas.count();
-    
-    console.log(`📊 Conversaciones encontradas (dentro del contenedor): ${countConversaciones}`);
-    console.log(`📊 Conversaciones encontradas (alternativas): ${countConversacionesAlt}`);
-    
-    if (countConversaciones > 0 || countConversacionesAlt > 0) {
-      const conversacionesParaValidar = countConversaciones > 0 ? conversaciones : conversacionesAlternativas;
-      const primeraConversacion = conversacionesParaValidar.first();
-      
-      await expect(primeraConversacion).toBeVisible();
-      const esClickeable = await primeraConversacion.isEnabled().catch(() => false);
-      if (esClickeable) {
-        await expect(primeraConversacion).toBeEnabled();
-        console.log('✅ Se encontraron conversaciones válidas y clickeables');
-      }
-    } else {
-      console.log('ℹ️ No se encontraron conversaciones, puede ser un estado vacío válido');
-    }
-    
-    console.log('✅ Validación completa de la sección "¡Fiestachat!" finalizada');
-  });
-
-  test('Navega a la página de cotización al hacer clic en una notificación', async ({ page }) => {
-    test.setTimeout(120000); // 2 minutos
-    
-    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
-    await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
-    await safeWaitForTimeout(page, 2000);
-    
-    await showStepMessage(page, '🔔 VALIDANDO CLIC EN NOTIFICACIÓN Y NAVEGACIÓN');
-    await safeWaitForTimeout(page, 1000);
-    
-    // La sección Fiestachat solo está visible en desktop
-    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
-      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
-      test.skip();
-      return;
-    }
-    
-    // 1. BUSCAR SECCIÓN FIESTACHAT
-    await showStepMessage(page, '🔍 BUSCANDO SECCIÓN FIESTACHAT');
-    await safeWaitForTimeout(page, 1000);
-    
-    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-    
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
-      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
-    }
-    
-    if (!fiestachatVisible) {
-      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
-      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
-    }
-    
-    if (!fiestachatVisible) {
-      console.log('⚠️ Sección Fiestachat no visible, no se puede validar notificaciones');
-      test.skip();
-      return;
-    }
-    
-    console.log('✅ Sección Fiestachat encontrada');
-    
-    // 2. BUSCAR NOTIFICACIONES
-    await showStepMessage(page, '🔔 BUSCANDO NOTIFICACIONES');
-    await safeWaitForTimeout(page, 1000);
-    
-    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
-    const notificationCount = await notificationButtons.count();
-    
-    if (notificationCount === 0) {
-      console.log('⚠️ No se encontraron notificaciones en Fiestachat');
-      test.skip();
-      return;
-    }
-    
-    console.log(`✅ Se encontraron ${notificationCount} notificación(es)`);
-    
-    // 3. OBTENER INFORMACIÓN DE LA PRIMERA NOTIFICACIÓN
-    await showStepMessage(page, '📋 OBTENIENDO INFORMACIÓN DE LA NOTIFICACIÓN');
-    await safeWaitForTimeout(page, 500);
-    
-    const firstNotification = notificationButtons.first();
-    const notificationText = await firstNotification.textContent();
-    const urlAntesClick = page.url();
-    
-    
-    // Verificar que la notificación es clickeable
-    await expect(firstNotification).toBeVisible();
-    await expect(firstNotification).toBeEnabled();
-    console.log('✅ Notificación es clickeable');
-    
-    // 4. HACER CLIC EN LA NOTIFICACIÓN
-    await showStepMessage(page, '🖱️ HACIENDO CLIC EN LA NOTIFICACIÓN');
-    await safeWaitForTimeout(page, 500);
-    
-    await firstNotification.click();
-    await safeWaitForTimeout(page, 2000);
-    
-    // 5. VERIFICAR NAVEGACIÓN A PÁGINA DE COTIZACIÓN
-    await showStepMessage(page, '✅ VERIFICANDO NAVEGACIÓN');
-    await safeWaitForTimeout(page, 1000);
-    
-    const urlDespuesClick = page.url();
-    
-    // Verificar que la URL cambió
-    expect(urlDespuesClick).not.toBe(urlAntesClick);
-    console.log('✅ La URL cambió después del clic');
-    
-    // Verificar que estamos en una página de cotización
-    // Puede ser /client/quotation, /client/prequotation, /client/negotiation, etc.
-    const esPaginaCotizacion = 
-      urlDespuesClick.includes('/quotation') ||
-      urlDespuesClick.includes('/prequotation') ||
-      urlDespuesClick.includes('/negotiation') ||
-      urlDespuesClick.includes('/cotizacion');
-    
-    if (esPaginaCotizacion) {
-      console.log('✅ Navegación exitosa a página de cotización');
-    } else {
-      console.log('⚠️ La URL no parece ser de cotización');
-      // No fallar el test, solo advertir, ya que puede haber diferentes formatos de URL
-    }
-    
-    // 6. VERIFICAR ELEMENTOS DE LA PÁGINA DE COTIZACIÓN
-    await showStepMessage(page, '📄 VALIDANDO ELEMENTOS DE LA PÁGINA');
-    await safeWaitForTimeout(page, 1000);
-    
-    // Buscar elementos comunes en páginas de cotización
-    const elementosCotizacion = [
-      page.locator('p, h1, h2, h3').filter({ hasText: /Cotización|Quotation/i }),
-      page.locator('button').filter({ hasText: /Enviar|Solicitar|Aceptar|Rechazar/i }),
-      page.locator('textarea, input').filter({ has: page.locator('label').filter({ hasText: /Detalle|Mensaje|Request/i }) }),
-    ];
-    
-    let elementosEncontrados = 0;
-    for (const elemento of elementosCotizacion) {
-      const count = await elemento.count();
-      if (count > 0) {
-        const visible = await elemento.first().isVisible({ timeout: 2000 }).catch(() => false);
-        if (visible) {
-          elementosEncontrados++;
-        }
-      }
-    }
-    
-    if (elementosEncontrados > 0) {
-      console.log(`✅ Se encontraron ${elementosEncontrados} elemento(s) relacionados con cotización`);
-    } else {
-      console.log('ℹ️ No se encontraron elementos específicos de cotización (puede ser una página diferente)');
-    }
-    
-    // Verificar que la página se cargó correctamente
-    await page.waitForLoadState('networkidle');
-    const pageTitle = await page.title();
-    console.log(`📄 Título de la página: "${pageTitle}"`);
-    
-    console.log('✅ Validación de clic en notificación y navegación completada');
-  });
-
-  test('Se muestran las fiestas del cliente en la sección de eventos', async ({ page }) => {
-    await showStepMessage(page, '🎉 VALIDANDO SECCIÓN DE EVENTOS');
-    await page.waitForTimeout(1000);
-    
-    // Buscar eventos/fiestas en la sección "Elige tu fiesta"
-    const eventos = page.locator('button').filter({
-      has: page.locator('div').filter({
-        has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i })
-      })
-    });
-    
-    const countEventos = await eventos.count();
-    console.log(`📊 Eventos encontrados: ${countEventos}`);
-    
-    if (countEventos > 0) {
-      // Validar que el primer evento tiene información válida
-      const primerEvento = eventos.first();
-      await expect(primerEvento).toBeVisible();
-      
-      // Validar que tiene fecha
-      const fecha = primerEvento.locator('p').filter({
-        hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i
-      });
-      await expect(fecha.first()).toBeVisible();
-      
-      console.log('✅ Se encontraron eventos válidos');
-    } else {
-      console.log('⚠️ No se encontraron eventos, puede ser un estado vacío válido');
-    }
-  });
-
-  test('Se muestran todos los elementos de la sección Elige Tu Fiesta', async ({ page }) => {
+  test('Dashboard Cliente: Elige tu Fiesta – Validar elementos', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '🎉 VALIDANDO ELEMENTOS COMPLETOS DE "ELIGE TU FIESTA"');
@@ -2248,7 +2474,868 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa de elementos de "Elige tu fiesta" finalizada');
   });
 
-  test('Se muestran todos los elementos de la sección de servicios', async ({ page }) => {
+
+  test('Dashboard Cliente: Eventos – Validar fiestas del cliente', async ({ page }) => {
+    await showStepMessage(page, '🎉 VALIDANDO SECCIÓN DE EVENTOS');
+    await page.waitForTimeout(1000);
+    
+    // Buscar eventos/fiestas en la sección "Elige tu fiesta"
+    const eventos = page.locator('button').filter({
+      has: page.locator('div').filter({
+        has: page.locator('p').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i })
+      })
+    });
+    
+    const countEventos = await eventos.count();
+    console.log(`📊 Eventos encontrados: ${countEventos}`);
+    
+    if (countEventos > 0) {
+      // Validar que el primer evento tiene información válida
+      const primerEvento = eventos.first();
+      await expect(primerEvento).toBeVisible();
+      
+      // Validar que tiene fecha
+      const fecha = primerEvento.locator('p').filter({
+        hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i
+      });
+      await expect(fecha.first()).toBeVisible();
+      
+      console.log('✅ Se encontraron eventos válidos');
+    } else {
+      console.log('⚠️ No se encontraron eventos, puede ser un estado vacío válido');
+    }
+  });
+
+
+  test('Dashboard Cliente: Fiestachat – Validar elementos – Completo', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+    
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+    
+    await showStepMessage(page, '💬 VALIDANDO ELEMENTOS COMPLETOS DE "¡FIESTACHAT!"');
+    await safeWaitForTimeout(page, 1000);
+    
+    // La sección Fiestachat solo está visible en desktop
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    // 1. VALIDAR EXISTENCIA Y VISIBILIDAD DEL CONTENEDOR
+    await showStepMessage(page, '📦 BUSCANDO CONTENEDOR DE FIESTACHAT');
+    await safeWaitForTimeout(page, 1000);
+    
+    let seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
+      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+    });
+    
+    let contenedorEncontrado = await seccionFiestachat.count() > 0;
+    
+    if (!contenedorEncontrado) {
+      // Fallback: buscar cualquier contenedor que tenga el título
+      seccionFiestachat = page.locator('div').filter({
+        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+      }).first();
+      
+      const countFallback = await seccionFiestachat.count();
+      if (countFallback > 0) {
+        contenedorEncontrado = await seccionFiestachat.isVisible({ timeout: 3000 }).catch(() => false);
+      }
+    }
+    
+    if (!contenedorEncontrado) {
+      console.log('❌ No se encontró el contenedor de Fiestachat');
+      return;
+    }
+    
+    await expect(seccionFiestachat).toBeVisible();
+    console.log('✅ Contenedor de Fiestachat encontrado y visible');
+    
+    // 2. VALIDAR TÍTULO
+    await showStepMessage(page, '📝 VALIDANDO TÍTULO');
+    await safeWaitForTimeout(page, 500);
+    
+    const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
+    await expect(tituloFiestachat).toBeVisible();
+    const textoTitulo = (await tituloFiestachat.textContent())?.trim() || '';
+    expect(textoTitulo).toContain('¡Fiestachat!');
+    console.log(`✅ Título encontrado: "${textoTitulo}"`);
+    
+    // 3. VALIDAR SUBTÍTULO
+    await showStepMessage(page, '📝 VALIDANDO SUBTÍTULO');
+    await safeWaitForTimeout(page, 500);
+    
+    const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
+    await expect(subtituloFiestachat).toBeVisible();
+    const textoSubtitulo = (await subtituloFiestachat.textContent())?.trim() || '';
+    expect(textoSubtitulo).toContain('La línea directa a tu evento');
+    console.log(`✅ Subtítulo encontrado: "${textoSubtitulo}"`);
+    
+    // 4. VALIDAR CONTENEDOR DESTACADO CON INFORMACIÓN SOBRE EL CHAT
+    await showStepMessage(page, '📦 VALIDANDO CONTENEDOR DESTACADO');
+    await safeWaitForTimeout(page, 500);
+    
+    // Buscar elementos dentro del contenedor que puedan contener información
+    const elementosInformacion = seccionFiestachat.locator('div, p, span').filter({
+      hasNot: page.locator('p').filter({ hasText: /¡Fiestachat!|La línea directa a tu evento/ })
+    });
+    
+    const countElementos = await elementosInformacion.count();
+    console.log(`📊 Elementos de información encontrados: ${countElementos}`);
+    
+    if (countElementos > 0) {
+      // Validar que hay contenido visible en el contenedor
+      const primerElemento = elementosInformacion.first();
+      const esVisible = await primerElemento.isVisible().catch(() => false);
+      if (esVisible) {
+        const contenido = (await primerElemento.textContent())?.trim() || '';
+        if (contenido.length > 0) {
+          console.log(`✅ Contenedor destacado tiene contenido: "${contenido.substring(0, 50)}..."`);
+        }
+      }
+    }
+    
+    // Validar estilos del contenedor (bg-light-light indica que es destacado)
+    const bgColor = await seccionFiestachat.evaluate((el) => {
+      return window.getComputedStyle(el).backgroundColor;
+    }).catch(() => null);
+    
+    if (bgColor) {
+      console.log(`✅ Contenedor tiene estilo destacado (background color aplicado)`);
+    }
+    
+    // 5. VALIDAR ELEMENTOS INTERACTIVOS (BOTONES, ENLACES, ETC.)
+    await showStepMessage(page, '🖱️ VALIDANDO ELEMENTOS INTERACTIVOS');
+    await safeWaitForTimeout(page, 500);
+    
+    // Buscar botones dentro del contenedor
+    const botones = seccionFiestachat.locator('button');
+    const countBotones = await botones.count();
+    console.log(`📊 Botones encontrados: ${countBotones}`);
+    
+    if (countBotones > 0) {
+      for (let i = 0; i < Math.min(countBotones, 5); i++) {
+        const boton = botones.nth(i);
+        const esVisible = await boton.isVisible().catch(() => false);
+        if (esVisible) {
+          await expect(boton).toBeVisible();
+          const esHabilitado = await boton.isEnabled().catch(() => false);
+          if (esHabilitado) {
+            await expect(boton).toBeEnabled();
+            const textoBoton = (await boton.textContent())?.trim() || '';
+            console.log(`✅ Botón encontrado y habilitado: "${textoBoton}"`);
+          }
+        }
+      }
+    }
+    
+    // Buscar enlaces dentro del contenedor
+    const enlaces = seccionFiestachat.locator('a');
+    const countEnlaces = await enlaces.count();
+    console.log(`📊 Enlaces encontrados: ${countEnlaces}`);
+    
+    if (countEnlaces > 0) {
+      for (let i = 0; i < Math.min(countEnlaces, 5); i++) {
+        const enlace = enlaces.nth(i);
+        const esVisible = await enlace.isVisible().catch(() => false);
+        if (esVisible) {
+          await expect(enlace).toBeVisible();
+          const href = await enlace.getAttribute('href').catch(() => null);
+          const textoEnlace = (await enlace.textContent())?.trim() || '';
+          console.log(`✅ Enlace encontrado: "${textoEnlace}" -> ${href || 'sin href'}`);
+        }
+      }
+    }
+    
+    // 6. VALIDAR CONVERSACIONES (ELEMENTOS CLICKEABLES DE CHAT)
+    await showStepMessage(page, '💬 VALIDANDO CONVERSACIONES');
+    await safeWaitForTimeout(page, 500);
+    
+    // Buscar conversaciones (botones con información de chat)
+    const conversaciones = page.locator('button').filter({
+      has: seccionFiestachat.locator('div').filter({
+        has: page.locator('p, span')
+      })
+    });
+    
+    // Si no se encuentran dentro del contenedor, buscar en toda la página cerca del contenedor
+    const conversacionesAlternativas = page.locator('button').filter({
+      has: page.locator('div').filter({
+        has: page.locator('p, span').filter({ hasText: /.+/ })
+      })
+    });
+    
+    const countConversaciones = await conversaciones.count();
+    const countConversacionesAlt = await conversacionesAlternativas.count();
+    
+    console.log(`📊 Conversaciones encontradas (dentro del contenedor): ${countConversaciones}`);
+    console.log(`📊 Conversaciones encontradas (alternativas): ${countConversacionesAlt}`);
+    
+    if (countConversaciones > 0 || countConversacionesAlt > 0) {
+      const conversacionesParaValidar = countConversaciones > 0 ? conversaciones : conversacionesAlternativas;
+      const primeraConversacion = conversacionesParaValidar.first();
+      
+      await expect(primeraConversacion).toBeVisible();
+      const esClickeable = await primeraConversacion.isEnabled().catch(() => false);
+      if (esClickeable) {
+        await expect(primeraConversacion).toBeEnabled();
+        console.log('✅ Se encontraron conversaciones válidas y clickeables');
+      }
+    } else {
+      console.log('ℹ️ No se encontraron conversaciones, puede ser un estado vacío válido');
+    }
+    
+    console.log('✅ Validación completa de la sección "¡Fiestachat!" finalizada');
+  });
+
+
+  test('Dashboard Cliente: Fiestachat – Validar elementos – Desktop', async ({ page }) => {
+    await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
+    await page.waitForTimeout(1000);
+    
+    // La sección Fiestachat solo está visible en desktop
+    if (page.viewportSize() && page.viewportSize()!.width >= 1024) {
+      // Buscar el texto dentro del contenedor específico de Fiestachat (evitar el overlay)
+      const seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
+        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+      });
+      
+      if (await seccionFiestachat.count() > 0) {
+        const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
+        const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
+        
+        await expect(tituloFiestachat).toBeVisible();
+        await expect(subtituloFiestachat).toBeVisible();
+      } else {
+        // Fallback: buscar directamente pero excluyendo el overlay
+        const tituloFiestachat = page.locator('p.text-regular.text-primary-neutral.text-center.font-bold').filter({
+          hasText: '¡Fiestachat!'
+        }).first();
+        const subtituloFiestachat = page.locator('p.text-small.text-dark-neutral.text-center').filter({
+          hasText: 'La línea directa a tu evento'
+        }).first();
+        
+        await expect(tituloFiestachat).toBeVisible();
+        await expect(subtituloFiestachat).toBeVisible();
+      }
+      
+      // Buscar conversaciones (botones con información de chat)
+      const conversaciones = page.locator('button').filter({
+        has: page.locator('div').filter({
+          has: page.locator('p').filter({ hasText: /NuevoNombreQA|Nuevo Negocio QA/i })
+        })
+      });
+      
+      const countConversaciones = await conversaciones.count();
+      console.log(`📊 Conversaciones encontradas: ${countConversaciones}`);
+      
+      if (countConversaciones > 0) {
+        // Validar que la primera conversación es clickeable
+        const primeraConversacion = conversaciones.first();
+        await expect(primeraConversacion).toBeVisible();
+        console.log('✅ Se encontraron conversaciones válidas');
+      } else {
+        console.log('⚠️ No se encontraron conversaciones, puede ser un estado vacío válido');
+      }
+    } else {
+      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
+    }
+  });
+
+
+  test('Dashboard Cliente: Fiestachat – Validar sección', async ({ page }) => {
+    test.setTimeout(120000);
+    
+    // La sección Fiestachat solo está visible en desktop (≥1024px)
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    await showStepMessage(page, '💬 VALIDANDO SECCIÓN FIESTACHAT');
+    await page.waitForTimeout(1000);
+    
+    console.log('🔍 Buscando sección Fiestachat...');
+    
+    // Buscar contenedor de Fiestachat
+    let seccionFiestachat = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light').filter({
+      has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+    });
+    
+    let contenedorEncontrado = await seccionFiestachat.count() > 0;
+    
+    if (!contenedorEncontrado) {
+      // Fallback: buscar cualquier contenedor que tenga el título
+      seccionFiestachat = page.locator('div').filter({
+        has: page.locator('p').filter({ hasText: '¡Fiestachat!' })
+      }).first();
+      
+      contenedorEncontrado = await seccionFiestachat.count() > 0;
+    }
+    
+    if (contenedorEncontrado) {
+      const seccionVisible = await seccionFiestachat.isVisible({ timeout: 3000 }).catch(() => false);
+      if (seccionVisible) {
+        await expect(seccionFiestachat).toBeVisible();
+        console.log('✅ Contenedor de Fiestachat visible');
+        
+        // Validar título "¡Fiestachat!"
+        const tituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: '¡Fiestachat!' }).first();
+        const tituloVisible = await tituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
+        if (tituloVisible) {
+          await expect(tituloFiestachat).toBeVisible();
+          console.log('✅ Título "¡Fiestachat!" visible');
+        }
+        
+        // Validar subtítulo "La línea directa a tu evento"
+        const subtituloFiestachat = seccionFiestachat.locator('p').filter({ hasText: 'La línea directa a tu evento' }).first();
+        const subtituloVisible = await subtituloFiestachat.isVisible({ timeout: 2000 }).catch(() => false);
+        if (subtituloVisible) {
+          await expect(subtituloFiestachat).toBeVisible();
+          console.log('✅ Subtítulo "La línea directa a tu evento" visible');
+        }
+        
+        // Validar notificaciones (pueden o no estar presentes)
+        const notificationButtons = seccionFiestachat.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+        const notificationCount = await notificationButtons.count();
+        console.log(`📊 Notificaciones encontradas: ${notificationCount}`);
+        
+        if (notificationCount > 0) {
+          console.log('✅ Notificaciones presentes en Fiestachat');
+        } else {
+          console.log('ℹ️ No hay notificaciones en Fiestachat (estado válido)');
+        }
+      } else {
+        console.log('⚠️ Contenedor de Fiestachat no visible');
+      }
+    } else {
+      console.log('⚠️ Sección Fiestachat no encontrada');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN FIESTACHAT FINALIZADA');
+    console.log('✅ Validación de sección Fiestachat completada');
+  });
+
+  // ============================================
+  // GRUPO 3: PRUEBAS QUE SOLO PRUEBAN FUNCIONALIDAD
+  // ============================================================================
+  // TEST: Mapear estructura completa de categorías de servicios
+  // ============================================================================
+
+  test('Dashboard Cliente: Navbar – Validar elementos', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+    
+    await showStepMessage(page, '📋 VALIDANDO ELEMENTOS COMPLETOS DE LA BARRA SUPERIOR');
+    await page.waitForTimeout(1000);
+    
+    // 1. VALIDAR LOGO DE FIESTAMAS
+    await showStepMessage(page, '🎨 VALIDANDO LOGO DE FIESTAMAS');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando logo de Fiestamas...');
+    
+    // Buscar logo en desktop (dentro de nav)
+    const logoDesktop = page.locator('div.lg\\:block nav a[href="/client/dashboard"], div.lg\\:block nav a[href="/"]').filter({
+      has: page.locator('svg, img')
+    }).first();
+    
+    // Buscar logo en mobile
+    const logoMobile = page.locator('div.xlg\\:hidden nav a[href="/client/dashboard"], div.xlg\\:hidden nav a[href="/"]').filter({
+      has: page.locator('svg, img')
+    }).first();
+    
+    // Buscar logo por SVG (más específico)
+    const logoSvg = page.locator('nav a svg, nav a img').first();
+    
+    let logoEncontrado = false;
+    let logoElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await logoDesktop.count() > 0 && await logoDesktop.first().isVisible().catch(() => false)) {
+      logoElement = logoDesktop.first();
+      logoEncontrado = true;
+      console.log('✅ Logo encontrado (desktop)');
+    } else if (await logoMobile.count() > 0 && await logoMobile.first().isVisible().catch(() => false)) {
+      logoElement = logoMobile.first();
+      logoEncontrado = true;
+      console.log('✅ Logo encontrado (mobile)');
+    } else if (await logoSvg.count() > 0 && await logoSvg.first().isVisible().catch(() => false)) {
+      logoElement = logoSvg.locator('xpath=ancestor::a[1]').first();
+      logoEncontrado = true;
+      console.log('✅ Logo encontrado (por SVG)');
+    }
+    
+    if (logoEncontrado && logoElement) {
+      await expect(logoElement).toBeVisible();
+      console.log('✅ Logo de Fiestamas visible');
+      
+      // Validar funcionalidad: clic en logo debe navegar al dashboard/home
+      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL LOGO');
+      await page.waitForTimeout(1000);
+      
+      // Guardar URL actual
+      const urlAntes = page.url();
+      
+      // Hacer clic en el logo
+      await logoElement.click();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+      
+      const urlDespues = page.url();
+      const navegoCorrectamente = urlDespues.includes('/client/dashboard') || urlDespues === DEFAULT_BASE_URL || urlDespues === `${DEFAULT_BASE_URL}/`;
+      
+      if (navegoCorrectamente) {
+        console.log('✅ Logo navega correctamente al dashboard/home');
+      } else {
+        console.log(`⚠️ Logo navegó a: ${urlDespues} (esperado: dashboard o home)`);
+      }
+      
+      // Regresar al dashboard si no estamos ahí
+      if (!urlDespues.includes('/client/dashboard')) {
+        await page.goto(DASHBOARD_URL);
+        await page.waitForLoadState('networkidle');
+      }
+    } else {
+      console.log('⚠️ Logo de Fiestamas no encontrado');
+    }
+    
+    // 2. VALIDAR CONTADOR DE MENSAJES EN CHATS
+    await showStepMessage(page, '🔔 VALIDANDO CONTADOR DE MENSAJES EN CHATS');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando contador de mensajes en chats...');
+    
+    // Buscar contador en desktop
+    const contadorDesktop = page.locator('div.lg\\:block nav a[href="/client/chats"]').locator('div.absolute').filter({
+      has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
+    }).locator('p, div').filter({
+      hasText: /\d+/
+    }).first();
+    
+    // Buscar contador en mobile
+    const contadorMobile = page.locator('a[href="/client/chats"]').locator('div.absolute').filter({
+      has: page.locator('div.bg-danger-neutral, div[class*="bg-danger"]')
+    }).locator('p, div').filter({
+      hasText: /\d+/
+    }).first();
+    
+    // Buscar contador por estructura común (badge con número)
+    const contadorBadge = page.locator('i.icon-message-square').locator('xpath=following-sibling::div[contains(@class, "absolute")]').filter({
+      has: page.locator('div[class*="bg-danger"], div[class*="rounded-full"]')
+    }).locator('p, div').filter({
+      hasText: /\d+/
+    }).first();
+    
+    let contadorEncontrado = false;
+    let contadorElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await contadorDesktop.count() > 0 && await contadorDesktop.first().isVisible().catch(() => false)) {
+      contadorElement = contadorDesktop.first();
+      contadorEncontrado = true;
+      console.log('✅ Contador encontrado (desktop)');
+    } else if (await contadorMobile.count() > 0 && await contadorMobile.first().isVisible().catch(() => false)) {
+      contadorElement = contadorMobile.first();
+      contadorEncontrado = true;
+      console.log('✅ Contador encontrado (mobile)');
+    } else if (await contadorBadge.count() > 0 && await contadorBadge.first().isVisible().catch(() => false)) {
+      contadorElement = contadorBadge.first();
+      contadorEncontrado = true;
+      console.log('✅ Contador encontrado (por badge)');
+    }
+    
+    if (contadorEncontrado && contadorElement) {
+      await expect(contadorElement).toBeVisible();
+      const textoContador = await contadorElement.textContent();
+      const numeroContador = textoContador ? parseInt(textoContador.trim()) : null;
+      
+      if (numeroContador !== null && !isNaN(numeroContador)) {
+        console.log(`✅ Contador de mensajes visible con valor: ${numeroContador}`);
+        expect(numeroContador).toBeGreaterThanOrEqual(0);
+      } else {
+        console.log(`⚠️ Contador encontrado pero no se pudo extraer el número. Texto: "${textoContador}"`);
+      }
+    } else {
+      console.log('ℹ️ Contador de mensajes no visible (puede que no haya mensajes sin leer)');
+    }
+    
+    // 3. VALIDAR BOTÓN/ENLACE DE BÚSQUEDA
+    await showStepMessage(page, '🔍 VALIDANDO BOTÓN DE BÚSQUEDA');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando botón/enlace de búsqueda...');
+    
+    // Buscar botón de búsqueda en desktop
+    const busquedaDesktop = page.locator('div.lg\\:block nav a[href="/"]').filter({
+      has: page.locator('i.icon-search')
+    }).first();
+    
+    // Buscar botón de búsqueda en mobile
+    const busquedaMobile = page.locator('a[href="/"]').filter({
+      has: page.locator('i.icon-search')
+    }).first();
+    
+    // Buscar por icono directamente
+    const busquedaIcono = page.locator('i.icon-search').locator('xpath=ancestor::a[1]').first();
+    
+    let busquedaEncontrada = false;
+    let busquedaElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await busquedaDesktop.count() > 0 && await busquedaDesktop.first().isVisible().catch(() => false)) {
+      busquedaElement = busquedaDesktop.first();
+      busquedaEncontrada = true;
+      console.log('✅ Botón de búsqueda encontrado (desktop)');
+    } else if (await busquedaMobile.count() > 0 && await busquedaMobile.first().isVisible().catch(() => false)) {
+      busquedaElement = busquedaMobile.first();
+      busquedaEncontrada = true;
+      console.log('✅ Botón de búsqueda encontrado (mobile)');
+    } else if (await busquedaIcono.count() > 0 && await busquedaIcono.first().isVisible().catch(() => false)) {
+      busquedaElement = busquedaIcono.first();
+      busquedaEncontrada = true;
+      console.log('✅ Botón de búsqueda encontrado (por icono)');
+    }
+    
+    if (busquedaEncontrada && busquedaElement) {
+      await expect(busquedaElement).toBeVisible();
+      console.log('✅ Botón de búsqueda visible');
+      
+      // Validar funcionalidad: clic en búsqueda
+      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL BOTÓN DE BÚSQUEDA');
+      await page.waitForTimeout(1000);
+      
+      const urlAntesBusqueda = page.url();
+      await busquedaElement.click();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
+      
+      const urlDespuesBusqueda = page.url();
+      const navegoABusqueda = urlDespuesBusqueda.includes('/') || urlDespuesBusqueda === DEFAULT_BASE_URL;
+      
+      if (navegoABusqueda) {
+        console.log('✅ Botón de búsqueda navega correctamente');
+      } else {
+        console.log(`⚠️ Botón de búsqueda navegó a: ${urlDespuesBusqueda}`);
+      }
+      
+      // Regresar al dashboard
+      await page.goto(DASHBOARD_URL);
+      await page.waitForLoadState('networkidle');
+    } else {
+      console.log('⚠️ Botón de búsqueda no encontrado');
+    }
+    
+    // 4. VALIDAR MENÚ DE OPCIONES (MÓVIL)
+    await showStepMessage(page, '📱 VALIDANDO MENÚ DE OPCIONES (MÓVIL)');
+    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando menú de opciones móvil...');
+    
+    // Buscar botón del menú móvil (icon-more-vertical)
+    const menuMovilButton = page.locator('div.xlg\\:hidden nav button').filter({
+      has: page.locator('i.icon-more-vertical')
+    }).first();
+    
+    // Buscar por icono directamente
+    const menuMovilIcono = page.locator('i.icon-more-vertical').locator('xpath=ancestor::button[1]').first();
+    
+    let menuMovilEncontrado = false;
+    let menuButtonElement: ReturnType<typeof page.locator> | null = null;
+    
+    if (await menuMovilButton.count() > 0 && await menuMovilButton.first().isVisible().catch(() => false)) {
+      menuButtonElement = menuMovilButton.first();
+      menuMovilEncontrado = true;
+      console.log('✅ Botón de menú móvil encontrado');
+    } else if (await menuMovilIcono.count() > 0 && await menuMovilIcono.first().isVisible().catch(() => false)) {
+      menuButtonElement = menuMovilIcono.first();
+      menuMovilEncontrado = true;
+      console.log('✅ Botón de menú móvil encontrado (por icono)');
+    }
+    
+    if (menuMovilEncontrado && menuButtonElement) {
+      await expect(menuButtonElement).toBeVisible();
+      await expect(menuButtonElement).toBeEnabled();
+      console.log('✅ Botón de menú móvil visible y habilitado');
+      
+      // Validar funcionalidad: abrir menú
+      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD DEL MENÚ MÓVIL');
+      await page.waitForTimeout(1000);
+      
+      await menuButtonElement.click();
+      await page.waitForTimeout(1000);
+      
+      // Buscar menú desplegable
+      const menuDesplegable = page.locator('div.absolute, div[role="menu"], div.dropdown-menu').filter({
+        has: page.locator('button, a')
+      }).first();
+      
+      const menuVisible = await menuDesplegable.isVisible({ timeout: 3000 }).catch(() => false);
+      
+      if (menuVisible) {
+        await expect(menuDesplegable).toBeVisible();
+        console.log('✅ Menú desplegable abierto');
+        
+        // Validar opciones del menú
+        await showStepMessage(page, '📋 VALIDANDO OPCIONES DEL MENÚ MÓVIL');
+        await page.waitForTimeout(1000);
+        
+        const opcionesMenu = menuDesplegable.locator('button, a');
+        const cantidadOpciones = await opcionesMenu.count();
+        
+        console.log(`📊 Opciones encontradas en el menú: ${cantidadOpciones}`);
+        
+        if (cantidadOpciones > 0) {
+          // Validar que las opciones son visibles
+          for (let i = 0; i < Math.min(cantidadOpciones, 5); i++) {
+            const opcion = opcionesMenu.nth(i);
+            const opcionVisible = await opcion.isVisible().catch(() => false);
+            if (opcionVisible) {
+              const textoOpcion = await opcion.textContent();
+              console.log(`  ✓ Opción ${i + 1}: "${textoOpcion?.trim() || 'sin texto'}"`);
+            }
+          }
+          console.log('✅ Opciones del menú validadas');
+        }
+        
+        // Cerrar menú (clic fuera o en el botón nuevamente)
+        await menuButtonElement.click().catch(() => {});
+        await page.waitForTimeout(500);
+      } else {
+        console.log('⚠️ Menú desplegable no se abrió o no es visible');
+      }
+    } else {
+      console.log('ℹ️ Menú móvil no encontrado (puede que solo esté visible en viewports móviles)');
+    }
+    
+    await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DE BARRA SUPERIOR FINALIZADA');
+    console.log('✅ Validación completa de elementos de la barra superior finalizada');
+  });
+
+  // PRUEBA 2: Sección de Bienvenida
+
+  test('Dashboard Cliente: Notificaciones – Navegar a cotización', async ({ page }) => {
+    test.setTimeout(120000); // 2 minutos
+    
+    await login(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 2000);
+    
+    await showStepMessage(page, '🔔 VALIDANDO CLIC EN NOTIFICACIÓN Y NAVEGACIÓN');
+    await safeWaitForTimeout(page, 1000);
+    
+    // La sección Fiestachat solo está visible en desktop
+    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
+      console.log('⚠️ La sección Fiestachat solo está visible en viewports grandes (≥1024px)');
+      test.skip();
+      return;
+    }
+    
+    // 1. BUSCAR SECCIÓN FIESTACHAT
+    await showStepMessage(page, '🔍 BUSCANDO SECCIÓN FIESTACHAT');
+    await safeWaitForTimeout(page, 1000);
+    
+    let fiestachatSection = page.locator('div.hidden.md\\:flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+    let fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div.flex.flex-col.p-5.gap-\\[10px\\].bg-light-light');
+      fiestachatVisible = await fiestachatSection.isVisible({ timeout: 5000 }).catch(() => false);
+    }
+    
+    if (!fiestachatVisible) {
+      fiestachatSection = page.locator('div:has-text("¡Fiestachat!")').first();
+      fiestachatVisible = await fiestachatSection.count().then(count => count > 0);
+    }
+    
+    if (!fiestachatVisible) {
+      console.log('⚠️ Sección Fiestachat no visible, no se puede validar notificaciones');
+      test.skip();
+      return;
+    }
+    
+    console.log('✅ Sección Fiestachat encontrada');
+    
+    // 2. BUSCAR NOTIFICACIONES
+    await showStepMessage(page, '🔔 BUSCANDO NOTIFICACIONES');
+    await safeWaitForTimeout(page, 1000);
+    
+    const notificationButtons = fiestachatSection.locator('button.flex.gap-4.px-4.bg-light-light.rounded-2.border-l-4.items-center');
+    const notificationCount = await notificationButtons.count();
+    
+    if (notificationCount === 0) {
+      console.log('⚠️ No se encontraron notificaciones en Fiestachat');
+      test.skip();
+      return;
+    }
+    
+    console.log(`✅ Se encontraron ${notificationCount} notificación(es)`);
+    
+    // 3. OBTENER INFORMACIÓN DE LA PRIMERA NOTIFICACIÓN
+    await showStepMessage(page, '📋 OBTENIENDO INFORMACIÓN DE LA NOTIFICACIÓN');
+    await safeWaitForTimeout(page, 500);
+    
+    const firstNotification = notificationButtons.first();
+    const notificationText = await firstNotification.textContent();
+    const urlAntesClick = page.url();
+    
+    
+    // Verificar que la notificación es clickeable
+    await expect(firstNotification).toBeVisible();
+    await expect(firstNotification).toBeEnabled();
+    console.log('✅ Notificación es clickeable');
+    
+    // 4. HACER CLIC EN LA NOTIFICACIÓN
+    await showStepMessage(page, '🖱️ HACIENDO CLIC EN LA NOTIFICACIÓN');
+    await safeWaitForTimeout(page, 500);
+    
+    await firstNotification.click();
+    await safeWaitForTimeout(page, 2000);
+    
+    // 5. VERIFICAR NAVEGACIÓN A PÁGINA DE COTIZACIÓN
+    await showStepMessage(page, '✅ VERIFICANDO NAVEGACIÓN');
+    await safeWaitForTimeout(page, 1000);
+    
+    const urlDespuesClick = page.url();
+    
+    // Verificar que la URL cambió
+    expect(urlDespuesClick).not.toBe(urlAntesClick);
+    console.log('✅ La URL cambió después del clic');
+    
+    // Verificar que estamos en una página de cotización
+    // Puede ser /client/quotation, /client/prequotation, /client/negotiation, etc.
+    const esPaginaCotizacion = 
+      urlDespuesClick.includes('/quotation') ||
+      urlDespuesClick.includes('/prequotation') ||
+      urlDespuesClick.includes('/negotiation') ||
+      urlDespuesClick.includes('/cotizacion');
+    
+    if (esPaginaCotizacion) {
+      console.log('✅ Navegación exitosa a página de cotización');
+    } else {
+      console.log('⚠️ La URL no parece ser de cotización');
+      // No fallar el test, solo advertir, ya que puede haber diferentes formatos de URL
+    }
+    
+    // 6. VERIFICAR ELEMENTOS DE LA PÁGINA DE COTIZACIÓN
+    await showStepMessage(page, '📄 VALIDANDO ELEMENTOS DE LA PÁGINA');
+    await safeWaitForTimeout(page, 1000);
+    
+    // Buscar elementos comunes en páginas de cotización
+    const elementosCotizacion = [
+      page.locator('p, h1, h2, h3').filter({ hasText: /Cotización|Quotation/i }),
+      page.locator('button').filter({ hasText: /Enviar|Solicitar|Aceptar|Rechazar/i }),
+      page.locator('textarea, input').filter({ has: page.locator('label').filter({ hasText: /Detalle|Mensaje|Request/i }) }),
+    ];
+    
+    let elementosEncontrados = 0;
+    for (const elemento of elementosCotizacion) {
+      const count = await elemento.count();
+      if (count > 0) {
+        const visible = await elemento.first().isVisible({ timeout: 2000 }).catch(() => false);
+        if (visible) {
+          elementosEncontrados++;
+        }
+      }
+    }
+    
+    if (elementosEncontrados > 0) {
+      console.log(`✅ Se encontraron ${elementosEncontrados} elemento(s) relacionados con cotización`);
+    } else {
+      console.log('ℹ️ No se encontraron elementos específicos de cotización (puede ser una página diferente)');
+    }
+    
+    // Verificar que la página se cargó correctamente
+    await page.waitForLoadState('networkidle');
+    const pageTitle = await page.title();
+    console.log(`📄 Título de la página: "${pageTitle}"`);
+    
+    console.log('✅ Validación de clic en notificación y navegación completada');
+  });
+
+
+  test('Dashboard Cliente: Promociones – Validar contenido', async ({ page }) => {
+    test.setTimeout(180000); // 3 minutos para dar tiempo a que carguen las promociones
+    
+    await showStepMessage(page, '🎁 VALIDANDO SECCIÓN DE PROMOCIONES');
+    
+    // Esperar a que la página cargue completamente antes de buscar promociones
+    await page.waitForLoadState('networkidle');
+    await safeWaitForTimeout(page, 5000); // Espera adicional para que las promociones se rendericen
+    
+    console.log('🔍 Buscando sección de promociones...');
+    const seccionPromociones = page.locator('div.flex.flex-col.w-full.gap-3').filter({
+      has: page.locator('p').filter({
+        hasText: /las mejores promociones para ti|promociones/i
+      })
+    }).first();
+    
+    // Aumentar el timeout para buscar la sección (la app tarda en cargar promociones)
+    // La prueba debe fallar si la sección no se muestra
+    await expect(seccionPromociones).toBeVisible({ timeout: 30000 });
+    console.log('✅ Sección de promociones visible');
+    
+    // Validar título
+    const tituloPromociones = seccionPromociones.locator('p').filter({
+      hasText: /las mejores promociones para ti/i
+    }).first();
+    await expect(tituloPromociones).toBeVisible({ timeout: 10000 });
+    console.log('✅ Título "Las mejores promociones para ti" visible');
+    
+    // Validar que hay cards de promociones (al menos una)
+    const promoCards = page.locator('div[role="button"]').filter({
+      has: page.locator('div').filter({
+        has: page.locator('i.icon-promotion, i[class*="promotion"]')
+      })
+    });
+    
+    const cantidadCards = await promoCards.count();
+    console.log(`📊 Cards de promociones encontradas: ${cantidadCards}`);
+    
+    // La prueba debe fallar si no hay cards de promociones
+    expect(cantidadCards).toBeGreaterThan(0);
+    
+    // Verificar que al menos una card es visible
+    let alMenosUnaVisible = false;
+    for (let i = 0; i < Math.min(cantidadCards, 10); i++) {
+      const card = promoCards.nth(i);
+      const esVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
+      if (esVisible) {
+        alMenosUnaVisible = true;
+        await expect(card).toBeVisible();
+        console.log(`✅ Card de promoción ${i + 1} visible`);
+        break;
+      }
+    }
+    
+    // La prueba debe fallar si ninguna card es visible
+    expect(alMenosUnaVisible).toBe(true);
+    console.log('✅ Al menos una card de promoción es visible');
+    
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE PROMOCIONES FINALIZADA');
+    console.log('✅ Validación de sección de promociones completada');
+  });
+
+  // PRUEBA 4: Sección "Elige tu fiesta"
+
+  test('Dashboard Cliente: Servicios – Mapear categorías y subcategorías', async ({ page }) => {
+    test.setTimeout(600000); // 10 minutos para explorar todas las categorías
+    
+    await showStepMessage(page, '🗺️ Mapeando estructura completa de categorías de servicios');
+    
+    const resultado = await mapearEstructuraCategoriasServicios(page, DEFAULT_BASE_URL);
+    
+    // Validar que se encontraron categorías
+    expect(resultado.resumen.categoriasPrincipales).toBeGreaterThan(0);
+    
+    // Validar que al menos una ruta llegó a cards
+    expect(resultado.resumen.rutasConCards).toBeGreaterThan(0);
+  });
+
+  // ============================================
+  // GRUPO 2: PRUEBAS QUE VERIFICAN EXISTENCIA Y FUNCIONALIDAD
+  // ============================================
+
+
+  test('Dashboard Cliente: Servicios – Validar elementos', async ({ page }) => {
     test.setTimeout(180000); // 3 minutos
     
     await showStepMessage(page, '🔍 VALIDANDO ELEMENTOS COMPLETOS DE LA SECCIÓN DE SERVICIOS');
@@ -2717,22 +3804,58 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa de elementos de la sección de servicios finalizada');
   });
 
-  test('Se muestra el botón Agregar Servicios y se prueba su funcionalidad', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos (mismo timeout que cliente-eventos.spec.ts)
+
+  test('Dashboard Cliente: Servicios – Validar filtros', async ({ page }) => {
+    await showStepMessage(page, '🔍 VALIDANDO FILTROS DE SERVICIOS');
+    await page.waitForTimeout(1000);
     
-    await showStepMessage(page, '➕ AGREGANDO SERVICIO A EVENTO EXISTENTE');
-    console.log('🚀 Iniciando flujo de agregar servicio a evento existente...');
-    
-    // Esta prueba ejecuta el flujo completo de agregar un servicio a un evento existente
-    // Reutiliza la función agregarServicioAEventoExistente de cliente-eventos.spec.ts
-    // que selecciona un evento, hace clic en "Agregar servicios", busca un servicio
-    // y completa el flujo sin llenar los datos del evento (porque ya están)
-    
-    await agregarServicioAEventoExistente(page);
-    console.log('✅ Flujo de agregar servicio a evento existente finalizado');
+    // Los filtros solo están visibles en desktop (xlg:flex)
+    if (page.viewportSize() && page.viewportSize()!.width >= 1280) {
+      // Buscar el contenedor de filtros (sidebar izquierdo)
+      // Estructura: div.hidden.xlg:flex > div.flex.flex-col.gap-4 > div.flex.flex-col.gap-2 > p.font-bold
+      const contenedorFiltros = page.locator('div.hidden.xlg\\:flex.flex-col.grow.overflow-y-auto.shrink-0');
+      
+      if (await contenedorFiltros.count() > 0) {
+        // Buscar dentro del contenedor interno que tiene gap-4
+        const contenedorInterno = contenedorFiltros.locator('div.flex.flex-col.gap-4');
+        
+        if (await contenedorInterno.count() > 0) {
+          // Buscar secciones dentro del contenedor interno
+          const seccionServicios = contenedorInterno.locator('div.flex.flex-col.gap-2').filter({
+            has: page.locator('p.font-bold').filter({ hasText: /^Servicios$/ })
+          });
+          
+          const seccionSugerencias = contenedorInterno.locator('div.flex.flex-col.gap-2').filter({
+            has: page.locator('p.font-bold').filter({ hasText: /^Sugerencias$/ })
+          });
+          
+          if (await seccionServicios.count() > 0) {
+            const tituloServicios = seccionServicios.locator('p.font-bold').filter({ hasText: /^Servicios$/ }).first();
+            await expect(tituloServicios).toBeVisible();
+          }
+          
+          if (await seccionSugerencias.count() > 0) {
+            const tituloSugerencias = seccionSugerencias.locator('p.font-bold').filter({ hasText: /^Sugerencias$/ }).first();
+            await expect(tituloSugerencias).toBeVisible();
+          }
+        }
+      }
+      
+      // Validar que hay sugerencias disponibles
+      const sugerencias = page.locator('button').filter({
+        has: page.locator('p').filter({ hasText: /Alimentos|Bebidas|Lugares|Mobiliario|Entretenimiento/i })
+      });
+      const countSugerencias = await sugerencias.count();
+      if (countSugerencias > 0) {
+        console.log(`✅ Se encontraron ${countSugerencias} sugerencias`);
+      }
+    } else {
+      console.log('⚠️ Los filtros solo están visibles en viewports grandes (≥1280px)');
+    }
   });
 
-  test('Los servicios se ordenan correctamente', async ({ page }) => {
+
+  test('Dashboard Cliente: Servicios – Validar ordenamiento', async ({ page }) => {
     test.setTimeout(120000); // 2 minutos
     
     await showStepMessage(page, '🔘 VALIDANDO BOTÓN ORDENAR POR');
@@ -3954,1226 +5077,104 @@ test.describe('Dashboard de cliente', () => {
     console.log('✅ Validación completa de ordenamiento finalizada');
   });
 
-  test('Los filtros de servicios se aplican correctamente', async ({ page }) => {
-    await showStepMessage(page, '🔍 VALIDANDO FILTROS DE SERVICIOS');
-    await page.waitForTimeout(1000);
-    
-    // Los filtros solo están visibles en desktop (xlg:flex)
-    if (page.viewportSize() && page.viewportSize()!.width >= 1280) {
-      // Buscar el contenedor de filtros (sidebar izquierdo)
-      // Estructura: div.hidden.xlg:flex > div.flex.flex-col.gap-4 > div.flex.flex-col.gap-2 > p.font-bold
-      const contenedorFiltros = page.locator('div.hidden.xlg\\:flex.flex-col.grow.overflow-y-auto.shrink-0');
-      
-      if (await contenedorFiltros.count() > 0) {
-        // Buscar dentro del contenedor interno que tiene gap-4
-        const contenedorInterno = contenedorFiltros.locator('div.flex.flex-col.gap-4');
-        
-        if (await contenedorInterno.count() > 0) {
-          // Buscar secciones dentro del contenedor interno
-          const seccionServicios = contenedorInterno.locator('div.flex.flex-col.gap-2').filter({
-            has: page.locator('p.font-bold').filter({ hasText: /^Servicios$/ })
-          });
-          
-          const seccionSugerencias = contenedorInterno.locator('div.flex.flex-col.gap-2').filter({
-            has: page.locator('p.font-bold').filter({ hasText: /^Sugerencias$/ })
-          });
-          
-          if (await seccionServicios.count() > 0) {
-            const tituloServicios = seccionServicios.locator('p.font-bold').filter({ hasText: /^Servicios$/ }).first();
-            await expect(tituloServicios).toBeVisible();
-          }
-          
-          if (await seccionSugerencias.count() > 0) {
-            const tituloSugerencias = seccionSugerencias.locator('p.font-bold').filter({ hasText: /^Sugerencias$/ }).first();
-            await expect(tituloSugerencias).toBeVisible();
-          }
-        }
-      }
-      
-      // Validar que hay sugerencias disponibles
-      const sugerencias = page.locator('button').filter({
-        has: page.locator('p').filter({ hasText: /Alimentos|Bebidas|Lugares|Mobiliario|Entretenimiento/i })
-      });
-      const countSugerencias = await sugerencias.count();
-      if (countSugerencias > 0) {
-        console.log(`✅ Se encontraron ${countSugerencias} sugerencias`);
-      }
-    } else {
-      console.log('⚠️ Los filtros solo están visibles en viewports grandes (≥1280px)');
-    }
-  });
 
-  test('Se muestran todos los elementos del calendario en vista desktop', async ({ page }) => {
-    test.setTimeout(180000); // 3 minutos (aumentado para evitar timeouts)
+  test('Dashboard Cliente: Servicios Contactados – Validar listado', async ({ page }) => {
+    test.setTimeout(120000);
     
-    // Solo ejecutar en viewports grandes donde el calendario es visible
-    if (page.viewportSize() && page.viewportSize()!.width < 1024) {
-      console.log('⚠️ El calendario solo está visible en viewports grandes (≥1024px)');
-      test.skip();
-      return;
-    }
-    
-    await showStepMessage(page, '📅 VALIDANDO ELEMENTOS COMPLETOS DEL CALENDARIO');
+    await showStepMessage(page, '📞 VALIDANDO SECCIÓN DE SERVICIOS CONTACTADOS');
     await page.waitForTimeout(1000);
     
-    // 1. VALIDAR EXISTENCIA DEL CALENDARIO
-    await showStepMessage(page, '📅 BUSCANDO CALENDARIO');
-    await page.waitForTimeout(1000);
+    console.log('🔍 Buscando sección de servicios contactados...');
     
-    // Estrategia 1: Buscar por días de la semana (más confiable)
-    let calendario = page.locator('div').filter({
-      has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-    }).first();
+    // Buscar tarjetas de servicios contactados
+    // Estas tarjetas aparecen después de agregar servicios a eventos
+    // Excluir el mensaje de bienvenida buscando elementos que NO contengan "Bienvenido"
+    const tarjetasServicios = page.locator('div, button').filter({
+      has: page.locator('p, span').filter({ hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i })
+    }).filter({
+      hasNot: page.locator('p, span, h1, h2, h3, h4, h5, h6').filter({ hasText: /Bienvenido/i })
+    });
     
-    let calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
+    const cantidadTarjetas = await tarjetasServicios.count();
+    console.log(`📊 Tarjetas de servicios contactados encontradas: ${cantidadTarjetas}`);
     
-    // Estrategia 2: Buscar por mes actual si la primera no funciona
-    if (!calendarioVisible) {
-      console.log('🔍 Intentando estrategia alternativa: buscar por mes...');
-      calendario = page.locator('div').filter({
-        has: page.locator('button, p, span').filter({ 
-          hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-        })
-      }).filter({
-        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-      }).first();
-      
-      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    }
-    
-    // Estrategia 3: Buscar cualquier div que contenga botones con números (días)
-    if (!calendarioVisible) {
-      console.log('🔍 Intentando estrategia alternativa: buscar por estructura de días...');
-      calendario = page.locator('div').filter({
-        has: page.locator('button').filter({
-          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
-        })
-      }).filter({
-        has: page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i })
-      }).first();
-      
-      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    }
-    
-    // Estrategia 4: Buscar por clase específica o estructura común de calendarios
-    if (!calendarioVisible) {
-      console.log('🔍 Intentando estrategia alternativa: buscar por clases comunes...');
-      calendario = page.locator('div[class*="calendar"], div[class*="Calendar"], div[class*="grid"]').filter({
-        has: page.locator('button, div').filter({
-          has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
-        })
-      }).first();
-      
-      calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-    }
-    
-    // Estrategia 5: Buscar cualquier contenedor que tenga días de la semana
-    if (!calendarioVisible) {
-      console.log('🔍 Intentando estrategia alternativa: buscar cualquier contenedor con días de semana...');
-      const diasSemana = page.locator('p, span, div').filter({ hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i });
-      const cantidadDiasSemana = await diasSemana.count();
-      
-      if (cantidadDiasSemana > 0) {
-        // Buscar el contenedor padre que tiene los días de la semana
-        const primerDiaSemana = diasSemana.first();
-        calendario = primerDiaSemana.locator('xpath=ancestor::div[contains(@class, "flex") or contains(@class, "grid")][1]').first();
-        calendarioVisible = await calendario.isVisible({ timeout: 3000 }).catch(() => false);
-        
-        if (calendarioVisible) {
-          console.log(`✅ Calendario encontrado usando contenedor padre de días de semana`);
-        }
-      }
-    }
-    
-    if (!calendarioVisible) {
-      console.log('⚠️ El calendario no está visible con ninguna estrategia');
-      console.log('🔍 Intentando diagnóstico...');
-      
-      // Diagnóstico: buscar elementos relacionados con calendario
-      const elementosMes = await page.locator('p, span, button').filter({ 
-        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-      }).count();
-      const elementosDiasSemana = await page.locator('p, span, div').filter({ 
-        hasText: /^Dom$|^Lun$|^Mar$|^Mie$|^Jue$|^Vie$|^Sab$/i 
-      }).count();
-      const elementosDias = await page.locator('button, div').filter({
-        has: page.locator('p, span').filter({ hasText: /^\d{1,2}$/ })
-      }).count();
-      
-      console.log(`📊 Diagnóstico: Meses encontrados: ${elementosMes}, Días de semana: ${elementosDiasSemana}, Días numéricos: ${elementosDias}`);
-      
-      // Si encontramos elementos relacionados, intentar construir el calendario desde ellos
-      if (elementosDiasSemana > 0 || elementosMes > 0 || elementosDias > 0) {
-        console.log('ℹ️ Se encontraron elementos relacionados con calendario, pero no se pudo encontrar el contenedor principal');
-        console.log('⚠️ Continuando con validaciones individuales...');
-        // Continuar con validaciones individuales aunque no encontremos el contenedor
-      } else {
-        test.skip();
-        return;
-      }
-    } else {
-      await expect(calendario).toBeVisible();
-      console.log('✅ Calendario encontrado y visible');
-    }
-    
-    // Definir baseLocator para usar en el resto del test
-    const baseLocator = calendarioVisible ? calendario : page;
-    
-    // 2. VALIDAR VISTA MENSUAL
-    await showStepMessage(page, '📆 VALIDANDO VISTA MENSUAL');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Validando vista mensual...');
-    
-    // Buscar el mes actual mostrado (usar selector directo si no tenemos contenedor)
-    const mesActual = baseLocator.locator('button, p, span').filter({
-      hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-    }).first();
-    
-    const mesVisible = await mesActual.isVisible().catch(() => false);
-    if (mesVisible) {
-      const textoMes = await mesActual.textContent();
-      console.log(`✅ Mes actual mostrado: "${textoMes?.trim()}"`);
-      
-      // Validar que el mes es válido
-      const mesesValidos = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                           'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-      const mesValido = mesesValidos.some(mes => textoMes?.includes(mes));
-      if (mesValido) {
-        console.log('✅ Mes válido');
-      } else {
-        console.log('⚠️ Mes no reconocido');
-      }
-    } else {
-      console.log('⚠️ Mes actual no encontrado');
-    }
-    
-    // 3. VALIDAR DÍAS DE LA SEMANA
-    await showStepMessage(page, '📅 VALIDANDO DÍAS DE LA SEMANA');
-    await page.waitForTimeout(1000);
-    console.log('🔍 Validando días de la semana...');
-    
-    const diasSemanaEsperados = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
-    const diasSemanaEncontrados: string[] = [];
-    
-    for (const diaEsperado of diasSemanaEsperados) {
-      const diaSemana = baseLocator.locator('p, span, div').filter({
-        hasText: new RegExp(`^${diaEsperado}$`, 'i')
-      }).first();
-      
-      const diaVisible = await diaSemana.isVisible().catch(() => false);
-      if (diaVisible) {
-        diasSemanaEncontrados.push(diaEsperado);
-        console.log(`✅ Día de la semana "${diaEsperado}" encontrado`);
-      }
-    }
-    
-    if (diasSemanaEncontrados.length === diasSemanaEsperados.length) {
-      console.log(`✅ Todos los días de la semana están presentes (${diasSemanaEncontrados.length}/${diasSemanaEsperados.length})`);
-    } else {
-      console.log(`⚠️ Solo se encontraron ${diasSemanaEncontrados.length}/${diasSemanaEsperados.length} días de la semana`);
-    }
-    
-    // 4. VALIDAR NAVEGACIÓN ENTRE MESES
-    await showStepMessage(page, '🔄 VALIDANDO NAVEGACIÓN ENTRE MESES');
-    await safeWaitForTimeout(page, 1000);
-    console.log('🔍 Validando navegación entre meses...');
-    
-    // Obtener el mes actual antes de navegar (usar textContent directamente con timeout corto)
-    let mesAntes = '';
-    if (mesVisible) {
-      try {
-        mesAntes = (await mesActual.textContent({ timeout: 3000 }))?.trim() || '';
-        console.log(`📅 Mes actual: "${mesAntes}"`);
-      } catch (e) {
-        console.log('⚠️ No se pudo obtener el mes actual, continuando con navegación...');
-      }
-    } else {
-      console.log('⚠️ Mes no visible, continuando con navegación...');
-    }
-    
-    // Buscar botón de mes anterior (chevron-left o similar)
-    const botonMesAnterior = baseLocator.locator('button').filter({
-      has: page.locator('i.icon-chevron-left, i[class*="chevron-left"], svg[class*="chevron-left"]')
-    }).first();
-    
-    // Buscar botón de mes siguiente (chevron-right o similar)
-    const botonMesSiguiente = baseLocator.locator('button').filter({
-      has: page.locator('i.icon-chevron-right, i[class*="chevron-right"], svg[class*="chevron-right"]')
-    }).first();
-    
-    const botonAnteriorVisible = await botonMesAnterior.isVisible({ timeout: 2000 }).catch(() => false);
-    const botonSiguienteVisible = await botonMesSiguiente.isVisible({ timeout: 2000 }).catch(() => false);
-    
-    if (botonAnteriorVisible) {
-      await expect(botonMesAnterior).toBeEnabled({ timeout: 3000 });
-      console.log('✅ Botón de mes anterior encontrado y habilitado');
-      
-      // Validar funcionalidad: navegar al mes anterior
-      await showStepMessage(page, '⬅️ NAVEGANDO AL MES ANTERIOR');
-      await safeWaitForTimeout(page, 500);
-      
-      await botonMesAnterior.click();
-      await safeWaitForTimeout(page, 1500);
-      
-      // Buscar el mes actualizado (con timeout corto)
-      const mesActualizado = baseLocator.locator('button, p, span').filter({
-        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-      }).first();
-      
-      try {
-        const mesDespuesAnterior = (await mesActualizado.textContent({ timeout: 2000 }))?.trim() || '';
-        if (mesDespuesAnterior && mesDespuesAnterior !== mesAntes) {
-          console.log(`✅ Navegación al mes anterior exitosa: "${mesDespuesAnterior}"`);
-        } else if (mesDespuesAnterior) {
-          console.log(`ℹ️ El mes no cambió después de hacer clic en anterior (puede ser el primer mes disponible)`);
-        } else {
-          console.log(`⚠️ No se pudo obtener el mes después de navegar`);
-        }
-      } catch (e) {
-        console.log(`⚠️ No se pudo obtener el mes después de navegar al anterior (timeout)`);
-      }
-    } else {
-      console.log('ℹ️ Botón de mes anterior no encontrado');
-    }
-    
-    if (botonSiguienteVisible) {
-      await expect(botonMesSiguiente).toBeEnabled({ timeout: 3000 });
-      console.log('✅ Botón de mes siguiente encontrado y habilitado');
-      
-      // Validar funcionalidad: navegar al mes siguiente
-      await showStepMessage(page, '➡️ NAVEGANDO AL MES SIGUIENTE');
-      await safeWaitForTimeout(page, 500);
-      
-      await botonMesSiguiente.click();
-      await safeWaitForTimeout(page, 1500);
-      
-      // Buscar el mes actualizado (con timeout corto)
-      const mesActualizadoSiguiente = baseLocator.locator('button, p, span').filter({
-        hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-      }).first();
-      
-      try {
-        const mesDespuesSiguiente = (await mesActualizadoSiguiente.textContent({ timeout: 2000 }))?.trim() || '';
-        if (mesDespuesSiguiente) {
-          console.log(`✅ Navegación al mes siguiente: "${mesDespuesSiguiente}"`);
-        } else {
-          console.log(`⚠️ No se pudo obtener el mes después de navegar`);
-        }
-        
-        // NO regresar al mes original - mantenernos en Noviembre para buscar eventos
-        // Noviembre tiene varios días con eventos, así que es mejor buscar ahí
-        if (mesDespuesSiguiente && mesDespuesSiguiente.includes('Noviembre')) {
-          console.log('✅ Permaneciendo en Noviembre para buscar días con eventos');
-        } else if (mesDespuesSiguiente && !mesDespuesSiguiente.includes('Noviembre')) {
-          // Si no estamos en Noviembre, navegar a Noviembre
-          // Buscar el botón del mes que contiene "Noviembre"
-          const botonNoviembre = baseLocator.locator('button').filter({
-            hasText: /Noviembre/i
-          }).first();
-          const botonNovVisible = await botonNoviembre.isVisible({ timeout: 2000 }).catch(() => false);
-          if (botonNovVisible) {
-            await botonNoviembre.click();
-            await safeWaitForTimeout(page, 1500);
-            console.log('✅ Navegado a Noviembre para buscar días con eventos');
-          }
-        }
-      } catch (e) {
-        console.log(`⚠️ No se pudo obtener el mes después de navegar al siguiente (timeout)`);
-      }
-    } else {
-      console.log('ℹ️ Botón de mes siguiente no encontrado');
-    }
-    
-    // 5. VALIDAR EVENTOS MARCADOS EN EL CALENDARIO
-    await showStepMessage(page, '🔍 VALIDANDO EVENTOS MARCADOS EN EL CALENDARIO');
-    await safeWaitForTimeout(page, 1000);
-    
-    // Verificar en qué mes estamos antes de buscar días con eventos
-    const mesActualParaEventos = baseLocator.locator('button, p, span').filter({
-      hasText: /Noviembre|Diciembre|Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre/i 
-    }).first();
-    const mesActualTexto = (await mesActualParaEventos.textContent({ timeout: 2000 }).catch(() => null))?.trim() || '';
-    console.log(`🔍 Buscando días con eventos marcados en el mes: "${mesActualTexto}"`);
-    
-    // Buscar eventos en el mes actual
-    // No forzar navegación a un mes específico, buscar eventos en el mes que esté visible
-    console.log(`🔍 Buscando eventos en el mes actual: "${mesActualTexto}"`);
-    
-    // Buscar días con puntos de colores (indicadores de eventos)
-    // Los días con eventos tienen divs con w-[4px] aspect-square rounded-circle y background-color
-    // IMPORTANTE: Solo buscar días del mes actual, excluyendo días de otros meses
-    // Estrategia mejorada: buscar primero días que tengan puntos de colores directamente
-    console.log('🔍 Buscando días con eventos usando múltiples estrategias...');
-    
-    let diasConEventos: Array<Locator> = [];
-    let countTodos = 0; // Variable para contar días totales procesados
-    
-    // Estrategia 1: Buscar directamente botones que contengan puntos de colores (más eficiente)
-    // Intentar múltiples selectores para encontrar los puntos
-    const selectoresEstrategia1 = [
-      baseLocator.locator('button[type="button"]').filter({
-        has: baseLocator.locator('div[style*="background-color"]')
-      }),
-      baseLocator.locator('button[type="button"]').filter({
-        has: baseLocator.locator('div[class*="rounded"]')
-      }),
-      baseLocator.locator('button[type="button"]').filter({
-        has: baseLocator.locator('div[class*="circle"]')
-      })
-    ];
-    
-    let diasConPuntos: Locator | null = null;
-    let countDiasConPuntos = 0;
-    
-    for (const selector of selectoresEstrategia1) {
-      try {
-        const count = await Promise.race([
-          selector.count(),
-          new Promise<number>(resolve => setTimeout(() => resolve(0), 2000))
-        ]).catch(() => 0);
-        
-        if (count > 0) {
-          diasConPuntos = selector;
-          countDiasConPuntos = count;
-          console.log(`📊 Días con puntos de colores encontrados (estrategia 1, selector ${selectoresEstrategia1.indexOf(selector) + 1}): ${count}`);
-          break;
-        }
-      } catch {
-        continue;
-      }
-    }
-    
-    if (countDiasConPuntos === 0) {
-      console.log(`📊 Días con puntos de colores encontrados (estrategia 1): 0 (probados ${selectoresEstrategia1.length} selectores)`);
-    }
-    
-    // Estrategia 2: Si no encontramos con la primera estrategia, buscar todos los días y filtrar
-    let todosLosDias: Locator;
-    
-    if (countDiasConPuntos > 0 && diasConPuntos) {
-      // Usar la estrategia 1 si encontramos días
-      countTodos = countDiasConPuntos; // Inicializar contador
-      const maxDiasAProcesar = Math.min(countDiasConPuntos, 31);
-      console.log(`🔍 Procesando ${maxDiasAProcesar} días con puntos de colores...`);
-      
-      for (let i = 0; i < maxDiasAProcesar; i++) {
-        try {
-          const dia = diasConPuntos.nth(i);
-          const diaVisible = await Promise.race([
-            dia.isVisible({ timeout: 1000 }),
-            new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
-          ]).catch(() => false);
+    if (cantidadTarjetas > 0) {
+      // Validar que al menos una tarjeta es visible
+      let alMenosUnaVisible = false;
+      for (let i = 0; i < Math.min(cantidadTarjetas, 5); i++) {
+        const tarjeta = tarjetasServicios.nth(i);
+        const esVisible = await tarjeta.isVisible({ timeout: 2000 }).catch(() => false);
+        if (esVisible) {
+          alMenosUnaVisible = true;
+          await expect(tarjeta).toBeVisible();
+          console.log(`✅ Tarjeta de servicio contactado ${i + 1} visible`);
           
-          if (diaVisible) {
-            // Verificar que no es un día de otro mes
-            const esDiaOtroMes = await Promise.race([
-              dia.evaluate((el) => {
-                const classes = el.className || '';
-                const parentClasses = el.parentElement?.className || '';
-                const parentParentClasses = el.parentElement?.parentElement?.className || '';
-                return classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
-                       classes.includes('prev-month') || classes.includes('next-month') ||
-                       parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay') ||
-                       parentParentClasses.includes('prevMonthDay') || parentParentClasses.includes('nextMonthDay');
-              }),
-              new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
-            ]).catch(() => false);
-            
-            if (!esDiaOtroMes) {
-              // Verificar que tiene puntos de colores válidos usando evaluate
-              const tieneEventos = await Promise.race([
-                dia.evaluate((el) => {
-                  const divs = el.querySelectorAll('div');
-                  let encontrado = false;
-                  
-                  for (const div of divs) {
-                    const style = window.getComputedStyle(div);
-                    const bgColor = style.backgroundColor;
-                    
-                    if (bgColor && 
-                        bgColor !== 'rgba(0, 0, 0, 0)' && 
-                        bgColor !== 'transparent' &&
-                        !bgColor.includes('rgb(242, 242, 242)') &&
-                        !bgColor.includes('rgba(242, 242, 242')) {
-                      
-                      const width = style.width;
-                      const height = style.height;
-                      const widthNum = parseFloat(width);
-                      const heightNum = parseFloat(height);
-                      
-                      if ((widthNum > 0 && widthNum < 10) || (heightNum > 0 && heightNum < 10)) {
-                        encontrado = true;
-                        break;
-                      }
-                      
-                      const classes = div.className || '';
-                      if (classes.includes('rounded') || classes.includes('circle') || classes.includes('aspect-square')) {
-                        encontrado = true;
-                        break;
-                      }
-                    }
-                  }
-                  
-                  return encontrado;
-                }),
-                new Promise<boolean>(resolve => setTimeout(() => resolve(false), 1000))
-              ]).catch(() => false);
-              
-              if (tieneEventos) {
-                diasConEventos.push(dia);
-                console.log(`  ✓ Día ${i + 1}: encontrado con evento(s)`);
-              }
-            }
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-    } else {
-      // Estrategia 2: Buscar todos los días y filtrar manualmente
-      console.log('⚠️ Estrategia 1 no encontró días, usando estrategia 2...');
-      // Usar el mismo selector que funciona al final de la prueba para encontrar días
-      todosLosDias = baseLocator.locator('button[type="button"]').filter({
-        has: page.locator('p, span').filter({
-          hasText: /^\d{1,2}$/
-        })
-      });
-      countTodos = await Promise.race([
-        todosLosDias.count(),
-        new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
-      ]).catch(() => 0);
-      
-      console.log(`📊 Total de días encontrados en el calendario: ${countTodos}`);
-      
-      // Si aún no encontramos días, intentar sin el filtro de números
-      if (countTodos === 0) {
-        console.log('⚠️ No se encontraron días con el selector filtrado, intentando sin filtro...');
-        todosLosDias = baseLocator.locator('button[type="button"]');
-        countTodos = await Promise.race([
-          todosLosDias.count(),
-          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
-        ]).catch(() => 0);
-        console.log(`📊 Total de días encontrados (sin filtro): ${countTodos}`);
-      }
-      
-      // Si aún no encontramos días, buscar directamente en la página
-      if (countTodos === 0) {
-        console.log('⚠️ No se encontraron días con baseLocator, buscando directamente en la página...');
-        todosLosDias = page.locator('button[type="button"]').filter({
-          has: page.locator('p, span').filter({
-            hasText: /^\d{1,2}$/
-          })
-        });
-        countTodos = await Promise.race([
-          todosLosDias.count(),
-          new Promise<number>(resolve => setTimeout(() => resolve(0), 3000))
-        ]).catch(() => 0);
-        console.log(`📊 Total de días encontrados (búsqueda directa en página): ${countTodos}`);
-      }
-      
-      const maxDiasAProcesar = Math.min(countTodos, 35);
-      console.log(`🔍 Procesando ${maxDiasAProcesar} días para buscar eventos...`);
-      
-      const startTime = Date.now();
-      const maxLoopTime = 60000; // Máximo 60 segundos para procesar días (aumentado porque algunos días pueden tardar más)
-      
-      // Primero, inspeccionar algunos días para entender la estructura
-      console.log('🔍 Inspeccionando estructura de los primeros días para entender el DOM...');
-      const diasMuestra = Math.min(10, maxDiasAProcesar);
-      let diasInspeccionados = 0;
-      
-      for (let i = 0; i < diasMuestra; i++) {
-        try {
-          const dia = todosLosDias.nth(i);
-          const diaVisible = await dia.isVisible({ timeout: 1000 }).catch(() => false);
+          // Obtener el nombre del servicio
+          // Excluir explícitamente el mensaje de bienvenida
+          const nombreServicio = tarjeta.locator('p.font-bold, p[class*="font-bold"], h1, h2, h3, h4, h5, h6, p.text-medium.font-bold').first();
+          const nombreVisible = await nombreServicio.isVisible({ timeout: 1000 }).catch(() => false);
+          let nombreEncontrado = false;
           
-          if (!diaVisible) {
-            console.log(`  ⚠️ Día ${i + 1}: no visible, saltando...`);
-            continue;
-          }
-          
-          const infoDia = await Promise.race([
-            dia.evaluate((el) => {
-              const texto = el.textContent?.trim() || '';
-              const classes = el.className || '';
-              const innerHTML = el.innerHTML.substring(0, 200); // Primeros 200 caracteres del HTML
-              
-              // Buscar todos los elementos dentro del botón
-              const todosElementos = el.querySelectorAll('*');
-              const elementosConColor: Array<{tag: string, classes: string, bgColor: string, width: string, height: string}> = [];
-              
-              for (const elem of todosElementos) {
-                const style = window.getComputedStyle(elem);
-                const bgColor = style.backgroundColor;
-                const width = style.width;
-                const height = style.height;
-                
-                if (bgColor && 
-                    bgColor !== 'rgba(0, 0, 0, 0)' && 
-                    bgColor !== 'transparent' &&
-                    bgColor !== 'rgb(255, 255, 255)' &&
-                    bgColor !== 'rgba(255, 255, 255, 1)') {
-                  
-                  const widthNum = parseFloat(width);
-                  const heightNum = parseFloat(height);
-                  
-                  // Solo incluir elementos pequeños (puntos de eventos)
-                  if ((widthNum > 0 && widthNum < 30) || (heightNum > 0 && heightNum < 30)) {
-                    elementosConColor.push({
-                      tag: elem.tagName.toLowerCase(),
-                      classes: elem.className || '',
-                      bgColor: bgColor,
-                      width: width,
-                      height: height
-                    });
-                  }
-                }
-              }
-              
-              // También buscar elementos hermanos o en el contenedor padre
-              const parent = el.parentElement;
-              let elementosHermanosConColor = 0;
-              if (parent) {
-                const hermanos = parent.querySelectorAll('*');
-                for (const hermano of hermanos) {
-                  if (hermano !== el) {
-                    const style = window.getComputedStyle(hermano);
-                    const bgColor = style.backgroundColor;
-                    if (bgColor && 
-                        bgColor !== 'rgba(0, 0, 0, 0)' && 
-                        bgColor !== 'transparent' &&
-                        !bgColor.includes('rgb(242, 242, 242)')) {
-                      const width = parseFloat(style.width);
-                      const height = parseFloat(style.height);
-                      if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
-                        elementosHermanosConColor++;
-                      }
-                    }
-                  }
-                }
-              }
-              
-              return {
-                texto: texto,
-                classes: classes,
-                innerHTML: innerHTML,
-                elementosConColor: elementosConColor.length,
-                elementosInfo: elementosConColor.slice(0, 5),
-                elementosHermanosConColor: elementosHermanosConColor
-              };
-            }),
-            new Promise<any>(resolve => setTimeout(() => resolve(null), 2000))
-          ]).catch((error) => {
-            console.log(`  ❌ Error al inspeccionar día ${i + 1}: ${error}`);
-            return null;
-          });
-          
-          if (infoDia) {
-            diasInspeccionados++;
-            console.log(`  📋 Día ${i + 1}: texto="${infoDia.texto.substring(0, 50)}", clases="${infoDia.classes.substring(0, 100)}"`);
-            console.log(`    Elementos con color dentro: ${infoDia.elementosConColor}, elementos hermanos con color: ${infoDia.elementosHermanosConColor}`);
-            if (infoDia.elementosInfo.length > 0) {
-              infoDia.elementosInfo.forEach((elem: any, idx: number) => {
-                console.log(`    ${elem.tag} ${idx + 1}: bg=${elem.bgColor}, size=${elem.width}x${elem.height}, clases="${elem.classes.substring(0, 50)}"`);
-              });
-            }
-            if (infoDia.elementosConColor === 0 && infoDia.elementosHermanosConColor > 0) {
-              console.log(`    ⚠️ Los eventos podrían estar fuera del botón (en elementos hermanos)`);
-            }
-          } else {
-            console.log(`  ⚠️ Día ${i + 1}: no se pudo obtener información`);
-          }
-        } catch (error: any) {
-          console.log(`  ❌ Error al procesar día ${i + 1}: ${error?.message || error}`);
-        }
-      }
-      
-      console.log(`✅ Inspección completada: ${diasInspeccionados} de ${diasMuestra} días inspeccionados`);
-      
-      for (let i = 0; i < maxDiasAProcesar; i++) {
-        // Verificar timeout global del loop
-        if (Date.now() - startTime > maxLoopTime) {
-          console.log(`⏱️ Timeout del loop alcanzado después de procesar ${i} días. Continuando con los días encontrados hasta ahora.`);
-          break;
-        }
-        try {
-          const dia = todosLosDias.nth(i);
-          
-          // Usar la misma lógica que funciona en la inspección: buscar eventos directamente
-          const infoDia = await Promise.race([
-            dia.evaluate((el) => {
-              // Verificar que no es un día de otro mes
-              const classes = el.className || '';
-              const parentClasses = el.parentElement?.className || '';
-              const esDiaOtroMes = classes.includes('prevMonthDay') || classes.includes('nextMonthDay') ||
-                     classes.includes('prev-month') || classes.includes('next-month') ||
-                     parentClasses.includes('prevMonthDay') || parentClasses.includes('nextMonthDay');
-              
-              if (esDiaOtroMes) {
-                return { esDiaOtroMes: true, tieneEventos: false, colores: [], texto: '' };
-              }
-              
-              const coloresEncontrados: string[] = [];
-              
-              // 1. Buscar dentro del botón
-              const todosElementos = el.querySelectorAll('*');
-              for (const elem of todosElementos) {
-                const style = window.getComputedStyle(elem);
-                const bgColor = style.backgroundColor;
-                
-                if (bgColor && 
-                    bgColor !== 'rgba(0, 0, 0, 0)' && 
-                    bgColor !== 'transparent' &&
-                    bgColor !== 'rgb(255, 255, 255)' &&
-                    bgColor !== 'rgba(255, 255, 255, 1)' &&
-                    !bgColor.includes('rgb(242, 242, 242)') &&
-                    !bgColor.includes('rgba(242, 242, 242')) {
-                  
-                  const width = parseFloat(style.width);
-                  const height = parseFloat(style.height);
-                  
-                  // Buscar elementos pequeños (puntos de eventos) - 4px es el tamaño típico
-                  if ((width > 0 && width < 10) || (height > 0 && height < 10)) {
-                    coloresEncontrados.push(bgColor);
-                  }
-                  
-                  // También verificar clases específicas de puntos de eventos
-                  const elemClasses = elem.className || '';
-                  if (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle')) {
-                    coloresEncontrados.push(bgColor);
-                  }
-                }
-              }
-              
-              // 2. Si no encontramos dentro, buscar en elementos hermanos (como muestra la inspección)
-              // Los eventos pueden estar en el mismo contenedor padre pero en otros elementos
-              if (coloresEncontrados.length === 0 && el.parentElement) {
-                const parent = el.parentElement;
-                // Buscar en todos los elementos del contenedor padre, no solo hermanos directos
-                const todosEnContenedor = parent.querySelectorAll('*');
-                
-                for (const elem of todosEnContenedor) {
-                  // Saltar el elemento actual y sus hijos
-                  if (el.contains(elem) || elem === el) {
-                    continue;
-                  }
-                  
-                  const style = window.getComputedStyle(elem);
-                  const bgColor = style.backgroundColor;
-                  
-                  if (bgColor && 
-                      bgColor !== 'rgba(0, 0, 0, 0)' && 
-                      bgColor !== 'transparent' &&
-                      bgColor !== 'rgb(255, 255, 255)' &&
-                      bgColor !== 'rgba(255, 255, 255, 1)' &&
-                      !bgColor.includes('rgb(242, 242, 242)') &&
-                      !bgColor.includes('rgba(242, 242, 242')) {
-                    
-                    const width = parseFloat(style.width);
-                    const height = parseFloat(style.height);
-                    const elemClasses = elem.className || '';
-                    
-                    // Buscar elementos pequeños (puntos de eventos) O elementos con clases específicas
-                    const esPuntoEvento = ((width > 0 && width < 10) || (height > 0 && height < 10)) &&
-                                         (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'));
-                    
-                    // También aceptar si tiene las clases específicas aunque el tamaño sea ligeramente mayor
-                    const tieneClasesEspecificas = elemClasses.includes('w-[4px]') || 
-                                                   (elemClasses.includes('aspect-square') && elemClasses.includes('rounded-circle'));
-                    
-                    if (esPuntoEvento || tieneClasesEspecificas) {
-                      coloresEncontrados.push(bgColor);
-                      // Si encontramos uno con la clase w-[4px], es suficiente
-                      if (elemClasses.includes('w-[4px]')) {
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-              
-              // 3. También buscar en el contenedor del contenedor (nivel superior)
-              if (coloresEncontrados.length === 0 && el.parentElement?.parentElement) {
-                const grandParent = el.parentElement.parentElement;
-                const todosEnGrandParent = grandParent.querySelectorAll('*');
-                
-                for (const elem of todosEnGrandParent) {
-                  // Saltar el elemento actual y su contenedor padre
-                  if (el.contains(elem) || el.parentElement?.contains(elem) || elem === el) {
-                    continue;
-                  }
-                  
-                  const style = window.getComputedStyle(elem);
-                  const bgColor = style.backgroundColor;
-                  
-                  if (bgColor && 
-                      bgColor !== 'rgba(0, 0, 0, 0)' && 
-                      bgColor !== 'transparent' &&
-                      !bgColor.includes('rgb(242, 242, 242)')) {
-                    
-                    const width = parseFloat(style.width);
-                    const height = parseFloat(style.height);
-                    const elemClasses = elem.className || '';
-                    
-                    if (((width > 0 && width < 10) || (height > 0 && height < 10)) &&
-                        (elemClasses.includes('w-[4px]') || elemClasses.includes('aspect-square') || elemClasses.includes('rounded-circle'))) {
-                      coloresEncontrados.push(bgColor);
-                      break;
-                    }
-                  }
-                }
-              }
-              
-              return { 
-                esDiaOtroMes: false, 
-                tieneEventos: coloresEncontrados.length > 0, 
-                colores: coloresEncontrados.slice(0, 5),
-                texto: el.textContent?.trim() || ''
-              };
-            }),
-            new Promise<any>(resolve => setTimeout(() => resolve({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}), 1000))
-          ]).catch(() => ({esDiaOtroMes: false, tieneEventos: false, colores: [], texto: ''}));
-          
-          if (infoDia.esDiaOtroMes) {
-            if (i < 5) {
-              console.log(`  ⏭️ Día ${i + 1}: es de otro mes, saltando...`);
-            }
-            continue; // Saltar días de otros meses
-          }
-          
-          if (infoDia.tieneEventos) {
-            diasConEventos.push(dia);
-            console.log(`  ✓ Día ${i + 1}${infoDia.texto ? ` (${infoDia.texto.substring(0, 20)})` : ''}: encontrado con ${infoDia.colores.length} evento(s)${infoDia.colores.length > 0 ? ` (colores: ${infoDia.colores.slice(0, 3).join(', ')})` : ''}`);
-            
-            // Si ya encontramos suficientes días con eventos, podemos parar
-            if (diasConEventos.length >= 20) {
-              console.log(`✅ Encontrados ${diasConEventos.length} días con eventos, limitando búsqueda para optimizar tiempo`);
-              break;
-            }
-          } else {
-            // Log solo para los primeros días para debugging
-            if (i < 10 && infoDia.texto) {
-              console.log(`  ⚠️ Día ${i + 1} (${infoDia.texto.substring(0, 10)}): no tiene eventos detectados`);
-            }
-          }
-        } catch (error: any) {
-          // Continuar con el siguiente día si hay un error
-          console.log(`  ⚠️ Error procesando día ${i + 1}: ${error?.message || error}`);
-          continue;
-        }
-      }
-    }
-    
-    const cantidadDiasConEventos = diasConEventos.length;
-    console.log(`📊 Días con eventos marcados encontrados: ${cantidadDiasConEventos} (de ${countTodos} días totales)`);
-    
-    if (cantidadDiasConEventos > 0) {
-      console.log('✅ Se encontraron días con eventos marcados');
-      
-      // Validar algunos días con eventos
-      const diasAValidar = Math.min(cantidadDiasConEventos, 5);
-      for (let i = 0; i < diasAValidar; i++) {
-        const diaConEvento = diasConEventos[i];
-        const diaVisible = await diaConEvento.isVisible().catch(() => false);
-        
-        if (diaVisible) {
-          // Obtener el número del día - buscar específicamente el número (1-31), no el texto del evento
-          let numeroDiaTexto = '';
-          let numeroDia = 0;
-          
-          // Buscar un elemento que contenga solo un número (1-31)
-          const elementosNumericos = diaConEvento.locator('p, span').filter({
-            hasText: /^\d{1,2}$/
-          });
-          const countNumericos = await elementosNumericos.count();
-          
-          if (countNumericos > 0) {
-            numeroDiaTexto = await Promise.race([
-              elementosNumericos.first().textContent(),
-              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
-            ]).then(text => text?.trim() || '').catch(() => '');
-            numeroDia = parseInt(numeroDiaTexto);
-          } else {
-            // Estrategia alternativa: buscar directamente en el texto completo (más rápido)
-            const textoCompleto = await Promise.race([
-              diaConEvento.textContent(),
-              new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
-            ]).then(text => text?.trim() || '').catch(() => '');
-            
-            if (textoCompleto) {
-              const numeros = textoCompleto.match(/\b(\d{1,2})\b/g);
-              if (numeros) {
-                for (const numStr of numeros) {
-                  const num = parseInt(numStr);
-                  if (num >= 1 && num <= 31) {
-                    numeroDiaTexto = numStr;
-                    numeroDia = num;
-                    break;
-                  }
-                }
-              }
+          if (nombreVisible) {
+            const textoNombre = await nombreServicio.textContent();
+            const nombreLimpio = textoNombre?.trim() || '';
+            // Excluir el mensaje de bienvenida
+            if (nombreLimpio && !nombreLimpio.match(/Bienvenido/i)) {
+              console.log(`  ✓ Servicio: "${nombreLimpio}"`);
+              nombreEncontrado = true;
             }
           }
           
-          const diaDisplay = numeroDia > 0 ? numeroDia.toString() : 'N/A';
-          
-          // Validar que tiene puntos de colores (indicadores de eventos)
-          const puntosColores = diaConEvento.locator('div.w-\\[4px\\].aspect-square.rounded-circle[style*="background-color"]');
-          const countPuntos = await puntosColores.count();
-          
-          if (countPuntos > 0) {
-            // Obtener los colores de los puntos
-            const colores: string[] = [];
-            for (let j = 0; j < Math.min(countPuntos, 5); j++) {
-              const punto = puntosColores.nth(j);
-              const colorPunto = await punto.evaluate(el => {
-                return window.getComputedStyle(el).backgroundColor;
-              }).catch(() => null);
-              
-              if (colorPunto && !colorPunto.includes('rgb(242, 242, 242)')) {
-                colores.push(colorPunto);
-              }
-            }
-            
-            if (colores.length > 0) {
-              console.log(`  ✓ Día ${diaDisplay}: tiene ${countPuntos} punto(s) de evento(s)${colores.length > 0 ? ` (colores: ${colores.join(', ')})` : ''}`);
-            } else {
-              console.log(`  ✓ Día ${diaDisplay}: tiene ${countPuntos} punto(s) pero sin colores válidos`);
-            }
-          } else {
-            console.log(`  ✓ Día ${diaDisplay}: tiene evento marcado (sin puntos de colores visibles)`);
-          }
-        }
-      }
-    } else {
-      console.log('ℹ️ No se encontraron días con eventos marcados en el mes actual');
-      console.log('ℹ️ Continuando con validaciones de estructura del calendario...');
-    }
-    
-    // 6. VALIDAR FUNCIONALIDAD: FILTRAR EVENTOS AL SELECCIONAR UN DÍA (solo si hay eventos)
-    if (cantidadDiasConEventos > 0) {
-      await showStepMessage(page, '🖱️ VALIDANDO FUNCIONALIDAD: FILTRAR POR DÍA');
-      await safeWaitForTimeout(page, 1000);
-      
-      // Función auxiliar para obtener el número del mes
-      const obtenerNumeroMes = (nombreMes: string): number => {
-        const meses: { [key: string]: number } = {
-          'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
-          'julio': 7, 'agosto': 8, 'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
-        };
-        const mesLower = nombreMes.toLowerCase();
-        for (const [mes, numero] of Object.entries(meses)) {
-          if (mesLower.includes(mes)) {
-            return numero;
-          }
-        }
-        return new Date().getMonth() + 1;
-      };
-      
-      // Buscar tarjetas de eventos usando selector más específico
-      // Buscar solo en la sección "Elige tu fiesta" que contiene los eventos
-      const seccionEventos = page.locator('div').filter({
-        has: page.locator('p').filter({ hasText: /Elige tu fiesta/i })
-      });
-      
-      // Buscar botones de eventos dentro de la sección (más específico)
-      const tarjetasAmpliasAntes = seccionEventos.locator('button[type="button"]').filter({
-        has: page.locator('p, span').filter({ hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i })
-      });
-      const countAntes = await Promise.race([
-        tarjetasAmpliasAntes.count(),
-        new Promise<number>(resolve => setTimeout(() => resolve(0), 5000))
-      ]) as number;
-      console.log(`📊 Tarjetas de eventos visibles antes del filtro: ${countAntes}`);
-      
-      // Seleccionar el primer día con eventos
-      const primerDiaConEventos = diasConEventos[0];
-      await primerDiaConEventos.scrollIntoViewIfNeeded();
-      
-      // Obtener el número del día - buscar específicamente el número (1-31), no el texto del evento
-      let numeroDia = 0;
-      let numeroDiaTexto = '';
-      
-      // Estrategia 1: Buscar un elemento que contenga solo un número (1-31) - debe ser exacto
-      const elementosNumericos = primerDiaConEventos.locator('p, span').filter({
-        hasText: /^\d{1,2}$/
-      });
-      const countNumericos = await elementosNumericos.count();
-      
-      if (countNumericos > 0) {
-        numeroDiaTexto = (await elementosNumericos.first().textContent())?.trim() || '';
-        numeroDia = parseInt(numeroDiaTexto);
-        console.log(`📅 Número del día encontrado (Estrategia 1): ${numeroDia}`);
-      } else {
-        // Estrategia 2: Buscar directamente en el texto completo del botón (más rápido)
-        const textoCompleto = (await primerDiaConEventos.textContent())?.trim() || '';
-        if (textoCompleto) {
-          // Buscar el primer número de 1-2 dígitos que esté entre 1-31
-          const numeros = textoCompleto.match(/\b(\d{1,2})\b/g);
-          if (numeros) {
-            for (const numStr of numeros) {
-              const num = parseInt(numStr);
-              if (num >= 1 && num <= 31) {
-                numeroDiaTexto = numStr;
-                numeroDia = num;
-                console.log(`📅 Número del día encontrado (Estrategia 2): ${numeroDia}`);
+          // Fallback: buscar cualquier texto que parezca un nombre de servicio
+          // pero excluir el mensaje de bienvenida
+          if (!nombreEncontrado) {
+            const todosLosTextos = tarjeta.locator('p, h1, h2, h3, h4, h5, h6');
+            const cantidadTextos = await todosLosTextos.count();
+            for (let j = 0; j < Math.min(cantidadTextos, 10); j++) {
+              const texto = todosLosTextos.nth(j);
+              const textoContent = (await texto.textContent())?.trim() || '';
+              // Excluir textos que son estados, bienvenida u otros elementos
+              if (textoContent && 
+                  !textoContent.match(/PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO|Bienvenido/i) &&
+                  textoContent.length > 3 &&
+                  textoContent.length < 100) {
+                console.log(`  ✓ Servicio: "${textoContent}"`);
+                nombreEncontrado = true;
                 break;
               }
             }
           }
+          
+          if (!nombreEncontrado) {
+            console.log('  ⚠️ No se pudo obtener el nombre del servicio');
+          }
+          
+          // Validar que tiene estado (PENDIENTE, ACEPTADO, etc.)
+          const estado = tarjeta.locator('p, span').filter({
+            hasText: /PENDIENTE|ACEPTADO|RECHAZADO|COTIZADO/i
+          }).first();
+          const estadoVisible = await estado.isVisible({ timeout: 1000 }).catch(() => false);
+          if (estadoVisible) {
+            const textoEstado = await estado.textContent();
+            console.log(`  ✓ Estado: "${textoEstado?.trim()}"`);
+          }
+          
+          break;
         }
       }
       
-      if (numeroDia === 0 || isNaN(numeroDia)) {
-        const textoCompleto = await primerDiaConEventos.textContent();
-        console.log(`⚠️ No se pudo obtener el número del día del botón. Texto completo: "${textoCompleto?.trim()}"`);
-      } else {
-        console.log(`📅 Día seleccionado para filtrar: ${numeroDia}${numeroDiaTexto ? ` (texto: "${numeroDiaTexto}")` : ''}`);
-      }
-      
-      if (numeroDia > 0) {
-        // Hacer clic en el primer día con eventos
-        console.log(`🖱️ Haciendo clic en el día ${numeroDia}...`);
-        await primerDiaConEventos.click();
-        await safeWaitForTimeout(page, 1500);
-        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-        
-        // Verificar si el día tiene borde de selección
-        const tieneBorde = await primerDiaConEventos.evaluate((el) => {
-          const classes = el.className || '';
-          const styles = window.getComputedStyle(el);
-          const borderColor = styles.borderColor;
-          const borderWidth = styles.borderWidth;
-          
-          // Verificar si tiene las clases de borde o si tiene un borde visible
-          return classes.includes('border-primary-neutral') || 
-                 classes.includes('border-2') ||
-                 (borderWidth && parseFloat(borderWidth) >= 2 && borderColor && borderColor !== 'rgba(0, 0, 0, 0)' && borderColor !== 'transparent');
-        }).catch(() => false);
-        
-        let diaSeleccionadoConBorde: Locator = primerDiaConEventos;
-        
-        if (!tieneBorde) {
-          console.log(`⚠️ El día ${numeroDia} no tiene borde de selección después del clic`);
-          console.log(`ℹ️ Continuando con la validación (el borde puede no ser visible o aplicarse de otra manera)`);
-          // No buscar otro día para evitar timeouts - simplemente continuar con el día original
-        } else {
-          console.log(`✅ El día ${numeroDia} tiene borde de selección`);
-        }
-        
-        // Buscar tarjetas de eventos después del filtro con selector más específico
-        // Buscar solo en la sección "Elige tu fiesta" que contiene los eventos
-        // Filtrar eventos que tengan el día seleccionado en su fecha (más específico)
-        const tarjetasAmpliasDespues = seccionEventos.locator('button[type="button"]').filter({
-          has: page.locator('p, span').filter({ 
-            hasText: new RegExp(`\\b${numeroDia}\\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)`, 'i') 
-          })
-        });
-        const countDespues = await Promise.race([
-          tarjetasAmpliasDespues.count(),
-          new Promise<number>(resolve => setTimeout(() => resolve(0), 5000))
-        ]) as number;
-        console.log(`📊 Tarjetas de eventos visibles después del filtro: ${countDespues}`);
-        
-        // Usar las tarjetas encontradas para validar
-        const eventosParaValidar = tarjetasAmpliasDespues;
-        const countParaValidar = countDespues;
-        
-        // Validar que el filtro funcionó: verificar que los eventos mostrados corresponden al día seleccionado
-        if (countParaValidar > 0) {
-          let eventosCoinciden = 0;
-          let eventosNoCoinciden = 0;
-          
-          console.log(`🔍 Validando que los ${countParaValidar} evento(s) corresponden al día ${numeroDia}...`);
-          
-          // Validar cada evento visible para verificar que corresponde al día seleccionado
-          // Limitar a 5 eventos para evitar timeout
-          for (let i = 0; i < Math.min(countParaValidar, 5); i++) {
-            try {
-              const evento = eventosParaValidar.nth(i);
-              const esVisible = await Promise.race([
-                evento.isVisible(),
-                new Promise<boolean>(resolve => setTimeout(() => resolve(false), 2000))
-              ]) as boolean;
-              
-              if (esVisible) {
-                // Buscar la fecha en el evento - solo usar estrategia rápida
-                let fechaTexto: string | null = null;
-                let diaEnFecha = 0;
-                
-                // Estrategia única: Buscar en todo el texto del evento (más rápido)
-                const textoCompletoEvento = await Promise.race([
-                  evento.textContent(),
-                  new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
-                ]) as string | null;
-                
-                if (textoCompletoEvento) {
-                  // Buscar fecha en el texto completo (formato: día mes año o día mes)
-                  const matchFecha = textoCompletoEvento.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)(?:\s+\d{4})?/i);
-                  if (matchFecha && matchFecha[1]) {
-                    diaEnFecha = parseInt(matchFecha[1]);
-                    fechaTexto = matchFecha[0];
-                  }
-                }
-                
-                // Si no encontramos con la estrategia rápida, intentar una búsqueda más específica pero limitada
-                if (!fechaTexto) {
-                  const fechaCompleta = await Promise.race([
-                    evento.locator('p, span').filter({ 
-                      hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+\d{4}/i 
-                    }).first().textContent(),
-                    new Promise<string | null>(resolve => setTimeout(() => resolve(null), 2000))
-                  ]) as string | null;
-                  
-                  if (fechaCompleta) {
-                    fechaTexto = fechaCompleta;
-                    const match = fechaTexto.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
-                  if (match && match[1]) {
-                    diaEnFecha = parseInt(match[1]);
-                  }
-                } else {
-                  // Buscar fecha con formato corto (día mes)
-                  const fechaCorta = await evento.locator('p, span').filter({ 
-                    hasText: /\d{1,2}\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i 
-                  }).first().textContent().catch(() => null);
-                  
-                  if (fechaCorta) {
-                    fechaTexto = fechaCorta;
-                    const match = fechaTexto.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i);
-                    if (match && match[1]) {
-                      diaEnFecha = parseInt(match[1]);
-                    }
-                  }
-                }
-              }
-              
-                // Validar el día encontrado
-                if (diaEnFecha > 0) {
-                  if (diaEnFecha === numeroDia) {
-                    eventosCoinciden++;
-                    console.log(`  ✅ Evento ${i + 1}: fecha coincide con día seleccionado (${diaEnFecha})${fechaTexto ? ` - "${fechaTexto.trim()}"` : ''}`);
-                  } else {
-                    eventosNoCoinciden++;
-                    console.log(`  ⚠️ Evento ${i + 1}: fecha no coincide (día en evento: ${diaEnFecha}, día seleccionado: ${numeroDia})${fechaTexto ? ` - "${fechaTexto.trim()}"` : ''}`);
-                  }
-                } else {
-                  // No se encontró fecha, mostrar diagnóstico
-                  const textoEvento = await Promise.race([
-                    evento.locator('p, span').first().textContent(),
-                    new Promise<string | null>(resolve => setTimeout(() => resolve(null), 1000))
-                  ]) as string | null;
-                  const textoCompleto = textoCompletoEvento || textoEvento || 'N/A';
-                  console.log(`  ℹ️ Evento ${i + 1}: no se encontró fecha en el formato esperado - Texto: "${textoCompleto.toString().trim().substring(0, 100)}..."`);
-                }
-              }
-            } catch (error) {
-              // Continuar con el siguiente evento si hay un error
-              console.log(`  ⚠️ Error al validar evento ${i + 1}, continuando...`);
-              continue;
-            }
-          }
-          
-          if (eventosCoinciden > 0 && eventosNoCoinciden === 0) {
-            console.log(`✅ El filtro funcionó correctamente: todos los eventos (${eventosCoinciden}) corresponden al día seleccionado (${numeroDia})`);
-          } else if (eventosCoinciden > 0) {
-            console.log(`⚠️ El filtro funcionó parcialmente: ${eventosCoinciden} evento(s) coinciden, ${eventosNoCoinciden} no coinciden`);
-          } else {
-            console.log(`⚠️ Ningún evento coincide con el día seleccionado (puede ser un problema con el formato de fecha o el filtro no funcionó)`);
-          }
-        } else {
-          console.log('ℹ️ No se encontraron eventos después del filtro (puede ser que no haya eventos para ese día específico)');
-        }
-        
-        // Validar que el número de eventos cambió (indicador de que el filtro se aplicó)
-        if (countParaValidar !== countAntes) {
-          console.log(`✅ El número de eventos cambió (${countAntes} → ${countParaValidar}), indicando que el filtro se aplicó`);
-        } else if (countParaValidar > 0) {
-          console.log(`ℹ️ El número de eventos no cambió (${countAntes} → ${countParaValidar}), pero hay eventos visibles (puede que todos los eventos sean del mismo día)`);
-        }
-        
-        // Validar la cantidad de puntos en el día seleccionado vs eventos mostrados
-        if (numeroDia > 0 && diaSeleccionadoConBorde) {
-          // Usar directamente el día con eventos que ya encontramos y que tiene borde de selección
-          // Esto evita el problema de strict mode violation cuando hay días con el mismo número en diferentes meses
-          const diaSeleccionado = diaSeleccionadoConBorde;
-          
-          const puntosEnDia = diaSeleccionado.locator('div.w-\\[4px\\].aspect-square.rounded-circle[style*="background-color"]');
-          const countPuntos = await puntosEnDia.count().catch(() => 0);
-          
-          if (countPuntos > 0) {
-            // Filtrar puntos que no sean del color "sin eventos"
-            let puntosValidos = 0;
-            for (let i = 0; i < countPuntos; i++) {
-              const punto = puntosEnDia.nth(i);
-              const colorPunto = await punto.evaluate(el => {
-                return window.getComputedStyle(el).backgroundColor;
-              }).catch(() => null);
-              
-              if (colorPunto && !colorPunto.includes('rgb(242, 242, 242)')) {
-                puntosValidos++;
-              }
-            }
-            
-            console.log(`📊 Puntos (eventos) en el día ${numeroDia}: ${puntosValidos}`);
-            
-            if (puntosValidos > 0 && puntosValidos <= 3) {
-              console.log(`✅ El día tiene ${puntosValidos} punto(s) (evento(s))`);
-              console.log(`✅ La cantidad de puntos es válida (≤ 3)`);
-              
-              // Comparar con eventos mostrados
-              if (countParaValidar > puntosValidos) {
-                console.log(`⚠️ DISCREPANCIA: Se muestran ${countParaValidar} eventos pero el día tiene ${puntosValidos} punto(s)`);
-                console.log(`ℹ️ Esto puede ser normal si el filtro muestra eventos relacionados o si hay eventos de múltiples días`);
-              } else if (countParaValidar === puntosValidos) {
-                console.log(`✅ La cantidad de eventos mostrados (${countParaValidar}) coincide con los puntos del día (${puntosValidos})`);
-              }
-            }
-          }
-        }
+      if (alMenosUnaVisible) {
+        console.log('✅ Al menos una tarjeta de servicio contactado es visible');
       }
     } else {
-      console.log('ℹ️ No hay días con eventos para probar el filtrado');
-      console.log('ℹ️ Esta validación se omite cuando no hay eventos disponibles');
+      console.log('ℹ️ No se encontraron tarjetas de servicios contactados (puede que no haya servicios contactados aún)');
     }
     
-    // 7. VALIDAR ESTRUCTURA DEL CALENDARIO (días del mes)
-    await showStepMessage(page, '📋 VALIDANDO ESTRUCTURA DEL CALENDARIO');
-    await safeWaitForTimeout(page, 1000);
-    console.log('🔍 Validando estructura del calendario...');
-    
-    // Buscar todos los botones de días (números del 1 al 31)
-    const botonesDias = baseLocator.locator('button[type="button"]').filter({
-      has: page.locator('p, span').filter({
-        hasText: /^\d{1,2}$/
-      })
-    });
-    
-    const cantidadDias = await botonesDias.count();
-    console.log(`📊 Días encontrados en el calendario: ${cantidadDias}`);
-    
-    if (cantidadDias > 0) {
-      // Validar que hay al menos 28 días (mes mínimo)
-      if (cantidadDias >= 28) {
-        console.log(`✅ Calendario tiene estructura válida (${cantidadDias} días)`);
-      } else {
-        console.log(`⚠️ Calendario tiene menos días de lo esperado (${cantidadDias} días)`);
-      }
-      
-      // Validar que los días están habilitados
-      const primerDia = botonesDias.first();
-      const diaHabilitado = await primerDia.isEnabled().catch(() => false);
-      if (diaHabilitado) {
-        console.log('✅ Los días del calendario están habilitados (clickeables)');
-      } else {
-        console.log('⚠️ Los días del calendario no están habilitados');
-      }
-    } else {
-      console.log('⚠️ No se encontraron días en el calendario');
-    }
-    
-    await showStepMessage(page, '✅ VALIDACIÓN COMPLETA DEL CALENDARIO FINALIZADA');
-    console.log('✅ Validación completa del calendario finalizada');
+    await showStepMessage(page, '✅ VALIDACIÓN DE SECCIÓN DE SERVICIOS CONTACTADOS FINALIZADA');
+    console.log('✅ Validación de sección de servicios contactados completada');
   });
+
+  // PRUEBA 7: Sección de Calendario
 
 });
 

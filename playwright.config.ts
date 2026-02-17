@@ -21,8 +21,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Ejecutar pruebas en serie (1 worker = serial) */
   workers: 1, // Cambiar a 1 para ejecutar todas las pruebas en serie
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['html'], ['json', { outputFile: 'playwright-report/results.json' }]],
+  /* Reporter to use. Resultados guardados en playwright-report/ */
+  reporter: [
+    ['html'],
+    ['json', { outputFile: 'playwright-report/results.json' }],
+    ['junit', { outputFile: 'playwright-report/results.xml' }],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */

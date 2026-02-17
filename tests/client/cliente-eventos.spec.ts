@@ -5598,6 +5598,14 @@ test('Nueva fiesta', async ({ page }) => {
   console.log('✅ Creación de nueva fiesta completada exitosamente');
 });
 
+test('Crear una nueva fiesta desde el dashboard', async ({ page }) => {
+  test.setTimeout(180000); // 3 minutos (mismo timeout que el flujo completo)
+  await showStepMessage(page, '🎉 CREANDO NUEVA FIESTA DESDE EL DASHBOARD');
+  console.log('🚀 Iniciando flujo completo de creación de evento...');
+  await ejecutarFlujoCompletoCreacionEvento(page);
+  console.log('✅ Flujo completo de creación de evento finalizado');
+});
+
 // Crear tests para cada bloque de 3 tipos de eventos
 // Máximo 15 tipos de eventos = 5 bloques
 const crearTestsPorBloque = () => {
