@@ -1,7 +1,7 @@
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { login, showStepMessage, safeWaitForTimeout } from '../utils';
 import { DEFAULT_BASE_URL, CLIENT_EMAIL, CLIENT_PASSWORD, PROVIDER_EMAIL, PROVIDER_PASSWORD } from '../config';
-import { verificarSiServicioEstaActivo, marcarServicioComoFavorito } from './cliente-eventos.spec';
+import { verificarSiServicioEstaActivo, marcarServicioComoFavorito } from './cliente-eventos-helpers';
 
 // ============================================================================
 // CONSTANTES DE CONFIGURACIÓN

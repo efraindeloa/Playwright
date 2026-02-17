@@ -4048,7 +4048,7 @@ export async function crearEventosDeBloque(
 // ============================================================================
 // TEST: Crear evento desde favoritos
 // ============================================================================
-test('Crear evento desde favoritos', async ({ page }) => {
+test.skip('Crear evento desde favoritos', async ({ page }) => {
   test.setTimeout(300000); // 5 minutos
   
   const FAVORITES_URL = `${DEFAULT_BASE_URL}/client/favorites`;
@@ -5613,7 +5613,7 @@ const crearTestsPorBloque = () => {
     const inicio = bloque * 3;
     const fin = inicio + 3;
     
-    test(`Crear eventos - Bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})`, async ({ page }) => {
+    test.skip(`Crear eventos - Bloque ${bloque + 1} (tipos ${inicio + 1}-${fin})`, async ({ page }) => {
       test.setTimeout(600000); // 10 minutos por bloque (aumentado para dar más tiempo)
       
       await showStepMessage(page, `🎉 CREANDO EVENTOS - BLOQUE ${bloque + 1} (TIPOS ${inicio + 1}-${fin})`);

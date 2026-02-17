@@ -6,7 +6,7 @@ import {
   CLIENT_EMAIL,
   CLIENT_PASSWORD
 } from '../config';
-import { agregarServicioAEventoExistente } from './cliente-eventos.spec';
+import { agregarServicioAEventoExistente } from './cliente-eventos-helpers';
 
 const DASHBOARD_URL = `${DEFAULT_BASE_URL}/client/dashboard`;
 const CHATS_URL = `${DEFAULT_BASE_URL}/client/chats`;
