@@ -7,13 +7,53 @@ on:
 
 jobs:
   test:
-    name: Playwright (${{ matrix.category }})
+    name: ${{ matrix.report_name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
-      fail-fast: false  # Si un job falla, los demás siguen
+      fail-fast: false
       matrix:
-        category: [client, provider, common]
+        include:
+          - spec_file: tests/client/cliente-eventos.spec.ts
+            report_name: client-cliente-eventos
+          - spec_file: tests/client/dashboard.spec.ts
+            report_name: client-dashboard
+          - spec_file: tests/client/favoritos.spec.ts
+            report_name: client-favoritos
+          - spec_file: tests/client/cotizacion.spec.ts
+            report_name: client-cotizacion
+          - spec_file: tests/client/perfil.spec.ts
+            report_name: client-perfil
+          - spec_file: tests/client/promociones-servicios.spec.ts
+            report_name: client-promociones-servicios
+          - spec_file: tests/client/promociones-dashboard.spec.ts
+            report_name: client-promociones-dashboard
+          - spec_file: tests/client/promociones-carrusel.spec.ts
+            report_name: client-promociones-carrusel
+          - spec_file: tests/provider/servicios.spec.ts
+            report_name: provider-servicios
+          - spec_file: tests/provider/negotiation.spec.ts
+            report_name: provider-negotiation
+          - spec_file: tests/provider/estadisticas.spec.ts
+            report_name: provider-estadisticas
+          - spec_file: tests/provider/promotions.spec.ts
+            report_name: provider-promotions
+          - spec_file: tests/provider/dashboard.spec.ts
+            report_name: provider-dashboard
+          - spec_file: tests/provider/chats.spec.ts
+            report_name: provider-chats
+          - spec_file: tests/provider/calendar.spec.ts
+            report_name: provider-calendar
+          - spec_file: tests/provider/registro.spec.ts
+            report_name: provider-registro
+          - spec_file: tests/provider/profile.spec.ts
+            report_name: provider-profile
+          - spec_file: tests/common/rutas-categorias.spec.ts
+            report_name: common-rutas-categorias
+          - spec_file: tests/common/home.spec.ts
+            report_name: common-home
+          - spec_file: tests/common/screenshots.spec.ts
+            report_name: common-screenshots
 
     env:
       CI: true
@@ -40,13 +80,13 @@ jobs:
       - name: Install Playwright browsers (Chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright tests (${{ matrix.category }})
-        run: npx playwright test tests/${{ matrix.category }}/ --project=chromium
+      - name: Run Playwright tests
+        run: npx playwright test ${{ matrix.spec_file }} --project=chromium
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-${{ matrix.category }}
+          name: playwright-report-${{ matrix.report_name }}
           path: playwright-report/
           retention-days: 30
