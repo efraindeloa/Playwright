@@ -3,8 +3,9 @@
 ## Workflow `playwright.yml`
 
 - **Cuándo se ejecuta:** todos los días a las **10:00 AM (UTC)**. También puedes lanzarlo manualmente desde la pestaña *Actions* → *Playwright Tests* → *Run workflow*.
-- **Qué hace:** instala dependencias, instala el navegador Chromium y ejecuta todos los tests con `--project=chromium`.
-- **Artefactos:** tras cada ejecución se sube la carpeta `playwright-report/` (informe HTML y resultados). Puedes descargarla desde la pestaña *Actions* → ejecución → *Artifacts*.
+- **Qué hace:** ejecuta los tests en **3 jobs en paralelo** por categoría (client, provider, common). Cada job instala dependencias, Chromium y corre solo los tests de su carpeta (`tests/client/`, `tests/provider/`, `tests/common/`). El tiempo total es aproximadamente el del job más lento, no la suma de todos.
+- **Artefactos:** cada job sube su informe como `playwright-report-client`, `playwright-report-provider`, `playwright-report-common`. Descarga desde *Actions* → ejecución → *Artifacts*.
+- **Añadir o quitar categorías:** edita la lista `category: [client, provider, common]` en el workflow. Para dividir más (ej. por spec), añade otro job o usa [sharding](https://playwright.dev/docs/test-sharding) (`--shard=1/3`, etc.).
 
 ## Variables de entorno y secrets (opcional)
 
